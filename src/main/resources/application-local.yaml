@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:mysql://localhost:${MYSQL_PORT:3307}/${MYSQL_DATABASE:interview_ai}
+    username: ${MYSQL_USER:interview_ai}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    show-sql: true
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET:local-development-jwt-secret-must-be-at-least-32-bytes}
