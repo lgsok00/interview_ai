@@ -9,6 +9,7 @@ import com.interviewai.auth.exception.InvalidCredentialsException;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,8 +51,9 @@ class AuthServiceTest {
     class Signup {
 
         @Test
-        void 회원가입에_성공한다() {
-            SignupRequest request = new SignupRequest(" USER@EXAMPLE.COM ", RAW_PASSWORD, " 테스트 유저 ");
+        @DisplayName("회원가입에 성공한다")
+        void signsUpSuccessfully() {
+            SignupRequest request = new SignupRequest(" USER@EXAMPLE.COM ", RAW_PASSWORD, " 테스트유저 ");
 
             when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
 
@@ -79,7 +81,8 @@ class AuthServiceTest {
 
 
         @Test
-        void 비밀번호를_평문으로_저장하지_않는다() {
+        @DisplayName("비밀번호를 평문으로 저장하지 않는다")
+        void doesNotStoreRawPassword() {
             when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
 
             when(passwordEncoder.encode(RAW_PASSWORD)).thenReturn(ENCODED_PASSWORD);
@@ -102,7 +105,8 @@ class AuthServiceTest {
 
 
         @Test
-        void 이미_가입된_이메일이면_회원가입에_실패한다() {
+        @DisplayName("이미 가입된 이메일이면 회원가입에 실패한다")
+        void rejectsDuplicateEmail() {
             when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
             assertThatThrownBy(() -> authService.signup(signupRequest())).isInstanceOf(DuplicateEmailException.class);
@@ -118,7 +122,8 @@ class AuthServiceTest {
     class Login {
 
         @Test
-        void 이메일과_비밀번호가_일치하면_JWT를_반환한다() {
+        @DisplayName("이메일과 비밀번호가 일치하면 JWT를 반환한다")
+        void returnsJwtWhenCredentialsMatch() {
             User user = localUser();
 
             LoginResponse expectedResponse = LoginResponse.bearer("access-token", 3600);
@@ -138,7 +143,8 @@ class AuthServiceTest {
 
 
         @Test
-        void 로그인할_때_이메일을_정규화한다() {
+        @DisplayName("로그인할 때 이메일을 정규화한다")
+        void normalizesEmailOnLogin() {
             User user = localUser();
 
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
@@ -155,7 +161,8 @@ class AuthServiceTest {
 
 
         @Test
-        void 비밀번호가_일치하지_않으면_로그인에_실패한다() {
+        @DisplayName("비밀번호가 일치하지 않으면 로그인에 실패한다")
+        void rejectsIncorrectPassword() {
             User user = localUser();
 
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
@@ -170,7 +177,8 @@ class AuthServiceTest {
 
 
         @Test
-        void 존재하지_않는_이메일이면_로그인에_실패한다() {
+        @DisplayName("존재하지 않는 이메일이면 로그인에 실패한다")
+        void rejectsUnknownEmail() {
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> authService.login(loginRequest())).isInstanceOf(InvalidCredentialsException.class);
