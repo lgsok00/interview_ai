@@ -1,6 +1,6 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-08-25
+최종 갱신일: 2026-08-26
 
 이 문서는 다른 PC 또는 새 Codex 세션에서도 개발을 이어갈 수 있도록 현재 구현, 검증 상태와 다음 작업을 기록한다. 실제 코드와 Git 이력을 기준으로 하며, 추측한 완료 상태는 기록하지 않는다.
 
@@ -65,6 +65,15 @@
   - `INVALID_CREDENTIALS`: HTTP 401
   - `VALIDATION_ERROR`: HTTP 400 및 field 오류 정보
 
+### 데이터베이스 통합 테스트 기반
+
+- Testcontainers 기반 MySQL 8.4 통합 테스트 환경
+- Spring Boot `@ServiceConnection`을 통한 테스트 datasource 자동 연결
+- Docker를 사용할 수 없는 환경에서는 통합 테스트 자동 비활성화
+- 실제 MySQL에서 Flyway V1 migration 적용 여부 검증
+- `UserRepository`의 로컬 사용자 저장 및 이메일 조회 검증
+- 이메일 unique constraint 위반 시 `DataIntegrityViolationException` 발생 검증
+
 ## 테스트 상태
 
 ### 작성된 자동 테스트
@@ -103,6 +112,14 @@
 - 보호된 endpoint의 토큰 없는 요청에 HTTP 401 반환
 - 실제 HS256 JWT를 사용한 보호 endpoint 인증 성공
 
+`UserRepositoryIntegrationTest`에 다음 3개 시나리오가 작성되어 있다.
+
+- 실제 MySQL 8.4에 Flyway V1 migration 적용
+- 로컬 사용자 저장 및 이메일 조회
+- 중복 이메일 저장 시 DB unique constraint 위반
+
+공통 Testcontainers 기반인 `MySqlIntegrationTest`가 작성되어 있으며, MySQL 연결 정보는 Spring Boot `@ServiceConnection`으로 주입한다.
+
 ### 최근 실행 검증
 
 2026-08-25 사용자 로컬 환경에서 다음 검증이 모두 성공했다.
@@ -123,18 +140,21 @@
 - `.\gradlew.bat test --tests "com.interviewai.global.config.SecurityConfigTest"`: 성공 (`BUILD SUCCESSFUL in 6s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
 - `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 6s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
 
+2026-08-26 사용자 macOS 로컬 환경에서 Repository/Flyway MySQL 통합 테스트와 전체 테스트를 실행했다.
+
+- `./gradlew test --tests 'com.interviewai.user.repository.UserRepositoryIntegrationTest'`: 성공 (`BUILD SUCCESSFUL in 13s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
+- `./gradlew cleanTest test`: 성공 (`BUILD SUCCESSFUL in 13s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
 
-1. Repository 및 Flyway 통합 테스트 재설계
-2. Testcontainers 기반 MySQL 통합 테스트
-3. 인증된 사용자 조회 endpoint
-4. Refresh Token
-5. 로그아웃 및 Token 폐기 전략
-6. OAuth2 Google 로그인 흐름
-7. OAuth2 GitHub 로그인 흐름
-8. 운영 환경별 설정 및 배포 구성
+1. 인증된 사용자 조회 endpoint
+2. Refresh Token
+3. 로그아웃 및 Token 폐기 전략
+4. OAuth2 Google 로그인 흐름
+5. OAuth2 GitHub 로그인 흐름
+6. 운영 환경별 설정 및 배포 구성
 
 각 단계는 구현 코드와 관련 테스트가 모두 완료된 뒤 다음 단계로 이동한다. 구현만 끝난 경우에는 완료 처리하지 않고 `구현됨, 검증 대기`로 기록한다.
 
@@ -151,16 +171,17 @@
 
 현재 진행 중인 작업은 없다.
 
-다음 작업은 Repository 및 Flyway 통합 테스트 재설계다. 현재 repository와 migration 구조를 확인하고, 테스트 격리 방식과 실제 MySQL 의존 범위를 정한 뒤 정상·경계·실패 시나리오를 설계한다.
+다음 작업은 인증된 사용자 조회 endpoint다. JWT의 subject를 사용자 id로 사용해 현재 사용자를 조회하고, 인증 정보가 없거나 사용자가 존재하지 않는 경우를 기존 `GlobalExceptionHandler`와 `ErrorResponse` 형식으로 처리한다. 정상·경계·실패 시나리오 테스트를 함께 작성한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `11075e5 feat: 인증 API, 전역 예외 처리`
+- 기준 커밋: `45c28de chore: 운영체제별 Git 줄바꿈 규칙 정리`
 - 확인 당시 `main`과 `origin/main`은 같은 커밋을 가리켰다.
 
 ## 변경 이력
 
+- 2026-08-26: Testcontainers 기반 MySQL 8.4 공통 테스트 환경과 Repository/Flyway 통합 테스트 3개를 확인함. 해당 통합 테스트 및 전체 테스트 성공을 확인하고, 다음 작업을 인증된 사용자 조회 endpoint로 변경함.
 - 2026-08-25: Spring Security filter chain 테스트 4개와 로그인 공개 matcher 수정을 확인하고, 해당 테스트 및 전체 테스트 성공을 확인함. 다음 작업을 Repository 및 Flyway 통합 테스트 재설계로 변경함.
 - 2026-08-25: 인증 테스트 메서드명을 영문으로 통일하고 한국어 `@DisplayName`을 추가한 뒤 전체 테스트 성공을 확인함.
 - 2026-08-25: 회원가입·로그인 서비스 테스트 7개, JWT 테스트 1개, Controller 테스트 6개 및 프로젝트 전체 테스트 성공을 확인함. Controller와 JWT 테스트 단계를 완료하고 Spring Security filter chain 검증을 다음 작업으로 변경함.
