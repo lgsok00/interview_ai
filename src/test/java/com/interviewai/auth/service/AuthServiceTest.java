@@ -1,11 +1,9 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.LoginRequest;
-import com.interviewai.auth.dto.LoginResponse;
-import com.interviewai.auth.dto.SignupRequest;
-import com.interviewai.auth.dto.SignupResponse;
+import com.interviewai.auth.dto.*;
 import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
+import com.interviewai.auth.exception.InvalidRefreshTokenException;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,12 +36,15 @@ class AuthServiceTest {
     @Mock
     private JwtTokenService jwtTokenService;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
     private AuthService authService;
 
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, passwordEncoder, jwtTokenService);
+        authService = new AuthService(userRepository, passwordEncoder, jwtTokenService, refreshTokenService);
     }
 
 
@@ -122,23 +123,30 @@ class AuthServiceTest {
     class Login {
 
         @Test
-        @DisplayName("이메일과 비밀번호가 일치하면 JWT를 반환한다")
-        void returnsJwtWhenCredentialsMatch() {
+        @DisplayName("이메일과 비밀번호가 일치하면 Access Token과 Refresh Token을 반환한다")
+        void returnsTokensWhenCredentialsMatch() {
             User user = localUser();
-
-            LoginResponse expectedResponse = LoginResponse.bearer("access-token", 3600);
 
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
 
             when(passwordEncoder.matches(RAW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
 
-            when(jwtTokenService.issueAccessToken(user)).thenReturn(expectedResponse);
+            when(jwtTokenService.issueAccessToken(user))
+                    .thenReturn(new JwtTokenService.IssuedAccessToken("access-token", 3600));
+
+            when(refreshTokenService.issue(user))
+                    .thenReturn(new RefreshTokenService.IssuedRefreshToken("refresh-token", 1209600));
 
             LoginResponse response = authService.login(loginRequest());
 
-            assertThat(response).isEqualTo(expectedResponse);
+            assertThat(response.accessToken()).isEqualTo("access-token");
+            assertThat(response.refreshToken()).isEqualTo("refresh-token");
+            assertThat(response.tokenType()).isEqualTo("Bearer");
+            assertThat(response.expiresIn()).isEqualTo(3600);
+            assertThat(response.refreshTokenExpiresIn()).isEqualTo(1209600);
 
             verify(jwtTokenService).issueAccessToken(user);
+            verify(refreshTokenService).issue(user);
         }
 
 
@@ -152,7 +160,10 @@ class AuthServiceTest {
             when(passwordEncoder.matches(RAW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
 
             when(jwtTokenService.issueAccessToken(user))
-                    .thenReturn(LoginResponse.bearer("access-token", 3600));
+                    .thenReturn(new JwtTokenService.IssuedAccessToken("access-token", 3600));
+
+            when(refreshTokenService.issue(user))
+                    .thenReturn(new RefreshTokenService.IssuedRefreshToken("refresh-token", 1209600));
 
             authService.login(new LoginRequest(" USER@EXAMPLE.COM ", RAW_PASSWORD));
 
@@ -173,6 +184,8 @@ class AuthServiceTest {
                     .isInstanceOf(InvalidCredentialsException.class);
 
             verify(jwtTokenService, never()).issueAccessToken(any(User.class));
+
+            verify(refreshTokenService, never()).issue(any(User.class));
         }
 
 
@@ -184,6 +197,62 @@ class AuthServiceTest {
             assertThatThrownBy(() -> authService.login(loginRequest())).isInstanceOf(InvalidCredentialsException.class);
 
             verify(passwordEncoder, never()).matches(anyString(), anyString());
+
+            verify(jwtTokenService, never()).issueAccessToken(any(User.class));
+
+            verify(refreshTokenService, never()).issue(any(User.class));
+        }
+    }
+
+
+    @Nested
+    class Refresh {
+
+        @Test
+        @DisplayName("유효한 Refresh Token을 회전하고 새 토큰 쌍을 반환한다")
+        void rotatesRefreshTokenAndReturnsNewTokens() {
+            User user = localUser();
+            RefreshTokenRequest request = new RefreshTokenRequest("old-refresh-token");
+
+            when(refreshTokenService.rotate("old-refresh-token"))
+                    .thenReturn(
+                            new RefreshTokenService.RotatedRefreshToken(
+                                    user,
+                                    "new-refresh-token",
+                                    1209600
+                            )
+                    );
+
+            when(jwtTokenService.issueAccessToken(user))
+                    .thenReturn(
+                            new JwtTokenService.IssuedAccessToken(
+                                    "new-access-token",
+                                    3600
+                            )
+                    );
+
+            LoginResponse response = authService.refresh(request);
+
+            assertThat(response.accessToken()).isEqualTo("new-access-token");
+            assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
+            assertThat(response.tokenType()).isEqualTo("Bearer");
+            assertThat(response.expiresIn()).isEqualTo(3600);
+            assertThat(response.refreshTokenExpiresIn()).isEqualTo(1209600);
+
+            verify(refreshTokenService).rotate("old-refresh-token");
+            verify(jwtTokenService).issueAccessToken(user);
+        }
+
+
+        @Test
+        @DisplayName("Refresh Token이 유효하지 않으면 Access Token을 발급하지 않는다")
+        void doesNotIssueAccessTokenForInvalidRefreshToken() {
+            RefreshTokenRequest request = new RefreshTokenRequest("invalid-refresh-token");
+
+            when(refreshTokenService.rotate("invalid-refresh-token"))
+                    .thenThrow(new InvalidRefreshTokenException());
+
+            assertThatThrownBy(() -> authService.refresh(request)).isInstanceOf(InvalidRefreshTokenException.class);
 
             verify(jwtTokenService, never()).issueAccessToken(any(User.class));
         }

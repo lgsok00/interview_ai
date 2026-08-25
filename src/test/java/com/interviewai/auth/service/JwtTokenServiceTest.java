@@ -1,6 +1,5 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.global.config.JwtProperties;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.UserRole;
@@ -34,7 +33,7 @@ class JwtTokenServiceTest {
     @BeforeEach
     void setUp() {
         SecretKey secretKey = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        JwtProperties properties = new JwtProperties(SECRET, Duration.ofHours(1));
+        JwtProperties properties = new JwtProperties(SECRET, Duration.ofHours(1), Duration.ofDays(14));
 
         jwtTokenService = new JwtTokenService(NimbusJwtEncoder.withSecretKey(secretKey).build(), properties);
 
@@ -51,15 +50,14 @@ class JwtTokenServiceTest {
         when(user.getEmail()).thenReturn("user@example.com");
         when(user.getRole()).thenReturn(UserRole.USER);
 
-        LoginResponse response = jwtTokenService.issueAccessToken(user);
+        JwtTokenService.IssuedAccessToken issuedToken = jwtTokenService.issueAccessToken(user);
 
-        Jwt jwt = jwtDecoder.decode(response.accessToken());
+        Jwt jwt = jwtDecoder.decode(issuedToken.token());
 
         Instant issuedAt = Objects.requireNonNull(jwt.getIssuedAt());
         Instant expiresAt = Objects.requireNonNull(jwt.getExpiresAt());
 
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(3600);
+        assertThat(issuedToken.expiresIn()).isEqualTo(3600);
         assertThat(jwt.getSubject()).isEqualTo("42");
         assertThat(jwt.getClaimAsString("email")).isEqualTo("user@example.com");
         assertThat(jwt.getClaimAsString("role")).isEqualTo("USER");

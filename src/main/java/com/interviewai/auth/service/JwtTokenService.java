@@ -1,6 +1,5 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.global.config.JwtProperties;
 import com.interviewai.user.entity.User;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -25,7 +24,7 @@ public class JwtTokenService {
     }
 
 
-    public LoginResponse issueAccessToken(User user) {
+    public IssuedAccessToken issueAccessToken(User user) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(jwtProperties.accessTokenExpiration());
 
@@ -42,6 +41,10 @@ public class JwtTokenService {
 
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 
-        return LoginResponse.bearer(accessToken, jwtProperties.accessTokenExpiration().toSeconds());
+        return new IssuedAccessToken(accessToken, jwtProperties.accessTokenExpiration().toSeconds());
+    }
+
+
+    public record IssuedAccessToken(String token, long expiresIn) {
     }
 }

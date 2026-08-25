@@ -25,7 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityConfig.class)
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
-        "auth.jwt.access-token-expiration=1h"
+        "auth.jwt.access-token-expiration=1h",
+        "auth.jwt.refresh-token-expiration=14d"
 })
 class UserControllerTest {
 

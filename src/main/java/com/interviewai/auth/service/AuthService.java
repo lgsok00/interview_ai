@@ -1,9 +1,6 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.LoginRequest;
-import com.interviewai.auth.dto.LoginResponse;
-import com.interviewai.auth.dto.SignupRequest;
-import com.interviewai.auth.dto.SignupResponse;
+import com.interviewai.auth.dto.*;
 import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
 import com.interviewai.user.entity.User;
@@ -26,12 +23,15 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final RefreshTokenService refreshTokenService;
 
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenService jwtTokenService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                       JwtTokenService jwtTokenService, RefreshTokenService refreshTokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.refreshTokenService = refreshTokenService;
     }
 
 
@@ -70,6 +70,7 @@ public class AuthService {
     }
 
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         String normalizedEmail = normalizeEmail(request.email());
 
@@ -79,7 +80,30 @@ public class AuthService {
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(InvalidCredentialsException::new);
 
-        return jwtTokenService.issueAccessToken(user);
+        JwtTokenService.IssuedAccessToken accessToken = jwtTokenService.issueAccessToken(user);
+
+        RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
+
+        return LoginResponse.bearer(
+                accessToken.token(),
+                refreshToken.token(),
+                accessToken.expiresIn(),
+                refreshToken.expiresIn()
+        );
+    }
+
+
+    @Transactional
+    public LoginResponse refresh(RefreshTokenRequest request) {
+        RefreshTokenService.RotatedRefreshToken refreshToken = refreshTokenService.rotate(request.refreshToken());
+        JwtTokenService.IssuedAccessToken accessToken = jwtTokenService.issueAccessToken(refreshToken.user());
+
+        return LoginResponse.bearer(
+                accessToken.token(),
+                refreshToken.token(),
+                accessToken.expiresIn(),
+                refreshToken.expiresIn()
+        );
     }
 
 

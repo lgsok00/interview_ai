@@ -3,6 +3,7 @@ package com.interviewai.auth.controller;
 import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.dto.SignupResponse;
 import com.interviewai.auth.exception.InvalidCredentialsException;
+import com.interviewai.auth.exception.InvalidRefreshTokenException;
 import com.interviewai.auth.service.AuthService;
 import com.interviewai.support.ControllerTestSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -107,7 +108,14 @@ class AuthControllerTest extends ControllerTestSupport {
         @DisplayName("로그인에 성공하면 토큰을 반환한다")
         void returnsTokenWhenLoginSucceeds() throws Exception {
             when(authService.login(any()))
-                    .thenReturn(LoginResponse.bearer("access-token", 3600));
+                    .thenReturn(
+                            LoginResponse.bearer(
+                                    "access-token",
+                                    "refresh-token",
+                                    3600,
+                                    1209600
+                            )
+                    );
 
             mockMvc.perform(
                             post("/api/auth/login")
@@ -121,8 +129,10 @@ class AuthControllerTest extends ControllerTestSupport {
                     )
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").value("access-token"))
+                    .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                     .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                    .andExpect(jsonPath("$.expiresIn").value(3600));
+                    .andExpect(jsonPath("$.expiresIn").value(3600))
+                    .andExpect(jsonPath("$.refreshTokenExpiresIn").value(1209600));
         }
 
 
@@ -163,6 +173,83 @@ class AuthControllerTest extends ControllerTestSupport {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                     .andExpect(jsonPath("$.errors.email").exists());
+        }
+    }
+
+
+    @Nested
+    class Refresh {
+
+        @Test
+        @DisplayName("유효한 Refresh Token이면 새 토큰 쌍을 반환한다")
+        void returnsNewTokensForValidRefreshToken() throws Exception {
+            when(authService.refresh(any()))
+                    .thenReturn(
+                            LoginResponse.bearer(
+                                    "new-access-token",
+                                    "new-refresh-token",
+                                    3600,
+                                    1209600
+                            )
+                    );
+
+            mockMvc.perform(
+                            post("/api/auth/refresh")
+                                    .contentType(APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                              "refreshToken": "old-refresh-token"
+                                            }
+                                            """)
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.accessToken").value("new-access-token"))
+                    .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"))
+                    .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                    .andExpect(jsonPath("$.expiresIn").value(3600))
+                    .andExpect(jsonPath("$.refreshTokenExpiresIn").value(1209600));
+        }
+
+
+        @Test
+        @DisplayName("Refresh Token이 비어 있으면 400을 반환한다")
+        void returnsBadRequestForBlankRefreshToken() throws Exception {
+            mockMvc.perform(
+                            post("/api/auth/refresh")
+                                    .contentType(APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                              "refreshToken": ""
+                                            }
+                                            """)
+                    )
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code")
+                            .value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.errors.refreshToken")
+                            .value("Refresh Token은 필수입니다."));
+        }
+
+
+        @Test
+        @DisplayName("Refresh Token이 유효하지 않으면 401을 반환한다")
+        void returnsUnauthorizedForInvalidRefreshToken() throws Exception {
+            when(authService.refresh(any())).thenThrow(new InvalidRefreshTokenException());
+
+            mockMvc.perform(
+                            post("/api/auth/refresh")
+                                    .contentType(APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                              "refreshToken": "invalid-refresh-token"
+                                            }
+                                            """)
+                    )
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code")
+                            .value("INVALID_REFRESH_TOKEN"))
+                    .andExpect(jsonPath("$.message")
+                            .value("Refresh Token이 올바르지 않거나 만료되었습니다."));
         }
     }
 }

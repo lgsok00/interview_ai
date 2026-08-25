@@ -21,7 +21,7 @@
 - Docker Compose 기반 MySQL 로컬 실행 환경
 - 환경변수를 통한 DB 이름, 사용자, 비밀번호, 포트 설정
 - Actuator의 `health`, `info` endpoint 노출
-- Flyway `V1__create_users.sql` migration
+- Flyway `V1__create_users.sql`, `V2__create_refresh_tokens.sql` migration
 - JPA schema validation 설정
 
 ### 사용자 도메인
@@ -41,6 +41,11 @@
 - HS256 기반 JWT encoder/decoder
 - JWT claim: issuer, subject, email, role, issued-at, expires-at
 - Access Token 기본 만료 시간 1시간
+- Refresh Token 기본 만료 시간 14일
+- 32바이트 난수 기반 opaque Refresh Token 발급
+- Refresh Token 원문 대신 SHA-256 해시 저장
+- 사용자별 복수 Refresh Token 저장을 통한 다중 기기 로그인 지원
+- 비관적 잠금 기반 Refresh Token 회전으로 동일 토큰의 동시 재사용 방지
 - JWT secret 최소 32바이트 검증
 - 회원가입, 로그인 및 health endpoint 공개
 - 그 외 요청은 인증 필요
@@ -60,11 +65,17 @@
   - 이메일과 비밀번호 validation
   - LOCAL 사용자 확인
   - 비밀번호 검증
-  - 성공 시 Bearer Access Token과 만료 초 반환
+  - 성공 시 Bearer Access Token, Refresh Token과 각 만료 초 반환
+- `POST /api/auth/refresh`
+  - 인증 없이 Refresh Token 재발급 요청 가능
+  - 유효한 Refresh Token을 새 값으로 회전
+  - 회전된 Refresh Token과 새 Access Token 반환
+  - 존재하지 않거나 만료된 Refresh Token은 HTTP 401 반환
 - 전역 오류 응답
   - `DUPLICATE_EMAIL`: HTTP 409
   - `INVALID_CREDENTIALS`: HTTP 401
   - `INVALID_ACCESS_TOKEN`: HTTP 401
+  - `INVALID_REFRESH_TOKEN`: HTTP 401
   - `USER_NOT_FOUND`: HTTP 404
   - `VALIDATION_ERROR`: HTTP 400 및 field 오류 정보
 
@@ -90,39 +101,53 @@
 
 ### 작성된 자동 테스트
 
-`AuthServiceTest`에 다음 7개 시나리오가 작성되어 있다.
+`AuthServiceTest`에 다음 9개 시나리오가 작성되어 있다.
 
 - 회원가입 성공
 - 비밀번호 평문 미저장
 - 중복 이메일 회원가입 실패
-- 로그인 성공 및 JWT 반환
+- 로그인 성공 및 Access Token·Refresh Token 반환
 - 로그인 이메일 정규화
 - 잘못된 비밀번호 로그인 실패
 - 존재하지 않는 이메일 로그인 실패
+- 유효한 Refresh Token 회전 및 새 토큰 쌍 반환
+- 유효하지 않은 Refresh Token 요청 시 Access Token 미발급
 
 `JwtTokenServiceTest`에 다음 시나리오가 작성되어 있다.
 
 - HS256 JWT 발급 및 실제 decoder 검증
 - subject, email, role claim 검증
-- Bearer token type과 1시간 만료 시간 검증
+- Access Token의 1시간 만료 시간 검증
 
-`AuthControllerTest`에 다음 6개 시나리오가 작성되어 있다.
+`RefreshTokenServiceTest`에 다음 5개 시나리오가 작성되어 있다.
+
+- Refresh Token 원문 반환 및 SHA-256 해시 저장
+- 유효한 Refresh Token 회전
+- 존재하지 않는 Refresh Token 거부
+- 만료된 Refresh Token 거부
+- 빈 Refresh Token의 Repository 조회 없는 거부
+
+`AuthControllerTest`에 다음 9개 시나리오가 작성되어 있다.
 
 - 회원가입 성공 시 HTTP 201과 응답 body 검증
 - 잘못된 이메일 회원가입 요청 시 HTTP 400 검증
 - 8자 미만 비밀번호 회원가입 요청 시 HTTP 400 검증
-- 로그인 성공 시 HTTP 200과 Access Token 응답 검증
+- 로그인 성공 시 HTTP 200과 Access Token, Refresh Token 및 각 만료 시간 검증
 - 잘못된 로그인 정보 입력 시 HTTP 401 검증
 - 빈 이메일 로그인 요청 시 HTTP 400 검증
+- 유효한 Refresh Token 재발급 성공
+- 빈 Refresh Token 요청 시 HTTP 400 검증
+- 유효하지 않은 Refresh Token 요청 시 HTTP 401 및 `INVALID_REFRESH_TOKEN` 검증
 
 공통 인증 fixture인 `AuthFixtures`와 standalone MockMvc 설정을 제공하는 `ControllerTestSupport`가 작성되어 있다.
 
-`SecurityConfigTest`에 다음 4개 시나리오가 작성되어 있다.
+`SecurityConfigTest`에 다음 5개 시나리오가 작성되어 있다.
 
 - 회원가입 endpoint의 비인증 접근 허용
 - 로그인 endpoint의 비인증 접근 허용
 - 보호된 endpoint의 토큰 없는 요청에 HTTP 401 반환
 - 실제 HS256 JWT를 사용한 보호 endpoint 인증 성공
+- Refresh Token 재발급 endpoint의 비인증 접근 허용
 
 `UserRepositoryIntegrationTest`에 다음 3개 시나리오가 작성되어 있다.
 
@@ -177,15 +202,22 @@
 - `./gradlew test --tests 'com.interviewai.user.controller.UserControllerTest'`: 성공 (`BUILD SUCCESSFUL in 3s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
 - `./gradlew cleanTest test`: 성공 (`BUILD SUCCESSFUL in 13s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
 
+2026-08-26 사용자 macOS 로컬 환경에서 Refresh Token 구현과 관련 테스트를 실행했다.
+
+- `./gradlew testClasses`: 성공 (`BUILD SUCCESSFUL in 1s`, `3 actionable tasks: 2 executed, 1 up-to-date`)
+- `./gradlew test --tests 'com.interviewai.auth.*'`: 성공 (`BUILD SUCCESSFUL in 2s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- `./gradlew test --tests 'com.interviewai.global.config.SecurityConfigTest'`: 성공 (`BUILD SUCCESSFUL in 3s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- `./gradlew cleanTest test`: 성공 (`BUILD SUCCESSFUL in 13s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 40개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
 
-1. Refresh Token
-2. 로그아웃 및 Token 폐기 전략
-3. OAuth2 Google 로그인 흐름
-4. OAuth2 GitHub 로그인 흐름
-5. 운영 환경별 설정 및 배포 구성
+1. 로그아웃 및 Token 폐기 전략
+2. OAuth2 Google 로그인 흐름
+3. OAuth2 GitHub 로그인 흐름
+4. 운영 환경별 설정 및 배포 구성
 
 각 단계는 구현 코드와 관련 테스트가 모두 완료된 뒤 다음 단계로 이동한다. 구현만 끝난 경우에는 완료 처리하지 않고 `구현됨, 검증 대기`로 기록한다.
 
@@ -197,12 +229,14 @@
 - IntelliJ에서 실행할 때 Docker Compose가 읽는 `.env` 값이 Spring Boot process에 자동 전달되지는 않으므로 Run Configuration 환경변수를 별도로 설정해야 한다.
 - `AuthControllerTest`는 standalone MockMvc 테스트이므로 Spring Security filter chain을 거치지 않는다.
 - `SecurityConfig`의 로그인 공개 matcher는 `/api/auth/login`으로 수정되었고 filter chain 테스트로 비인증 접근을 확인했다.
+- 만료된 Refresh Token은 재발급 시 거부하지만 즉시 삭제하지 않으며, 정리 방식은 로그아웃 및 Token 폐기 전략에서 결정한다.
+- Refresh Token 저장과 비관적 잠금 동작을 실제 MySQL에서 직접 검증하는 전용 Repository 통합 테스트는 아직 없다.
 
 ## 다음 작업
 
 현재 진행 중인 작업은 없다.
 
-다음 작업은 Refresh Token이다. Access Token과 Refresh Token의 발급·재발급 흐름, 만료 시간, 저장 및 회전 전략을 먼저 결정하고 정상·경계·실패 시나리오 테스트와 함께 구현한다.
+다음 작업은 로그아웃 및 Token 폐기 전략이다. 개별 Refresh Token 로그아웃, 사용자 전체 세션 폐기, 만료 토큰 정리 범위와 API 계약을 먼저 결정하고 정상·경계·실패 시나리오 테스트와 함께 구현한다.
 
 ## Git 기준점
 
@@ -212,6 +246,7 @@
 
 ## 변경 이력
 
+- 2026-08-26: opaque Refresh Token 발급, SHA-256 해시 저장, 14일 만료, 비관적 잠금 기반 회전과 `/api/auth/refresh` endpoint 구현을 확인함. 인증·보안·전체 테스트 성공을 확인하고 다음 작업을 로그아웃 및 Token 폐기 전략으로 변경함. Refresh Token Repository의 MySQL 전용 통합 테스트는 후속 보강 항목으로 남김.
 - 2026-08-26: JWT 인증 사용자 조회 endpoint와 subject 검증, 사용자 미존재 오류 처리를 확인함. 사용자 service/controller 테스트와 전체 테스트 성공을 확인하고, 다음 작업을 Refresh Token으로 변경함.
 - 2026-08-26: Testcontainers 기반 MySQL 8.4 공통 테스트 환경과 Repository/Flyway 통합 테스트 3개를 확인함. 해당 통합 테스트 및 전체 테스트 성공을 확인하고, 다음 작업을 인증된 사용자 조회 endpoint로 변경함.
 - 2026-08-25: Spring Security filter chain 테스트 4개와 로그인 공개 matcher 수정을 확인하고, 해당 테스트 및 전체 테스트 성공을 확인함. 다음 작업을 Repository 및 Flyway 통합 테스트 재설계로 변경함.

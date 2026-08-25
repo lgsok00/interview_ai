@@ -38,7 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
-        "auth.jwt.access-token-expiration=1h"
+        "auth.jwt.access-token-expiration=1h",
+        "auth.jwt.refresh-token-expiration=14d"
 })
 class SecurityConfigTest {
 
@@ -85,7 +86,12 @@ class SecurityConfigTest {
     @DisplayName("로그인 endpoint는 인증 없이 접근할 수 있다")
     void allowsLoginWithoutAuthentication() throws Exception {
         when(authService.login(any()))
-                .thenReturn(LoginResponse.bearer("access-token", 3600));
+                .thenReturn(LoginResponse.bearer(
+                        "access-token",
+                        "refresh-token",
+                        3600,
+                        1209600
+                ));
 
         mockMvc.perform(
                         post("/api/auth/login")
@@ -123,6 +129,32 @@ class SecurityConfigTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().string("authenticated"));
+    }
+
+
+    @Test
+    @DisplayName("Refresh Token 재발급 endpoint는 인증 없이 접근할 수 있다")
+    void allowsRefreshWithoutAuthentication() throws Exception {
+        when(authService.refresh(any()))
+                .thenReturn(
+                        LoginResponse.bearer(
+                                "new-access-token",
+                                "new-refresh-token",
+                                3600,
+                                1209600
+                        )
+                );
+
+        mockMvc.perform(
+                        post("/api/auth/refresh")
+                                .contentType(APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "old-refresh-token"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isOk());
     }
 
 

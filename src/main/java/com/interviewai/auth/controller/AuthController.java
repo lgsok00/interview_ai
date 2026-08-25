@@ -1,9 +1,6 @@
 package com.interviewai.auth.controller;
 
-import com.interviewai.auth.dto.LoginRequest;
-import com.interviewai.auth.dto.LoginResponse;
-import com.interviewai.auth.dto.SignupRequest;
-import com.interviewai.auth.dto.SignupResponse;
+import com.interviewai.auth.dto.*;
 import com.interviewai.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -31,5 +28,11 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authService.refresh(request);
     }
 }
