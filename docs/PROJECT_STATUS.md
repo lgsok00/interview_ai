@@ -43,6 +43,8 @@
 - JWT secret 최소 32바이트 검증
 - 회원가입, 로그인 및 health endpoint 공개
 - 그 외 요청은 인증 필요
+- Spring Security filter chain 테스트로 공개·보호 endpoint와 JWT 인증 동작 검증
+- 로그인 공개 matcher를 `/api/auth/login`으로 수정
 
 ### 인증 API
 
@@ -94,6 +96,13 @@
 
 공통 인증 fixture인 `AuthFixtures`와 standalone MockMvc 설정을 제공하는 `ControllerTestSupport`가 작성되어 있다.
 
+`SecurityConfigTest`에 다음 4개 시나리오가 작성되어 있다.
+
+- 회원가입 endpoint의 비인증 접근 허용
+- 로그인 endpoint의 비인증 접근 허용
+- 보호된 endpoint의 토큰 없는 요청에 HTTP 401 반환
+- 실제 HS256 JWT를 사용한 보호 endpoint 인증 성공
+
 ### 최근 실행 검증
 
 2026-08-25 사용자 로컬 환경에서 다음 검증이 모두 성공했다.
@@ -109,19 +118,23 @@
 
 2026-08-25 Codex 환경에서 테스트 메서드명을 영문으로 변경하고 한국어 `@DisplayName`을 추가한 뒤 `./gradlew cleanTest test`를 재실행했다. 결과는 `BUILD SUCCESSFUL in 10s`, `5 actionable tasks: 3 executed, 2 up-to-date`로 성공했다.
 
+2026-08-25 사용자 Windows 로컬 환경에서 Spring Security filter chain 테스트와 전체 테스트를 실행했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.global.config.SecurityConfigTest"`: 성공 (`BUILD SUCCESSFUL in 6s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 6s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
 
-1. Spring Security filter chain 인증 테스트 및 로그인 공개 matcher 검증
-2. Repository 및 Flyway 통합 테스트 재설계
-3. Testcontainers 기반 MySQL 통합 테스트
-4. 인증된 사용자 조회 endpoint
-5. Refresh Token
-6. 로그아웃 및 Token 폐기 전략
-7. OAuth2 Google 로그인 흐름
-8. OAuth2 GitHub 로그인 흐름
-9. 운영 환경별 설정 및 배포 구성
+1. Repository 및 Flyway 통합 테스트 재설계
+2. Testcontainers 기반 MySQL 통합 테스트
+3. 인증된 사용자 조회 endpoint
+4. Refresh Token
+5. 로그아웃 및 Token 폐기 전략
+6. OAuth2 Google 로그인 흐름
+7. OAuth2 GitHub 로그인 흐름
+8. 운영 환경별 설정 및 배포 구성
 
 각 단계는 구현 코드와 관련 테스트가 모두 완료된 뒤 다음 단계로 이동한다. 구현만 끝난 경우에는 완료 처리하지 않고 `구현됨, 검증 대기`로 기록한다.
 
@@ -132,13 +145,13 @@
 - `.env`는 Git에서 제외되며 PC마다 별도로 구성해야 한다.
 - IntelliJ에서 실행할 때 Docker Compose가 읽는 `.env` 값이 Spring Boot process에 자동 전달되지는 않으므로 Run Configuration 환경변수를 별도로 설정해야 한다.
 - `AuthControllerTest`는 standalone MockMvc 테스트이므로 Spring Security filter chain을 거치지 않는다.
-- `SecurityConfig`의 로그인 공개 matcher가 `"api/auth/login"`으로 작성되어 있어 선행 `/` 누락 여부를 실제 요청 또는 security 테스트로 확인해야 한다.
+- `SecurityConfig`의 로그인 공개 matcher는 `/api/auth/login`으로 수정되었고 filter chain 테스트로 비인증 접근을 확인했다.
 
 ## 다음 작업
 
 현재 진행 중인 작업은 없다.
 
-다음 작업은 Spring Security filter chain 인증 테스트다. 로그인과 회원가입 endpoint가 인증 없이 접근 가능한지, 보호된 endpoint가 토큰 없이 HTTP 401을 반환하는지, 유효한 JWT 요청이 인증되는지를 검증한다. 이 과정에서 로그인 공개 matcher의 선행 `/` 누락 여부를 확인한다.
+다음 작업은 Repository 및 Flyway 통합 테스트 재설계다. 현재 repository와 migration 구조를 확인하고, 테스트 격리 방식과 실제 MySQL 의존 범위를 정한 뒤 정상·경계·실패 시나리오를 설계한다.
 
 ## Git 기준점
 
@@ -148,6 +161,7 @@
 
 ## 변경 이력
 
+- 2026-08-25: Spring Security filter chain 테스트 4개와 로그인 공개 matcher 수정을 확인하고, 해당 테스트 및 전체 테스트 성공을 확인함. 다음 작업을 Repository 및 Flyway 통합 테스트 재설계로 변경함.
 - 2026-08-25: 인증 테스트 메서드명을 영문으로 통일하고 한국어 `@DisplayName`을 추가한 뒤 전체 테스트 성공을 확인함.
 - 2026-08-25: 회원가입·로그인 서비스 테스트 7개, JWT 테스트 1개, Controller 테스트 6개 및 프로젝트 전체 테스트 성공을 확인함. Controller와 JWT 테스트 단계를 완료하고 Spring Security filter chain 검증을 다음 작업으로 변경함.
 - 2026-08-25: 미구현 범위를 합의된 구현 순서로 변경하고 다음 작업을 Controller API 테스트로 명시함.
