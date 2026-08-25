@@ -1,7 +1,9 @@
 package com.interviewai.global.error;
 
 import com.interviewai.auth.exception.DuplicateEmailException;
+import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
+import com.interviewai.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,5 +42,19 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleInvalidCredentials(InvalidCredentialsException exception) {
         return ErrorResponse.of("INVALID_CREDENTIALS", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(InvalidAccessTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleInvalidAccessToken(InvalidAccessTokenException exception) {
+        return ErrorResponse.of("INVALID_ACCESS_TOKEN", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleUserNotFound(UserNotFoundException exception) {
+        return ErrorResponse.of("USER_NOT_FOUND", exception.getMessage());
     }
 }

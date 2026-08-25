@@ -32,6 +32,7 @@
 - 이메일 및 provider 계정 unique constraint
 - 생성·수정 시간 자동 설정
 - 로컬 사용자 생성 factory method
+- JWT subject의 사용자 id를 이용한 현재 사용자 조회 service
 
 ### 인증과 보안
 
@@ -63,7 +64,18 @@
 - 전역 오류 응답
   - `DUPLICATE_EMAIL`: HTTP 409
   - `INVALID_CREDENTIALS`: HTTP 401
+  - `INVALID_ACCESS_TOKEN`: HTTP 401
+  - `USER_NOT_FOUND`: HTTP 404
   - `VALIDATION_ERROR`: HTTP 400 및 field 오류 정보
+
+### 사용자 API
+
+- `GET /api/users/me`
+  - Bearer Access Token 인증 필요
+  - JWT subject를 사용자 id로 변환해 DB의 최신 사용자 정보 조회
+  - 사용자 id, 이메일, 닉네임, 인증 제공자, 역할 반환
+  - JWT subject 형식이 잘못되면 HTTP 401 반환
+  - JWT 사용자와 일치하는 사용자가 없으면 HTTP 404 반환
 
 ### 데이터베이스 통합 테스트 기반
 
@@ -120,6 +132,20 @@
 
 공통 Testcontainers 기반인 `MySqlIntegrationTest`가 작성되어 있으며, MySQL 연결 정보는 Spring Boot `@ServiceConnection`으로 주입한다.
 
+`UserServiceTest`에 다음 4개 시나리오가 작성되어 있다.
+
+- JWT subject에 해당하는 사용자 조회 성공
+- JWT subject에 해당하는 사용자가 없을 때 실패
+- JWT subject가 숫자가 아닐 때 실패
+- JWT subject가 `null`일 때 실패
+
+`UserControllerTest`에 다음 4개 시나리오가 작성되어 있다.
+
+- JWT 인증 사용자의 정보 조회 성공
+- JWT가 없는 요청에 HTTP 401 반환
+- JWT 사용자와 일치하는 사용자가 없을 때 HTTP 404와 `USER_NOT_FOUND` 반환
+- JWT subject가 잘못된 요청에 HTTP 401과 `INVALID_ACCESS_TOKEN` 반환
+
 ### 최근 실행 검증
 
 2026-08-25 사용자 로컬 환경에서 다음 검증이 모두 성공했다.
@@ -145,16 +171,21 @@
 - `./gradlew test --tests 'com.interviewai.user.repository.UserRepositoryIntegrationTest'`: 성공 (`BUILD SUCCESSFUL in 13s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
 - `./gradlew cleanTest test`: 성공 (`BUILD SUCCESSFUL in 13s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
 
+2026-08-26 사용자 macOS 로컬 환경에서 인증 사용자 조회 service, controller 및 전체 테스트를 실행했다.
+
+- `./gradlew test --tests 'com.interviewai.user.service.UserServiceTest'`: 성공 (`BUILD SUCCESSFUL in 4s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+- `./gradlew test --tests 'com.interviewai.user.controller.UserControllerTest'`: 성공 (`BUILD SUCCESSFUL in 3s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- `./gradlew cleanTest test`: 성공 (`BUILD SUCCESSFUL in 13s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
 
-1. 인증된 사용자 조회 endpoint
-2. Refresh Token
-3. 로그아웃 및 Token 폐기 전략
-4. OAuth2 Google 로그인 흐름
-5. OAuth2 GitHub 로그인 흐름
-6. 운영 환경별 설정 및 배포 구성
+1. Refresh Token
+2. 로그아웃 및 Token 폐기 전략
+3. OAuth2 Google 로그인 흐름
+4. OAuth2 GitHub 로그인 흐름
+5. 운영 환경별 설정 및 배포 구성
 
 각 단계는 구현 코드와 관련 테스트가 모두 완료된 뒤 다음 단계로 이동한다. 구현만 끝난 경우에는 완료 처리하지 않고 `구현됨, 검증 대기`로 기록한다.
 
@@ -171,16 +202,17 @@
 
 현재 진행 중인 작업은 없다.
 
-다음 작업은 인증된 사용자 조회 endpoint다. JWT의 subject를 사용자 id로 사용해 현재 사용자를 조회하고, 인증 정보가 없거나 사용자가 존재하지 않는 경우를 기존 `GlobalExceptionHandler`와 `ErrorResponse` 형식으로 처리한다. 정상·경계·실패 시나리오 테스트를 함께 작성한다.
+다음 작업은 Refresh Token이다. Access Token과 Refresh Token의 발급·재발급 흐름, 만료 시간, 저장 및 회전 전략을 먼저 결정하고 정상·경계·실패 시나리오 테스트와 함께 구현한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `45c28de chore: 운영체제별 Git 줄바꿈 규칙 정리`
+- 기준 커밋: `751f9d7 test: MySQL 기반 Repository 및 Flyway 통합 테스트 추가`
 - 확인 당시 `main`과 `origin/main`은 같은 커밋을 가리켰다.
 
 ## 변경 이력
 
+- 2026-08-26: JWT 인증 사용자 조회 endpoint와 subject 검증, 사용자 미존재 오류 처리를 확인함. 사용자 service/controller 테스트와 전체 테스트 성공을 확인하고, 다음 작업을 Refresh Token으로 변경함.
 - 2026-08-26: Testcontainers 기반 MySQL 8.4 공통 테스트 환경과 Repository/Flyway 통합 테스트 3개를 확인함. 해당 통합 테스트 및 전체 테스트 성공을 확인하고, 다음 작업을 인증된 사용자 조회 endpoint로 변경함.
 - 2026-08-25: Spring Security filter chain 테스트 4개와 로그인 공개 matcher 수정을 확인하고, 해당 테스트 및 전체 테스트 성공을 확인함. 다음 작업을 Repository 및 Flyway 통합 테스트 재설계로 변경함.
 - 2026-08-25: 인증 테스트 메서드명을 영문으로 통일하고 한국어 `@DisplayName`을 추가한 뒤 전체 테스트 성공을 확인함.
