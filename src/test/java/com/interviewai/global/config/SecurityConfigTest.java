@@ -24,8 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -171,6 +174,30 @@ class SecurityConfigTest {
                                         """)
                 )
                 .andExpect(status().isNoContent());
+    }
+
+
+    @Test
+    @DisplayName("전체 세션 폐기 endpoint는 인증이 없으면 접근할 수 없다")
+    void rejectsLogoutAllWithoutAuthentication() throws Exception {
+        mockMvc.perform(post("/api/auth/logout-all"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(authService);
+    }
+
+
+    @Test
+    @DisplayName("전체 세션 폐기 endpoint는 JWT 인증 사용자의 subject를 전달한다")
+    void allowsLogoutAllWithValidJwt() throws Exception {
+        mockMvc.perform(
+                        post("/api/auth/logout-all")
+                                .with(jwt().jwt(jwt -> jwt.subject("1")))
+                )
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(authService).logoutAll("1");
     }
 
 

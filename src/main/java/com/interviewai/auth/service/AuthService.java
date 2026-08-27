@@ -2,6 +2,7 @@ package com.interviewai.auth.service;
 
 import com.interviewai.auth.dto.*;
 import com.interviewai.auth.exception.DuplicateEmailException;
+import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
@@ -113,6 +114,12 @@ public class AuthService {
     }
 
 
+    @Transactional
+    public void logoutAll(String subject) {
+        refreshTokenService.revokeAll(parseUserId(subject));
+    }
+
+
     private boolean isEmailUniqueConstraintViolation(DataIntegrityViolationException exception) {
         Throwable cause = exception;
 
@@ -132,5 +139,15 @@ public class AuthService {
 
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+
+    private Long parseUserId(String subject) {
+        try {
+            return Long.valueOf(subject);
+
+        } catch (NumberFormatException exception) {
+            throw new InvalidAccessTokenException();
+        }
     }
 }

@@ -84,6 +84,32 @@ class RefreshTokenServiceIntegrationTest extends MySqlIntegrationTest {
     }
 
 
+    @Test
+    @DisplayName("사용자의 모든 Refresh Token만 폐기하고 다른 사용자의 토큰은 유지한다")
+    void revokesAllRefreshTokensOnlyForRequestedUser() {
+        User requestedUser = saveUser("requested@example.com");
+        User otherUser = saveUser("other@example.com");
+
+        RefreshTokenService.IssuedRefreshToken firstRequestedToken = refreshTokenService.issue(requestedUser);
+        RefreshTokenService.IssuedRefreshToken secondRequestedToken = refreshTokenService.issue(requestedUser);
+        RefreshTokenService.IssuedRefreshToken otherUserToken = refreshTokenService.issue(otherUser);
+
+        refreshTokenRepository.flush();
+
+        int revokedCount = refreshTokenService.revokeAll(requestedUser.getId());
+        refreshTokenRepository.flush();
+
+        assertThat(revokedCount).isEqualTo(2);
+        assertThat(refreshTokenRepository.count()).isEqualTo(1);
+        assertThatThrownBy(() -> refreshTokenService.rotate(firstRequestedToken.token()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+        assertThatThrownBy(() -> refreshTokenService.rotate(secondRequestedToken.token()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+        assertThatCode(() -> refreshTokenService.rotate(otherUserToken.token()))
+                .doesNotThrowAnyException();
+    }
+
+
     private User saveUser(String email) {
         return userRepository.saveAndFlush(User.createLocalUser(
                 email,

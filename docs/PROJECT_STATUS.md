@@ -49,6 +49,7 @@
 - JWT secret 최소 32바이트 검증
 - 회원가입, 로그인 및 health endpoint 공개
 - Refresh Token 기반 로그아웃 endpoint 공개
+- 인증된 사용자의 모든 Refresh Token을 일괄 폐기하는 전체 세션 폐기 지원
 - 그 외 요청은 인증 필요
 - Spring Security filter chain 테스트로 공개·보호 endpoint와 JWT 인증 동작 검증
 - 로그인 공개 matcher를 `/api/auth/login`으로 수정
@@ -78,6 +79,12 @@
   - 존재하지 않거나 이미 폐기된 Refresh Token도 멱등하게 HTTP 204 반환
   - 빈 Refresh Token은 HTTP 400 반환
   - stateless Access Token은 즉시 폐기하지 않으며 기존 만료 시점까지 유효
+- `POST /api/auth/logout-all`
+  - Bearer Access Token 인증 필요
+  - JWT subject의 사용자 id에 속한 모든 Refresh Token을 일괄 삭제
+  - 폐기할 Refresh Token이 없어도 멱등하게 HTTP 204 반환
+  - 다른 사용자의 Refresh Token은 유지
+  - 이미 발급된 stateless Access Token은 즉시 폐기하지 않으며 기존 만료 시점까지 유효
 - 전역 오류 응답
   - `DUPLICATE_EMAIL`: HTTP 409
   - `INVALID_CREDENTIALS`: HTTP 401
@@ -109,7 +116,7 @@
 
 ### 작성된 자동 테스트
 
-`AuthServiceTest`에 다음 10개 시나리오가 작성되어 있다.
+`AuthServiceTest`에 다음 13개 시나리오가 작성되어 있다.
 
 - 회원가입 성공
 - 비밀번호 평문 미저장
@@ -121,6 +128,9 @@
 - 유효한 Refresh Token 회전 및 새 토큰 쌍 반환
 - 유효하지 않은 Refresh Token 요청 시 Access Token 미발급
 - 로그아웃 요청의 Refresh Token 폐기
+- JWT subject에 해당하는 사용자의 모든 Refresh Token 폐기
+- 숫자가 아닌 JWT subject의 전체 세션 폐기 거부
+- `null` JWT subject의 전체 세션 폐기 거부
 
 `JwtTokenServiceTest`에 다음 시나리오가 작성되어 있다.
 
@@ -128,7 +138,7 @@
 - subject, email, role claim 검증
 - Access Token의 1시간 만료 시간 검증
 
-`RefreshTokenServiceTest`에 다음 8개 시나리오가 작성되어 있다.
+`RefreshTokenServiceTest`에 다음 10개 시나리오가 작성되어 있다.
 
 - Refresh Token 원문 반환 및 SHA-256 해시 저장
 - 유효한 Refresh Token 회전
@@ -138,12 +148,15 @@
 - 로그아웃할 Refresh Token의 해시 삭제
 - 존재하지 않는 Refresh Token의 멱등한 폐기
 - 빈 Refresh Token 폐기 요청 시 Repository 미호출
+- 사용자별 Refresh Token 전체 폐기와 삭제 건수 반환
+- 폐기할 Refresh Token이 없는 사용자의 멱등 처리
 
-`RefreshTokenServiceIntegrationTest`에 다음 3개 MySQL 통합 시나리오가 작성되어 있다.
+`RefreshTokenServiceIntegrationTest`에 다음 4개 MySQL 통합 시나리오가 작성되어 있다.
 
 - 저장된 Refresh Token 로그아웃 시 DB 행 삭제
 - 존재하지 않는 Refresh Token의 예외 없는 폐기
 - 폐기한 Refresh Token의 재발급 거부
+- 대상 사용자의 모든 Refresh Token만 삭제하고 다른 사용자의 토큰 유지
 
 `AuthControllerTest`에 다음 11개 시나리오가 작성되어 있다.
 
@@ -161,7 +174,7 @@
 
 공통 인증 fixture인 `AuthFixtures`와 standalone MockMvc 설정을 제공하는 `ControllerTestSupport`가 작성되어 있다.
 
-`SecurityConfigTest`에 다음 6개 시나리오가 작성되어 있다.
+`SecurityConfigTest`에 다음 8개 시나리오가 작성되어 있다.
 
 - 회원가입 endpoint의 비인증 접근 허용
 - 로그인 endpoint의 비인증 접근 허용
@@ -169,6 +182,8 @@
 - 실제 HS256 JWT를 사용한 보호 endpoint 인증 성공
 - Refresh Token 재발급 endpoint의 비인증 접근 허용
 - 로그아웃 endpoint의 비인증 접근 허용
+- 전체 세션 폐기 endpoint의 비인증 접근에 HTTP 401 반환
+- JWT 인증 사용자의 subject를 전체 세션 폐기 service에 전달
 
 `UserRepositoryIntegrationTest`에 다음 3개 시나리오가 작성되어 있다.
 
@@ -249,11 +264,23 @@
 - 전체 테스트 리포트: 50개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - `MySqlIntegrationTest`에 `@DirtiesContext(AFTER_CLASS)`를 적용해 각 통합 테스트 클래스가 새 MySQL container datasource를 사용하도록 검증함
 
+2026-08-28 Codex 환경에서 사용자 전체 세션 폐기 단위·보안·통합 테스트를 추가하고 전체 테스트를 실행했다.
+
+- `./gradlew cleanTest test`: 성공 (`BUILD SUCCESSFUL in 7s`, `5 actionable tasks: 4 executed, 1 up-to-date`)
+- 전체 테스트 리포트: 58개 중 51개 성공, 실패 0개, 오류 0개, Docker를 사용할 수 없어 MySQL 통합 테스트 7개 건너뜀
+- 전체 세션 폐기의 사용자별 일괄 삭제, 빈 세션 멱등 처리, JWT subject 검증, 인증 필수 endpoint 동작을 단위·보안 테스트로 검증함
+
+2026-08-28 사용자 macOS 로컬 환경에서 MySQL 기반 사용자 전체 세션 폐기 통합 테스트를 실행했다.
+
+- `./gradlew cleanTest test --tests 'com.interviewai.auth.service.RefreshTokenServiceIntegrationTest'`: 성공 (`BUILD SUCCESSFUL in 12s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 테스트 리포트: 4개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- Testcontainers MySQL 8.4에서 대상 사용자의 Refresh Token 2개 일괄 삭제, 다른 사용자 토큰 유지, 폐기 토큰 재발급 거부를 확인함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
 
-1. 사용자 전체 세션 폐기와 만료 Refresh Token 정리
+1. 만료 Refresh Token 정리
 2. OAuth2 Google 로그인 흐름
 3. OAuth2 GitHub 로그인 흐름
 4. 운영 환경별 설정 및 배포 구성
@@ -270,13 +297,14 @@
 - `SecurityConfig`의 로그인 공개 matcher는 `/api/auth/login`으로 수정되었고 filter chain 테스트로 비인증 접근을 확인했다.
 - 만료된 Refresh Token은 재발급 시 거부하지만 즉시 삭제하지 않으며, 정리 방식은 로그아웃 및 Token 폐기 전략에서 결정한다.
 - 개별 로그아웃은 Refresh Token 하나만 폐기하며, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
+- 전체 세션 폐기는 요청 시점에 저장된 해당 사용자의 Refresh Token을 모두 삭제하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 동일 Refresh Token의 동시 회전에 대한 비관적 잠금 동작을 실제 MySQL에서 검증하는 동시성 통합 테스트는 아직 없다.
 
 ## 다음 작업
 
 현재 진행 중인 작업은 없다.
 
-다음 작업은 사용자 전체 세션 폐기와 만료 Refresh Token 정리이다. 인증된 사용자의 모든 Refresh Token을 폐기하는 API 계약과 만료 토큰의 정기 삭제 방식을 먼저 결정하고 정상·경계·실패 시나리오 테스트와 함께 구현한다.
+다음 작업은 만료 Refresh Token 정리이다. 만료 토큰의 정기 삭제 주기, batch 크기와 다중 인스턴스 환경의 중복 실행 방식을 결정하고 정상·경계·실패 시나리오 테스트와 함께 구현한다.
 
 ## Git 기준점
 
@@ -286,6 +314,7 @@
 
 ## 변경 이력
 
+- 2026-08-28: Bearer Access Token 인증이 필요한 `/api/auth/logout-all` endpoint와 사용자 id 기준 Refresh Token 일괄 삭제를 확인함. 토큰이 없는 사용자의 멱등 처리, 잘못된 JWT subject 거부, 비인증 접근 거부, 다른 사용자 토큰 보존을 포함한 단위·보안 테스트를 확인함. Testcontainers MySQL 8.4에서 전체 세션 폐기 통합 테스트 4개 성공을 검증하고 다음 작업을 만료 Refresh Token 정리로 변경함.
 - 2026-08-28: 인증 없이 호출 가능한 `/api/auth/logout` endpoint와 Refresh Token 해시 기반 개별 세션 폐기를 확인함. 존재하지 않는 토큰의 멱등 처리, 빈 토큰 검증, 비인증 접근을 포함한 관련 테스트를 확인함. Testcontainers MySQL 8.4에서 로그아웃 삭제와 폐기 토큰 재발급 거부 통합 테스트 3개를 검증하고, 통합 테스트 클래스 간 종료된 container datasource 재사용 문제를 `@DirtiesContext(AFTER_CLASS)`로 해결함. 전체 테스트 50개 성공을 확인하고 다음 작업을 사용자 전체 세션 폐기와 만료 Refresh Token 정리로 변경함.
 - 2026-08-26: opaque Refresh Token 발급, SHA-256 해시 저장, 14일 만료, 비관적 잠금 기반 회전과 `/api/auth/refresh` endpoint 구현을 확인함. 인증·보안·전체 테스트 성공을 확인하고 다음 작업을 로그아웃 및 Token 폐기 전략으로 변경함. Refresh Token Repository의 MySQL 전용 통합 테스트는 후속 보강 항목으로 남김.
 - 2026-08-26: JWT 인증 사용자 조회 endpoint와 subject 검증, 사용자 미존재 오류 처리를 확인함. 사용자 service/controller 테스트와 전체 테스트 성공을 확인하고, 다음 작업을 Refresh Token으로 변경함.

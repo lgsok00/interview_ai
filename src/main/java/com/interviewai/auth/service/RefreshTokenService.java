@@ -85,6 +85,12 @@ public class RefreshTokenService {
     }
 
 
+    @Transactional
+    public int revokeAll(Long userId) {
+        return refreshTokenRepository.deleteAllByUserId(userId);
+    }
+
+
     private String generateToken() {
         byte[] randomBytes = new byte[TOKEN_BYTE_LENGTH];
         secureRandom.nextBytes(randomBytes);

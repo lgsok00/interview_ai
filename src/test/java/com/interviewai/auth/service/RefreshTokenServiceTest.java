@@ -174,6 +174,34 @@ class RefreshTokenServiceTest {
     }
 
 
+    @Test
+    @DisplayName("사용자의 모든 Refresh Token을 폐기한다")
+    void revokesAllRefreshTokensForUser() {
+        Long userId = 1L;
+
+        when(refreshTokenRepository.deleteAllByUserId(userId)).thenReturn(2);
+
+        int revokedCount = refreshTokenService.revokeAll(userId);
+
+        assertThat(revokedCount).isEqualTo(2);
+        verify(refreshTokenRepository).deleteAllByUserId(userId);
+    }
+
+
+    @Test
+    @DisplayName("폐기할 Refresh Token이 없는 사용자도 예외 없이 처리한다")
+    void returnsZeroWhenUserHasNoRefreshTokens() {
+        Long userId = 1L;
+
+        when(refreshTokenRepository.deleteAllByUserId(userId)).thenReturn(0);
+
+        int revokedCount = refreshTokenService.revokeAll(userId);
+
+        assertThat(revokedCount).isZero();
+        verify(refreshTokenRepository).deleteAllByUserId(userId);
+    }
+
+
     private String hash(String rawToken) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

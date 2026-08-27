@@ -2,6 +2,7 @@ package com.interviewai.auth.service;
 
 import com.interviewai.auth.dto.*;
 import com.interviewai.auth.exception.DuplicateEmailException;
+import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
 import com.interviewai.auth.exception.InvalidRefreshTokenException;
 import com.interviewai.user.entity.User;
@@ -270,6 +271,39 @@ class AuthServiceTest {
             authService.logout(request);
 
             verify(refreshTokenService).revoke("refresh-token");
+        }
+    }
+
+
+    @Nested
+    class LogoutAll {
+
+        @Test
+        @DisplayName("JWT subject에 해당하는 사용자의 모든 Refresh Token을 폐기한다")
+        void revokesAllRefreshTokensForAuthenticatedUser() {
+            authService.logoutAll("1");
+
+            verify(refreshTokenService).revokeAll(1L);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject가 숫자가 아니면 전체 세션 폐기에 실패한다")
+        void rejectsNonNumericSubject() {
+            assertThatThrownBy(() -> authService.logoutAll("invalid-user-id"))
+                    .isInstanceOf(InvalidAccessTokenException.class);
+
+            verifyNoInteractions(refreshTokenService);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject가 null이면 전체 세션 폐기에 실패한다")
+        void rejectsNullSubject() {
+            assertThatThrownBy(() -> authService.logoutAll(null))
+                    .isInstanceOf(InvalidAccessTokenException.class);
+
+            verifyNoInteractions(refreshTokenService);
         }
     }
 }
