@@ -141,6 +141,39 @@ class RefreshTokenServiceTest {
     }
 
 
+    @Test
+    @DisplayName("로그아웃할 Refresh Token의 해시를 삭제한다")
+    void revokesRefreshTokenByHash() {
+        String rawToken = "refresh-token";
+
+        refreshTokenService.revoke(rawToken);
+
+        verify(refreshTokenRepository).deleteByTokenHash(hash(rawToken));
+    }
+
+
+    @Test
+    @DisplayName("존재하지 않는 Refresh Token도 예외 없이 폐기한다")
+    void ignoresUnknownRefreshTokenWhenRevoking() {
+        String rawToken = "unknown-refresh-token";
+
+        when(refreshTokenRepository.deleteByTokenHash(hash(rawToken))).thenReturn(0L);
+
+        refreshTokenService.revoke(rawToken);
+
+        verify(refreshTokenRepository).deleteByTokenHash(hash(rawToken));
+    }
+
+
+    @Test
+    @DisplayName("폐기할 Refresh Token이 비어 있으면 Repository를 호출하지 않는다")
+    void ignoresBlankRefreshTokenWhenRevoking() {
+        refreshTokenService.revoke(" ");
+
+        verifyNoInteractions(refreshTokenRepository);
+    }
+
+
     private String hash(String rawToken) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

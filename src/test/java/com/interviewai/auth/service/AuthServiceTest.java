@@ -257,4 +257,19 @@ class AuthServiceTest {
             verify(jwtTokenService, never()).issueAccessToken(any(User.class));
         }
     }
+
+
+    @Nested
+    class Logout {
+
+        @Test
+        @DisplayName("요청받은 Refresh Token을 폐기한다")
+        void revokesRequestedRefreshToken() {
+            RefreshTokenRequest request = new RefreshTokenRequest("refresh-token");
+
+            authService.logout(request);
+
+            verify(refreshTokenService).revoke("refresh-token");
+        }
+    }
 }

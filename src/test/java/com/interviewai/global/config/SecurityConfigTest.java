@@ -158,6 +158,22 @@ class SecurityConfigTest {
     }
 
 
+    @Test
+    @DisplayName("로그아웃 endpoint는 인증 없이 접근할 수 있다")
+    void allowsLogoutWithoutAuthentication() throws Exception {
+        mockMvc.perform(
+                        post("/api/auth/logout")
+                                .contentType(APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "refreshToken": "refresh-token"
+                                        }
+                                        """)
+                )
+                .andExpect(status().isNoContent());
+    }
+
+
     private String issueAccessToken() {
         Instant issuedAt = Instant.now();
 

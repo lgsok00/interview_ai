@@ -75,6 +75,16 @@ public class RefreshTokenService {
     }
 
 
+    @Transactional
+    public void revoke(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return;
+        }
+
+        refreshTokenRepository.deleteByTokenHash(hash(rawToken));
+    }
+
+
     private String generateToken() {
         byte[] randomBytes = new byte[TOKEN_BYTE_LENGTH];
         secureRandom.nextBytes(randomBytes);

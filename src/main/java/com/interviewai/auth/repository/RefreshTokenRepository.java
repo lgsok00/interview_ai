@@ -21,4 +21,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             WHERE refreshToken.tokenHash = :tokenHash
             """)
     Optional<RefreshToken> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
+
+    long deleteByTokenHash(String tokenHash);
 }

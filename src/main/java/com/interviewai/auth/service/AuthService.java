@@ -107,6 +107,12 @@ public class AuthService {
     }
 
 
+    @Transactional
+    public void logout(RefreshTokenRequest request) {
+        refreshTokenService.revoke(request.refreshToken());
+    }
+
+
     private boolean isEmailUniqueConstraintViolation(DataIntegrityViolationException exception) {
         Throwable cause = exception;
 

@@ -13,9 +13,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -250,6 +252,49 @@ class AuthControllerTest extends ControllerTestSupport {
                             .value("INVALID_REFRESH_TOKEN"))
                     .andExpect(jsonPath("$.message")
                             .value("Refresh Token이 올바르지 않거나 만료되었습니다."));
+        }
+    }
+
+
+    @Nested
+    class Logout {
+
+        @Test
+        @DisplayName("로그아웃에 성공하면 204와 빈 응답을 반환한다")
+        void returnsNoContentWhenLogoutSucceeds() throws Exception {
+            mockMvc.perform(
+                            post("/api/auth/logout")
+                                    .contentType(APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                              "refreshToken": "refresh-token"
+                                            }
+                                            """)
+                    )
+                    .andExpect(status().isNoContent())
+                    .andExpect(content().string(""));
+
+            verify(authService).logout(any());
+        }
+
+
+        @Test
+        @DisplayName("Refresh Token이 비어 있으면 로그아웃 요청에 400을 반환한다")
+        void returnsBadRequestForBlankRefreshToken() throws Exception {
+            mockMvc.perform(
+                            post("/api/auth/logout")
+                                    .contentType(APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                              "refreshToken": ""
+                                            }
+                                            """)
+                    )
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code")
+                            .value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.errors.refreshToken")
+                            .value("Refresh Token은 필수입니다."));
         }
     }
 }
