@@ -56,6 +56,11 @@
 - 그 외 요청은 인증 필요
 - Spring Security filter chain 테스트로 공개·보호 endpoint와 JWT 인증 동작 검증
 - 로그인 공개 matcher를 `/api/auth/login`으로 수정
+- Google OIDC의 `sub`를 provider 계정 식별자로 사용하는 사용자 조회·가입·로그인 service
+- 검증된 Google 이메일만 허용하고 이메일 정규화 및 기존 인증 방식과의 자동 계정 연결 차단
+- Google 인증 성공 시 기존 Access Token·Refresh Token 응답을 반환하는 success handler
+- OAuth2 인증 실패 원인을 일반화하고 민감 정보를 노출하지 않는 failure handler
+- OAuth2 인증 결과 응답의 브라우저 캐시 방지를 위한 `no-store`, `no-cache` header 적용
 
 ### 인증 API
 
@@ -222,6 +227,25 @@
 - JWT 사용자와 일치하는 사용자가 없을 때 HTTP 404와 `USER_NOT_FOUND` 반환
 - JWT subject가 잘못된 요청에 HTTP 401과 `INVALID_ACCESS_TOKEN` 반환
 
+`GoogleOAuth2LoginServiceTest`에 다음 8개 시나리오가 작성되어 있다.
+
+- 기존 Google 사용자의 provider와 provider id 기반 로그인
+- 신규 Google 사용자 생성과 이메일 정규화
+- Google 이름 누락 시 이메일 앞부분을 닉네임으로 사용
+- Google 이름을 DB 제한인 50자로 제한
+- 다른 인증 방식으로 가입된 이메일의 자동 연결 거부
+- 검증되지 않은 Google 이메일 거부
+- Google subject 누락 거부
+- Google 이메일 누락 거부
+
+`OAuth2AuthenticationSuccessHandlerTest`, `OAuth2AuthenticationFailureHandlerTest`에 다음 5개 시나리오가 작성되어 있다.
+
+- Google 인증 성공 시 Access Token·Refresh Token JSON 응답과 캐시 방지 header 반환
+- Google 이외 registration의 인증 성공 거부
+- 기존 인증 방식과 이메일 충돌 시 HTTP 409 반환 및 토큰 미노출
+- 잘못된 Google 사용자 정보에 HTTP 401 반환
+- OAuth2 인증 실패 시 내부 오류와 민감 정보를 제외한 일반화된 HTTP 401 응답 반환
+
 ### 최근 실행 검증
 
 2026-08-25 사용자 로컬 환경에서 다음 검증이 모두 성공했다.
@@ -303,6 +327,12 @@
 - 테스트 2개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - Testcontainers MySQL 8.4에서 만료 경계 시각 포함 삭제, 유효 토큰 보존 및 Batch 제한 반복 삭제를 검증함
 
+2026-08-28 사용자 Windows 로컬 환경에서 OAuth2 인증 handler 컴파일과 관련 테스트를 실행했다.
+
+- `.\gradlew.bat testClasses`: 성공 (`BUILD SUCCESSFUL in 8s`, `3 actionable tasks: 2 executed, 1 up-to-date`)
+- `.\gradlew.bat test --tests "com.interviewai.auth.handler.*"`: 성공 (`BUILD SUCCESSFUL in 4s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- OAuth2 성공·실패 handler의 토큰 JSON 응답, 오류 상태, 캐시 방지 header 및 민감 정보 미노출 시나리오를 검증함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
@@ -326,12 +356,15 @@
 - 개별 로그아웃은 Refresh Token 하나만 폐기하며, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 전체 세션 폐기는 요청 시점에 저장된 해당 사용자의 Refresh Token을 모두 삭제하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 동일 Refresh Token의 동시 회전에 대한 비관적 잠금 동작을 실제 MySQL에서 검증하는 동시성 통합 테스트는 아직 없다.
+- OAuth2 성공 handler는 현재 토큰 쌍을 JSON으로 반환한다. 운영 배포 전 Refresh Token 전달 방식을 Secure·HttpOnly cookie 또는 일회용 교환 코드로 변경할지 결정해야 한다.
+- Google OAuth2 authorization request의 `state` 저장을 위해 OAuth2 시작·callback 경로만 session을 허용하고 기존 API는 stateless로 유지하는 Security filter chain 분리가 필요하다.
+- Google 사용자의 동시 최초 로그인에서 이메일 또는 provider 계정 unique constraint가 충돌하는 상황은 후속 통합 테스트로 검증해야 한다.
 
 ## 다음 작업
 
-현재 진행 중인 작업은 없다.
+현재 OAuth2 Google 로그인 흐름을 구현 중이다.
 
-다음 작업은 OAuth2 Google 로그인 흐름이다. 기존 LOCAL 로그인 및 Refresh Token 발급 구조와 함께 사용할 OAuth2 사용자 식별·가입·로그인 흐름을 설계하고 정상·경계·실패 시나리오 테스트와 함께 구현한다.
+Google 사용자 식별·가입·로그인 service와 인증 성공·실패 handler 구현 및 관련 단위 테스트 검증을 완료했다. 다음 작업은 환경변수 기반 Google client registration 설정, OAuth2 경로와 stateless API의 Security filter chain 분리, 실제 authorization 시작·callback 흐름의 보안 테스트다.
 
 ## Git 기준점
 
@@ -341,6 +374,7 @@
 
 ## 변경 이력
 
+- 2026-08-28: Google OIDC `sub` 기반 사용자 조회·가입·로그인 service와 OAuth2 인증 성공·실패 handler를 확인함. 검증된 이메일만 허용하고 다른 인증 방식과의 자동 계정 연결을 차단했으며, 기존 JWT·Refresh Token 발급 구조를 재사용함. handler 테스트 컴파일과 관련 테스트 성공을 확인하고 다음 작업을 Google client 설정과 Security filter chain 연결로 변경함.
 - 2026-08-28: 만료 Refresh Token을 기본 1시간 주기로 1,000개씩 삭제하는 Scheduler와 MySQL Batch 삭제를 확인함. 동일 기준 시각 반복, 0건 멱등 처리, 실패 전파, 만료 경계 포함 삭제, 유효 토큰 보존 테스트를 확인하고 Testcontainers MySQL 8.4 통합 테스트 2개 성공을 검증함. 다중 인스턴스는 별도 분산 락 없이 원자적 삭제를 사용하도록 결정하고 다음 작업을 OAuth2 Google 로그인 흐름으로 변경함.
 - 2026-08-28: Bearer Access Token 인증이 필요한 `/api/auth/logout-all` endpoint와 사용자 id 기준 Refresh Token 일괄 삭제를 확인함. 토큰이 없는 사용자의 멱등 처리, 잘못된 JWT subject 거부, 비인증 접근 거부, 다른 사용자 토큰 보존을 포함한 단위·보안 테스트를 확인함. Testcontainers MySQL 8.4에서 전체 세션 폐기 통합 테스트 4개 성공을 검증하고 다음 작업을 만료 Refresh Token 정리로 변경함.
 - 2026-08-28: 인증 없이 호출 가능한 `/api/auth/logout` endpoint와 Refresh Token 해시 기반 개별 세션 폐기를 확인함. 존재하지 않는 토큰의 멱등 처리, 빈 토큰 검증, 비인증 접근을 포함한 관련 테스트를 확인함. Testcontainers MySQL 8.4에서 로그아웃 삭제와 폐기 토큰 재발급 거부 통합 테스트 3개를 검증하고, 통합 테스트 클래스 간 종료된 container datasource 재사용 문제를 `@DirtiesContext(AFTER_CLASS)`로 해결함. 전체 테스트 50개 성공을 확인하고 다음 작업을 사용자 전체 세션 폐기와 만료 Refresh Token 정리로 변경함.
