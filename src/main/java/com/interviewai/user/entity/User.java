@@ -72,6 +72,11 @@ public class User {
     }
 
 
+    public static User createGoogleUser(String email, String nickname, String providerId) {
+        return new User(email, null, nickname, AuthProvider.GOOGLE, providerId, UserRole.USER);
+    }
+
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();
@@ -114,5 +119,10 @@ public class User {
 
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+
+    public String getProviderId() {
+        return providerId;
     }
 }
