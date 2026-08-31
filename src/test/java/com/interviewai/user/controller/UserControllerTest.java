@@ -1,6 +1,8 @@
 package com.interviewai.user.controller;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
+import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
+import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.global.config.SecurityConfig;
 import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.enums.AuthProvider;
@@ -26,7 +28,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h",
-        "auth.jwt.refresh-token-expiration=14d"
+        "auth.jwt.refresh-token-expiration=14d",
+        "spring.security.oauth2.client.registration.google.client-id=test-google-client-id",
+        "spring.security.oauth2.client.registration.google.client-secret=test-google-client-secret",
+        "spring.security.oauth2.client.registration.google.scope[0]=openid",
+        "spring.security.oauth2.client.registration.google.scope[1]=profile",
+        "spring.security.oauth2.client.registration.google.scope[2]=email"
 })
 class UserControllerTest {
 
@@ -39,6 +46,12 @@ class UserControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
+
+    @MockitoBean
+    private OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
 
 
     @Test

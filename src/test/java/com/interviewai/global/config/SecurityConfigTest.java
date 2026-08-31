@@ -3,6 +3,8 @@ package com.interviewai.global.config;
 import com.interviewai.auth.controller.AuthController;
 import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.dto.SignupResponse;
+import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
+import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.AuthService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,11 +20,13 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -42,7 +46,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h",
-        "auth.jwt.refresh-token-expiration=14d"
+        "auth.jwt.refresh-token-expiration=14d",
+        "spring.security.oauth2.client.registration.google.client-id=test-google-client-id",
+        "spring.security.oauth2.client.registration.google.client-secret=test-google-client-secret",
+        "spring.security.oauth2.client.registration.google.scope[0]=openid",
+        "spring.security.oauth2.client.registration.google.scope[1]=profile",
+        "spring.security.oauth2.client.registration.google.scope[2]=email"
 })
 class SecurityConfigTest {
 
@@ -51,6 +60,12 @@ class SecurityConfigTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
+
+    @MockitoBean
+    private OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
 
 
     @Autowired
@@ -198,6 +213,48 @@ class SecurityConfigTest {
                 .andExpect(content().string(""));
 
         verify(authService).logoutAll("1");
+    }
+
+
+    @Test
+    @DisplayName("Google OAuth2 인증 시작 요청은 Google로 리다이렉트하고 세션을 생성한다")
+    void redirectsGoogleAuthorizationRequestAndCreatesSession() throws Exception {
+        MvcResult result = mockMvc.perform(get("/oauth2/authorization/google"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+
+        assertThat(result.getResponse().getRedirectedUrl())
+                .startsWith("https://accounts.google.com/o/oauth2/v2/auth?")
+                .contains("client_id=test-google-client-id")
+                .contains("redirect_uri=http://localhost/login/oauth2/code/google")
+                .contains("state=");
+        assertThat(result.getRequest().getSession(false)).isNotNull();
+    }
+
+
+    @Test
+    @DisplayName("Google OAuth2 callback 실패는 지정한 실패 handler로 전달한다")
+    void delegatesGoogleCallbackFailureToFailureHandler() throws Exception {
+        mockMvc.perform(
+                        get("/login/oauth2/code/google")
+                                .param("error", "access_denied")
+                                .param("error_description", "The user denied access")
+                )
+                .andExpect(status().isOk());
+
+        verify(oauth2AuthenticationFailureHandler)
+                .onAuthenticationFailure(any(), any(), any());
+    }
+
+
+    @Test
+    @DisplayName("일반 API의 stateless filter chain은 HTTP 세션을 생성하지 않는다")
+    void doesNotCreateSessionForStatelessApiRequest() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/security-test/protected"))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+
+        assertThat(result.getRequest().getSession(false)).isNull();
     }
 
 

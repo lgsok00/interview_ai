@@ -1,8 +1,11 @@
 package com.interviewai.global.config;
 
+import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
+import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -29,7 +32,35 @@ public class SecurityConfig {
 
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    public SecurityFilterChain oauth2SecurityFilterChain(
+            HttpSecurity http,
+            OAuth2AuthenticationSuccessHandler successHandler,
+            OAuth2AuthenticationFailureHandler failureHandler
+    ) {
+        return http
+                .securityMatcher(
+                        "/oauth2/authorization/**",
+                        "/login/oauth2/code/**"
+                )
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(successHandler)
+                        .failureHandler(failureHandler)
+                )
+                .build();
+    }
+
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session

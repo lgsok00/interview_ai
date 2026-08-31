@@ -5,5 +5,17 @@ spring:
       ddl-auto: validate
     show-sql: true
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-google-client-id
+            client-secret: test-google-client-secret
+            scope:
+              - openid
+              - profile
+              - email
+
   flyway:
     enabled: true
