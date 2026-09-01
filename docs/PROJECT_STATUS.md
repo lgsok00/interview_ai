@@ -19,6 +19,11 @@
 ### 실행 환경과 데이터베이스
 
 - Docker Compose 기반 MySQL 로컬 실행 환경
+- `prod` Spring profile 기반 운영 DB 접속 정보 환경변수 주입
+- 운영 환경의 SQL 출력 비활성화, graceful shutdown 및 proxy header 처리
+- 상세 정보를 노출하지 않는 Actuator liveness·readiness probe 설정
+- Java 21 기반 multi-stage `Dockerfile`과 non-root 애플리케이션 실행 사용자 구성 및 이미지 빌드 검증
+- 빌드 산출물, IDE 설정, `.env` 등을 이미지 context에서 제외하는 `.dockerignore`
 - 환경변수를 통한 DB 이름, 사용자, 비밀번호, 포트 설정
 - Actuator의 `health`, `info` endpoint 노출
 - Flyway `V1__create_users.sql`, `V2__create_refresh_tokens.sql` migration
@@ -282,6 +287,13 @@
 - GitHub 인증 성공 시 검증된 이메일과 principal을 전달하고 토큰 JSON 응답 반환
 - 잘못된 GitHub 사용자 정보에 HTTP 401 반환
 
+`ProductionConfigurationTest`에 다음 4개 시나리오가 작성되어 있다.
+
+- `prod` profile의 운영 DB·JWT·Google/GitHub OAuth2 외부 설정 주입
+- 운영 SQL 출력 비활성화, proxy header 처리 및 graceful shutdown 설정
+- 상세 정보 비노출과 liveness·readiness probe 활성화
+- 필수 운영 DB 비밀번호 누락 시 설정 해석 실패
+
 ### 최근 실행 검증
 
 2026-08-25 사용자 로컬 환경에서 다음 검증이 모두 성공했다.
@@ -389,6 +401,20 @@
 - 전체 테스트 리포트: 98개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - GitHub provider id 기반 로그인, 검증 이메일 선택, 닉네임 대체, 기존 인증 방식과의 이메일 충돌 차단, 토큰 응답, OAuth2 redirect·callback과 기존 보안 테스트의 회귀 없음을 검증함
 
+2026-09-01 사용자 Windows 로컬 환경에서 운영 profile 설정 테스트와 전체 테스트를 실행했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.global.config.ProductionConfigurationTest"`: 성공 (`BUILD SUCCESSFUL in 6s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+- `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 41s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 102개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- 운영 DB·인증 secret 주입, SQL 출력 비활성화, proxy header, graceful shutdown, health probe 및 필수 DB 비밀번호 누락 실패를 검증함
+
+2026-09-01 사용자 Windows 로컬 환경에서 애플리케이션 컨테이너 이미지를 빌드했다.
+
+- `docker build -t interview-ai-backend:local .`: 성공 (`22/22 FINISHED in 75.4s`)
+- Java 21 JDK builder에서 Gradle Wrapper의 dependency 해석과 `bootJar` 생성을 확인함
+- Java 21 JRE runtime 이미지에서 UID 10001의 non-root `appuser` 생성과 애플리케이션 JAR 복사를 확인함
+- 로컬 이미지 `interview-ai-backend:local` 생성을 확인함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
@@ -421,18 +447,20 @@
 
 ## 다음 작업
 
-OAuth2 Google 및 GitHub 로그인 흐름의 구현과 자동 테스트를 완료했다.
+운영 `prod` profile, DB·JWT·OAuth2 secret 주입, proxy header, graceful shutdown, health probe 설정과 자동 테스트를 완료했다. Java 21 multi-stage `Dockerfile`과 `.dockerignore`를 구현하고 `interview-ai-backend:local` 이미지 빌드까지 검증했다.
 
-다음 작업은 운영 환경별 설정 및 배포 구성이다. 환경별 Spring profile, 운영 DB·JWT·OAuth2 secret 주입, HTTPS와 proxy header 처리, OAuth2 callback URL, 컨테이너 이미지 및 배포 환경의 health check·로그·스케줄러 실행 정책을 설계하고 구현한다.
+다음 작업은 운영 profile로 애플리케이션 컨테이너와 MySQL을 연결해 non-root 실행 여부와 `/actuator/health/liveness`, `/actuator/health/readiness` 응답을 확인하는 것이다. 이어서 reverse proxy 환경에서 OAuth2 callback URL의 HTTPS proxy header 반영을 확인하고, 배포 환경의 로그 수집과 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책을 확정한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
 - 기준 커밋: `2c9dcc6 feat: Google OAuth2 로그인 보안 흐름 연결`
 - GitHub OAuth2 로그인 구현과 테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 운영 profile, 컨테이너 이미지 구성, 운영 설정 테스트 및 이 문서 변경도 아직 커밋되지 않은 작업 트리 변경사항이다.
 
 ## 변경 이력
 
+- 2026-09-01: 운영 `prod` profile에 DB·인증 secret 환경변수 주입, SQL 출력 비활성화, proxy header, graceful shutdown 및 health probe 설정을 추가함. 운영 설정 테스트 4개 및 전체 테스트 102개 성공을 확인하고, Java 21 multi-stage 컨테이너 이미지와 non-root 실행 구성을 작성해 `interview-ai-backend:local` 이미지 빌드를 검증함. 실제 컨테이너 실행과 health check 검증은 후속 작업으로 남김.
 - 2026-09-01: GitHub `id` 기반 사용자 가입·로그인, `/user/emails`의 검증 이메일 선택, 이메일 충돌 차단, JWT·Refresh Token 발급과 OAuth2 성공 handler 분기를 확인함. GitHub client registration, redirect·callback 보안 흐름 및 정상·경계·실패 테스트를 추가했으며 Windows 로컬 환경에서 전체 테스트 98개 성공을 확인하고 다음 작업을 운영 환경별 설정 및 배포 구성으로 변경함.
 - 2026-09-01: 환경변수 기반 Google OAuth2 client registration을 추가하고 OAuth2 시작·callback 경로에만 session을 허용하도록 Security filter chain을 분리함. Google 인증 redirect와 `state` 저장 session, callback 실패 handler 연결, 일반 API의 stateless 동작을 검증했으며 전체 테스트 80개 성공을 확인하고 다음 작업을 OAuth2 GitHub 로그인 흐름으로 변경함.
 - 2026-08-28: Google OIDC `sub` 기반 사용자 조회·가입·로그인 service와 OAuth2 인증 성공·실패 handler를 확인함. 검증된 이메일만 허용하고 다른 인증 방식과의 자동 계정 연결을 차단했으며, 기존 JWT·Refresh Token 발급 구조를 재사용함. handler 테스트 컴파일과 관련 테스트 성공을 확인하고 다음 작업을 Google client 설정과 Security filter chain 연결로 변경함.
