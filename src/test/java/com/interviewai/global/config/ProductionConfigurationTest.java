@@ -71,6 +71,32 @@ class ProductionConfigurationTest {
     }
 
     @Test
+    @DisplayName("prod 프로필은 ECS JSON 로그를 표준 출력으로만 기록한다")
+    void loadsProductionStructuredConsoleLoggingSettings() {
+        contextRunner.run(context -> {
+            ConfigurableEnvironment environment = context.getEnvironment();
+
+            assertThat(environment.getProperty("logging.structured.format.console"))
+                    .isEqualTo("ecs");
+            assertThat(environment.getProperty(
+                    "logging.structured.ecs.service.environment"
+            )).isEqualTo("production");
+            assertThat(environment.getProperty("logging.file.name")).isNull();
+            assertThat(environment.getProperty("logging.file.path")).isNull();
+        });
+    }
+
+    @Test
+    @DisplayName("prod 프로필은 배포 환경명을 외부 설정으로 변경할 수 있다")
+    void overridesProductionLoggingEnvironment() {
+        contextRunner
+                .withPropertyValues("DEPLOYMENT_ENVIRONMENT=staging")
+                .run(context -> assertThat(context.getEnvironment().getProperty(
+                        "logging.structured.ecs.service.environment"
+                )).isEqualTo("staging"));
+    }
+
+    @Test
     @DisplayName("prod 프로필은 상세 정보 없이 liveness와 readiness probe를 노출한다")
     void loadsProductionHealthProbeSettings() {
         contextRunner.run(context -> {

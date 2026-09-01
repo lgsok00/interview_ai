@@ -21,6 +21,9 @@
 - Docker Compose 기반 MySQL 로컬 실행 환경
 - `prod` Spring profile 기반 운영 DB 접속 정보 환경변수 주입
 - 운영 환경의 SQL 출력 비활성화, graceful shutdown 및 proxy header 처리
+- reverse proxy의 forwarded proto·host·port를 반영한 Google·GitHub HTTPS OAuth2 callback URL 생성 검증
+- 운영 profile의 ECS JSON 표준 출력 로그와 배포 환경명 환경변수 주입
+- 컨테이너 로그의 서비스명·환경명 포함 및 JWT·OAuth2·DB secret 문자열 비노출 검증
 - 상세 정보를 노출하지 않는 Actuator liveness·readiness probe 설정
 - Java 21 기반 multi-stage `Dockerfile`과 non-root 애플리케이션 실행 사용자 구성 및 이미지 빌드 검증
 - 빌드 산출물, IDE 설정, `.env` 등을 이미지 context에서 제외하는 `.dockerignore`
@@ -291,12 +294,14 @@
 - GitHub 인증 성공 시 검증된 이메일과 principal을 전달하고 토큰 JSON 응답 반환
 - 잘못된 GitHub 사용자 정보에 HTTP 401 반환
 
-`ProductionConfigurationTest`에 다음 4개 시나리오가 작성되어 있다.
+`ProductionConfigurationTest`에 다음 6개 시나리오가 작성되어 있다.
 
 - `prod` profile의 운영 DB·JWT·Google/GitHub OAuth2 외부 설정 주입
 - 운영 SQL 출력 비활성화, proxy header 처리 및 graceful shutdown 설정
 - 상세 정보 비노출과 liveness·readiness probe 활성화
 - 필수 운영 DB 비밀번호 누락 시 설정 해석 실패
+- ECS JSON 형식의 표준 출력 로그와 기본 `production` 환경명 및 파일 로그 미설정
+- `DEPLOYMENT_ENVIRONMENT`를 통한 로그 환경명 override
 
 ### 최근 실행 검증
 
@@ -429,6 +434,24 @@
 - `/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`: 모두 HTTP 200과 `UP` 응답 확인
 - `/actuator/info`: 비인증 요청에 HTTP 401 응답을 확인해 Health 이외 Actuator endpoint 보호를 검증함
 
+2026-09-01 Codex 환경에서 reverse proxy header를 적용한 OAuth2 callback URL을 실제 운영 profile 컨테이너로 검증했다.
+
+- `interview-ai-backend:local` 이미지를 `prod` profile, non-root `appuser`, MySQL Compose network로 실행함
+- `X-Forwarded-Proto: https`, `X-Forwarded-Host: api.example.com`, `X-Forwarded-Port: 443`을 전달함
+- Google OAuth2 redirect의 callback URL이 `https://api.example.com/login/oauth2/code/google`로 생성되는 것을 확인함
+- GitHub OAuth2 redirect의 callback URL이 `https://api.example.com/login/oauth2/code/github`로 생성되는 것을 확인함
+- 두 OAuth2 응답에서 HTTP 302, `Secure; HttpOnly` session cookie, HSTS header를 확인함
+
+2026-09-01 사용자 Windows 로컬 환경과 Codex 환경에서 운영 ECS structured logging을 검증했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.global.config.ProductionConfigurationTest"`: 성공 (`BUILD SUCCESSFUL in 4s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+- `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 58s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 108개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- `docker build -t interview-ai-backend:local .`: 성공 (`22/22 FINISHED in 23.3s`)
+- `DEPLOYMENT_ENVIRONMENT=verification`으로 실행한 운영 profile 컨테이너의 stdout 로그 28행이 모두 JSON으로 파싱되고 ECS version, `interview-ai-backend` 서비스명, `verification` 환경명을 포함하는 것을 확인함
+- 검증용 JWT secret, Google·GitHub client secret 및 `.env`의 DB 비밀번호 문자열이 stdout 로그에 포함되지 않는 것을 확인함
+- 컨테이너는 non-root `appuser`로 실행됐으며 readiness endpoint는 HTTP 200을 반환함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
@@ -463,16 +486,20 @@
 
 운영 `prod` profile, DB·JWT·OAuth2 secret 주입, proxy header, graceful shutdown, health probe 설정과 자동 테스트를 완료했다. Java 21 multi-stage `Dockerfile`과 `.dockerignore`를 구현하고 `interview-ai-backend:local` 이미지 빌드, non-root 실행, MySQL 연결 및 실제 health probe 응답까지 검증했다.
 
-다음 작업은 reverse proxy 환경에서 `X-Forwarded-Proto`와 `X-Forwarded-Host`를 반영해 Google·GitHub OAuth2 callback URL이 외부 HTTPS 주소로 생성되는지 검증하는 것이다. 이후 배포 환경의 로그 수집과 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책을 확정한다.
+reverse proxy 환경의 OAuth2 HTTPS callback과 운영 ECS JSON 표준 출력 로그를 실제 운영 profile 컨테이너에서 검증했다. 로그 전 행에 서비스명과 배포 환경명이 포함되고, 검증 대상 JWT·OAuth2·DB secret 문자열은 포함되지 않는 것을 확인했다.
+
+다음 작업은 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책과 인스턴스별 활성화 방법을 확정하는 것이다. 이후 대상 배포 환경을 선정하고 secret 주입, health check, 로그 수집을 포함한 실제 배포 구성을 작성한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `0a63983 feat: 운영 프로필과 컨테이너 실행 구성 추가`
-- Health probe 공개 matcher, 보안 테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 기준 커밋: `57b9e92 fix: 운영 health probe 비인증 접근 허용`
+- reverse proxy OAuth2 callback 운영 검증, ECS structured logging 설정·테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
 
 ## 변경 이력
 
+- 2026-09-01: 운영 profile의 표준 출력 로그를 ECS JSON으로 구성하고 `DEPLOYMENT_ENVIRONMENT` 환경명 주입을 추가함. 설정 테스트와 전체 테스트 108개, 이미지 재빌드 성공을 확인했으며 실제 컨테이너 stdout 28행 전체의 JSON·ECS 형식, 서비스명·환경명 포함, 검증 대상 JWT·OAuth2·DB secret 문자열 비노출을 확인함. 다음 작업을 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책으로 변경함.
+- 2026-09-01: 실제 운영 profile 컨테이너에 reverse proxy의 HTTPS proto·host·port header를 전달해 Google·GitHub OAuth2 callback URL이 외부 HTTPS 주소로 생성되는 것을 확인함. HTTP 302와 Secure·HttpOnly session cookie 및 HSTS header를 검증하고 다음 작업을 운영 로그 수집과 민감정보 제외 정책으로 변경함.
 - 2026-09-01: Health root만 공개되어 liveness·readiness probe가 HTTP 401을 반환하는 문제를 확인하고 `/actuator/health/**`를 공개 matcher에 추가함. 보안 테스트와 전체 테스트 106개 성공, 이미지 재빌드, non-root 운영 profile 컨테이너 실행, MySQL·Flyway 연결을 확인했으며 Health 3개 경로의 HTTP 200·`UP`과 `/actuator/info`의 HTTP 401을 실제 컨테이너에서 검증함.
 - 2026-09-01: 운영 `prod` profile에 DB·인증 secret 환경변수 주입, SQL 출력 비활성화, proxy header, graceful shutdown 및 health probe 설정을 추가함. 운영 설정 테스트 4개 및 전체 테스트 102개 성공을 확인하고, Java 21 multi-stage 컨테이너 이미지와 non-root 실행 구성을 작성해 `interview-ai-backend:local` 이미지 빌드를 검증함. 실제 컨테이너 실행과 health check 검증은 후속 작업으로 남김.
 - 2026-09-01: GitHub `id` 기반 사용자 가입·로그인, `/user/emails`의 검증 이메일 선택, 이메일 충돌 차단, JWT·Refresh Token 발급과 OAuth2 성공 handler 분기를 확인함. GitHub client registration, redirect·callback 보안 흐름 및 정상·경계·실패 테스트를 추가했으며 Windows 로컬 환경에서 전체 테스트 98개 성공을 확인하고 다음 작업을 운영 환경별 설정 및 배포 구성으로 변경함.

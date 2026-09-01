@@ -33,6 +33,13 @@ management:
       enabled: true
 
 logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        environment: ${DEPLOYMENT_ENVIRONMENT:production}
+
   level:
     root: INFO
     org.hibernate.SQL: WARN
