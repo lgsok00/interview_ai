@@ -9,6 +9,8 @@ import com.interviewai.auth.service.AuthService;
 import com.interviewai.auth.service.GithubOAuth2UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -197,6 +199,29 @@ class SecurityConfigTest {
                                         """)
                 )
                 .andExpect(status().isNoContent());
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/actuator/health",
+            "/actuator/health/liveness",
+            "/actuator/health/readiness"
+    })
+    @DisplayName("Health endpoint와 probe는 인증 없이 보안 필터를 통과한다")
+    void allowsHealthEndpointsWithoutAuthentication(String endpoint) throws Exception {
+        MvcResult result = mockMvc.perform(get(endpoint))
+                .andReturn();
+
+        assertThat(result.getResponse().getStatus()).isNotEqualTo(401);
+    }
+
+
+    @Test
+    @DisplayName("Health 이외의 Actuator endpoint는 인증 없이 접근할 수 없다")
+    void rejectsOtherActuatorEndpointsWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isUnauthorized());
     }
 
 

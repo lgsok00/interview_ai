@@ -208,7 +208,7 @@
 
 공통 인증 fixture인 `AuthFixtures`와 standalone MockMvc 설정을 제공하는 `ControllerTestSupport`가 작성되어 있다.
 
-`SecurityConfigTest`에 다음 13개 시나리오가 작성되어 있다.
+`SecurityConfigTest`에 다음 17개 시나리오가 작성되어 있다.
 
 - 회원가입 endpoint의 비인증 접근 허용
 - 로그인 endpoint의 비인증 접근 허용
@@ -223,6 +223,10 @@
 - GitHub OAuth2 인증 시작 요청의 GitHub redirect와 HTTP session 생성
 - GitHub OAuth2 callback 실패의 지정된 failure handler 전달
 - 일반 API 요청에서 HTTP session을 생성하지 않는 stateless 동작
+- Health root endpoint의 비인증 접근 허용
+- liveness probe의 비인증 접근 허용
+- readiness probe의 비인증 접근 허용
+- Health 이외 Actuator endpoint의 비인증 접근 차단
 
 `UserRepositoryIntegrationTest`에 다음 3개 시나리오가 작성되어 있다.
 
@@ -415,6 +419,16 @@
 - Java 21 JRE runtime 이미지에서 UID 10001의 non-root `appuser` 생성과 애플리케이션 JAR 복사를 확인함
 - 로컬 이미지 `interview-ai-backend:local` 생성을 확인함
 
+2026-09-01 사용자 Windows 로컬 환경에서 health probe 보안 수정과 실제 운영 profile 컨테이너를 검증했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.global.config.SecurityConfigTest"`: 성공 (`BUILD SUCCESSFUL in 10s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+- `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 50s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 106개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- `docker build -t interview-ai-backend:local .`: 성공 (`22/22 FINISHED in 22.1s`)
+- 컨테이너에서 `prod` profile과 non-root `appuser` 실행, MySQL 8.4 연결, Flyway V1·V2 검증 및 애플리케이션 시작을 확인함
+- `/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`: 모두 HTTP 200과 `UP` 응답 확인
+- `/actuator/info`: 비인증 요청에 HTTP 401 응답을 확인해 Health 이외 Actuator endpoint 보호를 검증함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
@@ -447,19 +461,19 @@
 
 ## 다음 작업
 
-운영 `prod` profile, DB·JWT·OAuth2 secret 주입, proxy header, graceful shutdown, health probe 설정과 자동 테스트를 완료했다. Java 21 multi-stage `Dockerfile`과 `.dockerignore`를 구현하고 `interview-ai-backend:local` 이미지 빌드까지 검증했다.
+운영 `prod` profile, DB·JWT·OAuth2 secret 주입, proxy header, graceful shutdown, health probe 설정과 자동 테스트를 완료했다. Java 21 multi-stage `Dockerfile`과 `.dockerignore`를 구현하고 `interview-ai-backend:local` 이미지 빌드, non-root 실행, MySQL 연결 및 실제 health probe 응답까지 검증했다.
 
-다음 작업은 운영 profile로 애플리케이션 컨테이너와 MySQL을 연결해 non-root 실행 여부와 `/actuator/health/liveness`, `/actuator/health/readiness` 응답을 확인하는 것이다. 이어서 reverse proxy 환경에서 OAuth2 callback URL의 HTTPS proxy header 반영을 확인하고, 배포 환경의 로그 수집과 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책을 확정한다.
+다음 작업은 reverse proxy 환경에서 `X-Forwarded-Proto`와 `X-Forwarded-Host`를 반영해 Google·GitHub OAuth2 callback URL이 외부 HTTPS 주소로 생성되는지 검증하는 것이다. 이후 배포 환경의 로그 수집과 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책을 확정한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `2c9dcc6 feat: Google OAuth2 로그인 보안 흐름 연결`
-- GitHub OAuth2 로그인 구현과 테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
-- 운영 profile, 컨테이너 이미지 구성, 운영 설정 테스트 및 이 문서 변경도 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 기준 커밋: `0a63983 feat: 운영 프로필과 컨테이너 실행 구성 추가`
+- Health probe 공개 matcher, 보안 테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
 
 ## 변경 이력
 
+- 2026-09-01: Health root만 공개되어 liveness·readiness probe가 HTTP 401을 반환하는 문제를 확인하고 `/actuator/health/**`를 공개 matcher에 추가함. 보안 테스트와 전체 테스트 106개 성공, 이미지 재빌드, non-root 운영 profile 컨테이너 실행, MySQL·Flyway 연결을 확인했으며 Health 3개 경로의 HTTP 200·`UP`과 `/actuator/info`의 HTTP 401을 실제 컨테이너에서 검증함.
 - 2026-09-01: 운영 `prod` profile에 DB·인증 secret 환경변수 주입, SQL 출력 비활성화, proxy header, graceful shutdown 및 health probe 설정을 추가함. 운영 설정 테스트 4개 및 전체 테스트 102개 성공을 확인하고, Java 21 multi-stage 컨테이너 이미지와 non-root 실행 구성을 작성해 `interview-ai-backend:local` 이미지 빌드를 검증함. 실제 컨테이너 실행과 health check 검증은 후속 작업으로 남김.
 - 2026-09-01: GitHub `id` 기반 사용자 가입·로그인, `/user/emails`의 검증 이메일 선택, 이메일 충돌 차단, JWT·Refresh Token 발급과 OAuth2 성공 handler 분기를 확인함. GitHub client registration, redirect·callback 보안 흐름 및 정상·경계·실패 테스트를 추가했으며 Windows 로컬 환경에서 전체 테스트 98개 성공을 확인하고 다음 작업을 운영 환경별 설정 및 배포 구성으로 변경함.
 - 2026-09-01: 환경변수 기반 Google OAuth2 client registration을 추가하고 OAuth2 시작·callback 경로에만 session을 허용하도록 Security filter chain을 분리함. Google 인증 redirect와 `state` 저장 session, callback 실패 handler 연결, 일반 API의 stateless 동작을 검증했으며 전체 테스트 80개 성공을 확인하고 다음 작업을 OAuth2 GitHub 로그인 흐름으로 변경함.
