@@ -2,6 +2,7 @@ package com.interviewai.global.config;
 
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
+import com.interviewai.auth.service.GithubOAuth2UserService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,7 +37,8 @@ public class SecurityConfig {
     public SecurityFilterChain oauth2SecurityFilterChain(
             HttpSecurity http,
             OAuth2AuthenticationSuccessHandler successHandler,
-            OAuth2AuthenticationFailureHandler failureHandler
+            OAuth2AuthenticationFailureHandler failureHandler,
+            GithubOAuth2UserService githubOAuth2UserService
     ) {
         return http
                 .securityMatcher(
@@ -51,6 +53,9 @@ public class SecurityConfig {
                         .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(githubOAuth2UserService)
+                        )
                         .successHandler(successHandler)
                         .failureHandler(failureHandler)
                 )

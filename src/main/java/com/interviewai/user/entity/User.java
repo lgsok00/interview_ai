@@ -3,10 +3,12 @@ package com.interviewai.user.entity;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Getter
 @Table(
         name = "users",
         uniqueConstraints = {
@@ -77,6 +79,11 @@ public class User {
     }
 
 
+    public static User createGithubUser(String email, String nickname, String providerId) {
+        return new User(email, null, nickname, AuthProvider.GITHUB, providerId, UserRole.USER);
+    }
+
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();
@@ -89,40 +96,5 @@ public class User {
     @PreUpdate
     private void preUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-
-    public Long getId() {
-        return id;
-    }
-
-
-    public String getEmail() {
-        return email;
-    }
-
-
-    public String getNickname() {
-        return nickname;
-    }
-
-
-    public AuthProvider getProvider() {
-        return provider;
-    }
-
-
-    public UserRole getRole() {
-        return role;
-    }
-
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-
-    public String getProviderId() {
-        return providerId;
     }
 }

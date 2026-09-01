@@ -25,6 +25,13 @@ spring:
               - profile
               - email
 
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope:
+              - read:user
+              - user:email
+
   flyway:
     enabled: true
 

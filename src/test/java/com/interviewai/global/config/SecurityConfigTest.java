@@ -6,6 +6,7 @@ import com.interviewai.auth.dto.SignupResponse;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.AuthService;
+import com.interviewai.auth.service.GithubOAuth2UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +52,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.google.client-secret=test-google-client-secret",
         "spring.security.oauth2.client.registration.google.scope[0]=openid",
         "spring.security.oauth2.client.registration.google.scope[1]=profile",
-        "spring.security.oauth2.client.registration.google.scope[2]=email"
+        "spring.security.oauth2.client.registration.google.scope[2]=email",
+        "spring.security.oauth2.client.registration.github.client-id=test-github-client-id",
+        "spring.security.oauth2.client.registration.github.client-secret=test-github-client-secret",
+        "spring.security.oauth2.client.registration.github.scope[0]=read:user",
+        "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class SecurityConfigTest {
 
@@ -66,6 +71,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
+
+    @MockitoBean
+    private GithubOAuth2UserService githubOAuth2UserService;
 
 
     @Autowired
@@ -237,6 +245,38 @@ class SecurityConfigTest {
     void delegatesGoogleCallbackFailureToFailureHandler() throws Exception {
         mockMvc.perform(
                         get("/login/oauth2/code/google")
+                                .param("error", "access_denied")
+                                .param("error_description", "The user denied access")
+                )
+                .andExpect(status().isOk());
+
+        verify(oauth2AuthenticationFailureHandler)
+                .onAuthenticationFailure(any(), any(), any());
+    }
+
+
+    @Test
+    @DisplayName("GitHub OAuth2 인증 시작 요청은 GitHub로 리다이렉트하고 세션을 생성한다")
+    void redirectsGithubAuthorizationRequestAndCreatesSession() throws Exception {
+        MvcResult result = mockMvc.perform(get("/oauth2/authorization/github"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+
+        assertThat(result.getResponse().getRedirectedUrl())
+                .startsWith("https://github.com/login/oauth/authorize?")
+                .contains("client_id=test-github-client-id")
+                .contains("redirect_uri=http://localhost/login/oauth2/code/github")
+                .contains("scope=read:user%20user:email")
+                .contains("state=");
+        assertThat(result.getRequest().getSession(false)).isNotNull();
+    }
+
+
+    @Test
+    @DisplayName("GitHub OAuth2 callback 실패는 지정한 실패 handler로 전달한다")
+    void delegatesGithubCallbackFailureToFailureHandler() throws Exception {
+        mockMvc.perform(
+                        get("/login/oauth2/code/github")
                                 .param("error", "access_denied")
                                 .param("error_description", "The user denied access")
                 )

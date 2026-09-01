@@ -3,6 +3,7 @@ package com.interviewai.user.controller;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
+import com.interviewai.auth.service.GithubOAuth2UserService;
 import com.interviewai.global.config.SecurityConfig;
 import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.enums.AuthProvider;
@@ -33,7 +34,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.google.client-secret=test-google-client-secret",
         "spring.security.oauth2.client.registration.google.scope[0]=openid",
         "spring.security.oauth2.client.registration.google.scope[1]=profile",
-        "spring.security.oauth2.client.registration.google.scope[2]=email"
+        "spring.security.oauth2.client.registration.google.scope[2]=email",
+        "spring.security.oauth2.client.registration.github.client-id=test-github-client-id",
+        "spring.security.oauth2.client.registration.github.client-secret=test-github-client-secret",
+        "spring.security.oauth2.client.registration.github.scope[0]=read:user",
+        "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class UserControllerTest {
 
@@ -52,6 +57,9 @@ class UserControllerTest {
 
     @MockitoBean
     private OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
+
+    @MockitoBean
+    private GithubOAuth2UserService githubOAuth2UserService;
 
 
     @Test

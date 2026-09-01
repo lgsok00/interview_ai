@@ -3,6 +3,7 @@ package com.interviewai.auth.handler;
 import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
+import com.interviewai.auth.service.GithubOAuth2LoginService;
 import com.interviewai.auth.service.GoogleOAuth2LoginService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,8 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
@@ -35,6 +38,9 @@ class OAuth2AuthenticationSuccessHandlerTest {
     @Mock
     private GoogleOAuth2LoginService googleOAuth2LoginService;
 
+    @Mock
+    private GithubOAuth2LoginService githubOAuth2LoginService;
+
     private ObjectMapper objectMapper;
     private OAuth2AuthenticationSuccessHandler successHandler;
     private MockHttpServletRequest request;
@@ -46,6 +52,7 @@ class OAuth2AuthenticationSuccessHandlerTest {
         objectMapper = new ObjectMapper();
         successHandler = new OAuth2AuthenticationSuccessHandler(
                 googleOAuth2LoginService,
+                githubOAuth2LoginService,
                 objectMapper
         );
         request = new MockHttpServletRequest();
@@ -81,15 +88,57 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
 
     @Test
-    @DisplayName("Google 이외 registration의 인증 성공은 거부한다")
+    @DisplayName("지원하지 않는 registration의 인증 성공은 거부한다")
     void rejectsAuthenticationFromUnsupportedRegistration() throws Exception {
-        OAuth2AuthenticationToken authentication = authentication("github");
+        OAuth2AuthenticationToken authentication = authentication("naver");
 
         successHandler.onAuthenticationSuccess(request, response, authentication);
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getContentAsString()).contains("INVALID_OAUTH2_USER");
+        verifyNoInteractions(googleOAuth2LoginService, githubOAuth2LoginService);
+    }
+
+
+    @Test
+    @DisplayName("GitHub 인증 성공 시 검증된 이메일과 principal을 서비스에 전달한다")
+    void returnsTokenResponseForGithubAuthentication() throws Exception {
+        OAuth2AuthenticationToken authentication = githubAuthentication();
+        OAuth2User oauth2User = authentication.getPrincipal();
+        LoginResponse loginResponse = LoginResponse.bearer(
+                "github-access-token",
+                "github-refresh-token",
+                3600,
+                1209600
+        );
+        when(githubOAuth2LoginService.login(oauth2User, "user@example.com"))
+                .thenReturn(loginResponse);
+
+        successHandler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader(CACHE_CONTROL)).isEqualTo("no-store");
+        assertThat(response.getHeader(PRAGMA)).isEqualTo("no-cache");
+        assertThat(response.getContentAsString()).isEqualTo(
+                objectMapper.writeValueAsString(loginResponse)
+        );
+        verify(githubOAuth2LoginService).login(oauth2User, "user@example.com");
         verifyNoInteractions(googleOAuth2LoginService);
+    }
+
+
+    @Test
+    @DisplayName("GitHub 사용자 정보가 유효하지 않으면 401 오류를 반환한다")
+    void returnsUnauthorizedForInvalidGithubUser() throws Exception {
+        OAuth2AuthenticationToken authentication = githubAuthentication();
+        OAuth2User oauth2User = authentication.getPrincipal();
+        when(githubOAuth2LoginService.login(oauth2User, "user@example.com"))
+                .thenThrow(new InvalidOAuth2UserException());
+
+        successHandler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("INVALID_OAUTH2_USER");
     }
 
 
@@ -128,6 +177,25 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
     private OAuth2AuthenticationToken googleAuthentication() {
         return authentication("google");
+    }
+
+
+    private OAuth2AuthenticationToken githubAuthentication() {
+        OAuth2User oauth2User = new DefaultOAuth2User(
+                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                Map.of(
+                        "id", 12345678L,
+                        "login", "github-user",
+                        "verified_email", "user@example.com"
+                ),
+                "id"
+        );
+
+        return new OAuth2AuthenticationToken(
+                oauth2User,
+                oauth2User.getAuthorities(),
+                "github"
+        );
     }
 
 

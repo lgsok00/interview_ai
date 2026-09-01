@@ -58,10 +58,17 @@
 - 로그인 공개 matcher를 `/api/auth/login`으로 수정
 - Google OIDC의 `sub`를 provider 계정 식별자로 사용하는 사용자 조회·가입·로그인 service
 - 검증된 Google 이메일만 허용하고 이메일 정규화 및 기존 인증 방식과의 자동 계정 연결 차단
+- GitHub의 `id`를 provider 계정 식별자로 사용하는 사용자 조회·가입·로그인 service
+- GitHub `/user/emails` API에서 검증된 기본 이메일을 우선 선택하고, 기본 이메일이 없으면 첫 번째 검증 이메일 사용
+- 검증된 GitHub 이메일이 없거나 GitHub 사용자 id가 누락된 인증 거부
+- GitHub 사용자 이름, login, 이메일 앞부분 순서의 닉네임 대체와 DB 제한인 50자 적용
+- GitHub 이메일 정규화 및 기존 인증 방식과의 자동 계정 연결 차단
 - Google 인증 성공 시 기존 Access Token·Refresh Token 응답을 반환하는 success handler
+- GitHub 인증 성공 시 기존 Access Token·Refresh Token 응답을 반환하도록 success handler 분기
 - OAuth2 인증 실패 원인을 일반화하고 민감 정보를 노출하지 않는 failure handler
 - OAuth2 인증 결과 응답의 브라우저 캐시 방지를 위한 `no-store`, `no-cache` header 적용
 - 환경변수 기반 Google OAuth2 client registration과 `openid`, `profile`, `email` scope 설정
+- 환경변수 기반 GitHub OAuth2 client registration과 `read:user`, `user:email` scope 설정
 - OAuth2 시작·callback 경로는 `IF_REQUIRED` session을 사용하고 일반 API는 stateless를 유지하도록 Security filter chain 분리
 
 ### 인증 API
@@ -196,7 +203,7 @@
 
 공통 인증 fixture인 `AuthFixtures`와 standalone MockMvc 설정을 제공하는 `ControllerTestSupport`가 작성되어 있다.
 
-`SecurityConfigTest`에 다음 11개 시나리오가 작성되어 있다.
+`SecurityConfigTest`에 다음 13개 시나리오가 작성되어 있다.
 
 - 회원가입 endpoint의 비인증 접근 허용
 - 로그인 endpoint의 비인증 접근 허용
@@ -208,6 +215,8 @@
 - JWT 인증 사용자의 subject를 전체 세션 폐기 service에 전달
 - Google OAuth2 인증 시작 요청의 Google redirect와 HTTP session 생성
 - Google OAuth2 callback 실패의 지정된 failure handler 전달
+- GitHub OAuth2 인증 시작 요청의 GitHub redirect와 HTTP session 생성
+- GitHub OAuth2 callback 실패의 지정된 failure handler 전달
 - 일반 API 요청에서 HTTP session을 생성하지 않는 stateless 동작
 
 `UserRepositoryIntegrationTest`에 다음 3개 시나리오가 작성되어 있다.
@@ -243,13 +252,35 @@
 - Google subject 누락 거부
 - Google 이메일 누락 거부
 
-`OAuth2AuthenticationSuccessHandlerTest`, `OAuth2AuthenticationFailureHandlerTest`에 다음 5개 시나리오가 작성되어 있다.
+`GithubOAuth2LoginServiceTest`에 다음 9개 시나리오가 작성되어 있다.
+
+- 기존 GitHub 사용자의 provider와 provider id 기반 로그인
+- 신규 GitHub 사용자 생성과 검증 이메일 정규화
+- GitHub 이름 누락 시 login을 닉네임으로 사용
+- GitHub 이름과 login 누락 시 이메일 앞부분을 닉네임으로 사용
+- GitHub 닉네임을 DB 제한인 50자로 제한
+- 다른 인증 방식으로 가입된 이메일의 자동 연결 거부
+- GitHub 사용자 정보 누락 거부
+- GitHub provider id 누락 거부
+- 검증된 GitHub 이메일 누락 거부
+
+`GithubOAuth2UserServiceTest`에 다음 5개 시나리오가 작성되어 있다.
+
+- 검증된 기본 GitHub 이메일을 사용자 속성에 추가
+- 검증된 기본 이메일이 없을 때 첫 번째 검증 이메일 사용
+- 검증된 GitHub 이메일이 없을 때 인증 거부
+- GitHub provider id 누락 시 이메일 API를 호출하지 않고 인증 거부
+- GitHub 이외 registration의 기본 사용자 정보 위임
+
+`OAuth2AuthenticationSuccessHandlerTest`, `OAuth2AuthenticationFailureHandlerTest`에 다음 7개 시나리오가 작성되어 있다.
 
 - Google 인증 성공 시 Access Token·Refresh Token JSON 응답과 캐시 방지 header 반환
 - Google 이외 registration의 인증 성공 거부
 - 기존 인증 방식과 이메일 충돌 시 HTTP 409 반환 및 토큰 미노출
 - 잘못된 Google 사용자 정보에 HTTP 401 반환
 - OAuth2 인증 실패 시 내부 오류와 민감 정보를 제외한 일반화된 HTTP 401 응답 반환
+- GitHub 인증 성공 시 검증된 이메일과 principal을 전달하고 토큰 JSON 응답 반환
+- 잘못된 GitHub 사용자 정보에 HTTP 401 반환
 
 ### 최근 실행 검증
 
@@ -347,6 +378,17 @@
 - 전체 테스트 리포트: 80개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - Google 인증 endpoint redirect, client registration, OAuth2 `state` 저장을 위한 session 생성, callback 실패 handler 연결과 일반 API의 stateless 동작을 검증함
 
+2026-09-01 사용자 Windows 로컬 환경에서 GitHub OAuth2 로그인 관련 테스트와 전체 테스트를 실행했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.auth.service.GithubOAuth2UserServiceTest"`: 성공 (`BUILD SUCCESSFUL in 6s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
+- `.\gradlew.bat test --tests "com.interviewai.auth.service.GithubOAuth2LoginServiceTest" --tests "com.interviewai.auth.service.GithubOAuth2UserServiceTest" --tests "com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandlerTest" --tests "com.interviewai.global.config.SecurityConfigTest"`: 성공 (`BUILD SUCCESSFUL in 8s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- `.\gradlew.bat test --tests "com.interviewai.user.controller.UserControllerTest"`: 성공 (`BUILD SUCCESSFUL in 9s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
+- `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 52s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- `User` entity에 Lombok `@Getter`를 적용해 timestamp 필드와 반복 getter 경고를 정리한 뒤 `.\gradlew.bat testClasses`: 성공 (`BUILD SUCCESSFUL in 5s`, `3 actionable tasks: 2 executed, 1 up-to-date`)
+- getter 정리 후 최종 `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 52s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 98개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- GitHub provider id 기반 로그인, 검증 이메일 선택, 닉네임 대체, 기존 인증 방식과의 이메일 충돌 차단, 토큰 응답, OAuth2 redirect·callback과 기존 보안 테스트의 회귀 없음을 검증함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
@@ -372,22 +414,26 @@
 - 동일 Refresh Token의 동시 회전에 대한 비관적 잠금 동작을 실제 MySQL에서 검증하는 동시성 통합 테스트는 아직 없다.
 - OAuth2 성공 handler는 현재 토큰 쌍을 JSON으로 반환한다. 운영 배포 전 Refresh Token 전달 방식을 Secure·HttpOnly cookie 또는 일회용 교환 코드로 변경할지 결정해야 한다.
 - 로컬 및 운영 환경에서 Google 로그인을 사용하려면 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 환경변수와 Google Cloud Console의 승인된 redirect URI 설정이 필요하다.
+- 로컬 및 운영 환경에서 GitHub 로그인을 사용하려면 `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` 환경변수와 GitHub OAuth App의 callback URL 설정이 필요하다.
 - Google 사용자의 동시 최초 로그인에서 이메일 또는 provider 계정 unique constraint가 충돌하는 상황은 후속 통합 테스트로 검증해야 한다.
+- GitHub 사용자의 동시 최초 로그인에서 이메일 또는 provider 계정 unique constraint가 충돌하는 상황은 후속 통합 테스트로 검증해야 한다.
+- GitHub `/user/emails` API의 네트워크 오류와 비정상 응답은 현재 `RestClient` 예외로 전파되므로 운영 배포 전에 일반화된 OAuth2 인증 실패로 변환할지 검토해야 한다.
 
 ## 다음 작업
 
-OAuth2 Google 로그인 흐름의 구현과 자동 테스트를 완료했다.
+OAuth2 Google 및 GitHub 로그인 흐름의 구현과 자동 테스트를 완료했다.
 
-다음 작업은 OAuth2 GitHub 로그인 흐름이다. GitHub client registration, GitHub 사용자 식별·가입·로그인 service, 기존 인증 방식과의 이메일 충돌 정책, 성공·실패 handler 연결 및 OAuth2 경로 보안 테스트를 설계하고 구현한다.
+다음 작업은 운영 환경별 설정 및 배포 구성이다. 환경별 Spring profile, 운영 DB·JWT·OAuth2 secret 주입, HTTPS와 proxy header 처리, OAuth2 callback URL, 컨테이너 이미지 및 배포 환경의 health check·로그·스케줄러 실행 정책을 설계하고 구현한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `aa4c0f2 feat: OAuth2 인증 성공 및 실패 handler 구현`
-- 확인 당시 `main`과 `origin/main`은 같은 커밋을 가리켰다.
+- 기준 커밋: `2c9dcc6 feat: Google OAuth2 로그인 보안 흐름 연결`
+- GitHub OAuth2 로그인 구현과 테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
 
 ## 변경 이력
 
+- 2026-09-01: GitHub `id` 기반 사용자 가입·로그인, `/user/emails`의 검증 이메일 선택, 이메일 충돌 차단, JWT·Refresh Token 발급과 OAuth2 성공 handler 분기를 확인함. GitHub client registration, redirect·callback 보안 흐름 및 정상·경계·실패 테스트를 추가했으며 Windows 로컬 환경에서 전체 테스트 98개 성공을 확인하고 다음 작업을 운영 환경별 설정 및 배포 구성으로 변경함.
 - 2026-09-01: 환경변수 기반 Google OAuth2 client registration을 추가하고 OAuth2 시작·callback 경로에만 session을 허용하도록 Security filter chain을 분리함. Google 인증 redirect와 `state` 저장 session, callback 실패 handler 연결, 일반 API의 stateless 동작을 검증했으며 전체 테스트 80개 성공을 확인하고 다음 작업을 OAuth2 GitHub 로그인 흐름으로 변경함.
 - 2026-08-28: Google OIDC `sub` 기반 사용자 조회·가입·로그인 service와 OAuth2 인증 성공·실패 handler를 확인함. 검증된 이메일만 허용하고 다른 인증 방식과의 자동 계정 연결을 차단했으며, 기존 JWT·Refresh Token 발급 구조를 재사용함. handler 테스트 컴파일과 관련 테스트 성공을 확인하고 다음 작업을 Google client 설정과 Security filter chain 연결로 변경함.
 - 2026-08-28: 만료 Refresh Token을 기본 1시간 주기로 1,000개씩 삭제하는 Scheduler와 MySQL Batch 삭제를 확인함. 동일 기준 시각 반복, 0건 멱등 처리, 실패 전파, 만료 경계 포함 삭제, 유효 토큰 보존 테스트를 확인하고 Testcontainers MySQL 8.4 통합 테스트 2개 성공을 검증함. 다중 인스턴스는 별도 분산 락 없이 원자적 삭제를 사용하도록 결정하고 다음 작업을 OAuth2 Google 로그인 흐름으로 변경함.
