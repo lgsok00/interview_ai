@@ -46,7 +46,7 @@ auth:
 
   refresh-token:
     cleanup:
-      enabled: ${REFRESH_TOKEN_CLEANUP_ENABLED:true}
+      enabled: ${REFRESH_TOKEN_CLEANUP_ENABLED:false}
       fixed-delay: ${REFRESH_TOKEN_CLEANUP_FIXED_DELAY:1h}
       initial-delay: ${REFRESH_TOKEN_CLEANUP_INITIAL_DELAY:1m}
       batch-size: ${REFRESH_TOKEN_CLEANUP_BATCH_SIZE:1000}

@@ -61,6 +61,9 @@
 - 만료 Refresh Token을 1시간 주기로 최대 1,000개씩 나누어 정리
 - 한 번의 정리 실행에서는 고정된 UTC 기준 시각을 사용하고 남은 만료 토큰이 없을 때까지 Batch 반복
 - MySQL의 원자적 `DELETE ... ORDER BY ... LIMIT`를 사용해 다중 인스턴스의 중복 실행을 별도 분산 락 없이 안전하게 처리
+- 운영 환경에서는 정리 전용 인스턴스 1개만 `REFRESH_TOKEN_CLEANUP_ENABLED=true`로 활성화하고 일반 API 인스턴스는 비활성화
+- 공통·운영 기본값은 정리 비활성화, `local` profile 기본값은 정리 활성화
+- 정리 인스턴스가 중복 실행되더라도 원자적 Batch 삭제로 정합성을 유지하며 실제 DB 잠금 경합이 확인되기 전까지 분산 락을 도입하지 않음
 - 그 외 요청은 인증 필요
 - Spring Security filter chain 테스트로 공개·보호 endpoint와 JWT 인증 동작 검증
 - 로그인 공개 matcher를 `/api/auth/login`으로 수정
@@ -189,6 +192,13 @@
 - Batch가 가득 차면 같은 기준 시각으로 다음 Batch 정리
 - 만료 토큰이 없는 경우의 멱등 처리
 - 정리 중 예외 발생 시 후속 Batch 중단 및 예외 전파
+
+`RefreshTokenCleanupSchedulerConfigurationTest`에 다음 4개 시나리오가 작성되어 있다.
+
+- 정리 기능 명시적 활성화 시 Scheduler Bean 생성
+- 정리 기능 명시적 비활성화 시 Scheduler Bean 미생성
+- `prod` profile에서 설정 생략 시 Scheduler 기본 비활성화
+- `local` profile에서 설정 생략 시 Scheduler 기본 활성화
 
 `RefreshTokenCleanupServiceIntegrationTest`에 다음 2개 MySQL 통합 시나리오가 작성되어 있다.
 
@@ -452,6 +462,13 @@
 - 검증용 JWT secret, Google·GitHub client secret 및 `.env`의 DB 비밀번호 문자열이 stdout 로그에 포함되지 않는 것을 확인함
 - 컨테이너는 non-root `appuser`로 실행됐으며 readiness endpoint는 HTTP 200을 반환함
 
+2026-09-01 사용자 Windows 로컬 환경에서 Refresh Token 정리 scheduler의 환경별 활성화 설정과 전체 테스트를 실행했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.auth.scheduler.*"`: 성공 (`BUILD SUCCESSFUL in 9s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+- `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 1m 6s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 112개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- 명시적 활성화·비활성화에 따른 Scheduler Bean 생성 여부와 `prod` 기본 비활성화, `local` 기본 활성화를 검증함
+
 ## 향후 구현 순서
 
 현재까지 합의한 구현 순서는 다음과 같다. 특별한 설계 변경이나 선행 문제 발견이 없다면 이 순서대로 진행한다.
@@ -471,7 +488,7 @@
 - `AuthControllerTest`는 standalone MockMvc 테스트이므로 Spring Security filter chain을 거치지 않는다.
 - `SecurityConfig`의 로그인 공개 matcher는 `/api/auth/login`으로 수정되었고 filter chain 테스트로 비인증 접근을 확인했다.
 - 만료된 Refresh Token은 재발급 시 거부하며, 기본 1시간 주기의 Scheduler가 최대 1,000개씩 나누어 DB에서 삭제한다.
-- 만료 토큰 정리는 별도 분산 락을 사용하지 않는다. 다중 인스턴스가 동시에 실행해도 MySQL의 원자적 Batch 삭제로 결과가 멱등하며, 운영 중 DB 잠금 경합이 확인되면 분산 락 도입을 검토한다.
+- 만료 토큰 정리는 별도 분산 락을 사용하지 않는다. 운영에서는 정리 전용 인스턴스 1개만 `REFRESH_TOKEN_CLEANUP_ENABLED=true`로 활성화하고 일반 API 인스턴스는 비활성화한다. 중복 실행 시에도 MySQL의 원자적 Batch 삭제로 결과가 멱등하며, 운영 중 DB 잠금 경합이 확인되면 분산 락 도입을 검토한다.
 - 개별 로그아웃은 Refresh Token 하나만 폐기하며, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 전체 세션 폐기는 요청 시점에 저장된 해당 사용자의 Refresh Token을 모두 삭제하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 동일 Refresh Token의 동시 회전에 대한 비관적 잠금 동작을 실제 MySQL에서 검증하는 동시성 통합 테스트는 아직 없다.
@@ -488,7 +505,9 @@
 
 reverse proxy 환경의 OAuth2 HTTPS callback과 운영 ECS JSON 표준 출력 로그를 실제 운영 profile 컨테이너에서 검증했다. 로그 전 행에 서비스명과 배포 환경명이 포함되고, 검증 대상 JWT·OAuth2·DB secret 문자열은 포함되지 않는 것을 확인했다.
 
-다음 작업은 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책과 인스턴스별 활성화 방법을 확정하는 것이다. 이후 대상 배포 환경을 선정하고 secret 주입, health check, 로그 수집을 포함한 실제 배포 구성을 작성한다.
+Refresh Token 정리 scheduler는 운영에서 전용 인스턴스 1개만 환경변수로 활성화하고 일반 API 인스턴스에서는 비활성화하기로 확정했다. 공통·운영 기본값은 비활성화하고 `local` profile은 기본 활성화하며, 설정 조건에 따른 Scheduler Bean 생성 여부를 자동 테스트로 검증했다.
+
+다음 작업은 대상 배포 환경을 선정하고 동일한 애플리케이션 이미지로 API 인스턴스와 정리 전용 인스턴스를 구분해 구성하는 것이다. DB·JWT·OAuth2 secret 주입, health check, 로그 수집과 scheduler 인스턴스 재기동 정책을 포함한 실제 배포 구성을 작성한다.
 
 ## Git 기준점
 
@@ -498,6 +517,7 @@ reverse proxy 환경의 OAuth2 HTTPS callback과 운영 ECS JSON 표준 출력 �
 
 ## 변경 이력
 
+- 2026-09-01: Refresh Token 정리 scheduler는 운영에서 전용 인스턴스 1개만 활성화하고 일반 API 인스턴스는 비활성화하는 정책으로 확정함. 공통·운영 기본값을 비활성화하고 `local` 기본값을 활성화했으며, 환경별 설정과 조건부 Scheduler Bean 생성 테스트 4개를 추가함. 관련 테스트와 전체 테스트 112개 성공을 확인하고 다음 작업을 대상 배포 환경 선정과 실제 배포 구성 작성으로 변경함.
 - 2026-09-01: 운영 profile의 표준 출력 로그를 ECS JSON으로 구성하고 `DEPLOYMENT_ENVIRONMENT` 환경명 주입을 추가함. 설정 테스트와 전체 테스트 108개, 이미지 재빌드 성공을 확인했으며 실제 컨테이너 stdout 28행 전체의 JSON·ECS 형식, 서비스명·환경명 포함, 검증 대상 JWT·OAuth2·DB secret 문자열 비노출을 확인함. 다음 작업을 Refresh Token 정리 scheduler의 다중 인스턴스 실행 정책으로 변경함.
 - 2026-09-01: 실제 운영 profile 컨테이너에 reverse proxy의 HTTPS proto·host·port header를 전달해 Google·GitHub OAuth2 callback URL이 외부 HTTPS 주소로 생성되는 것을 확인함. HTTP 302와 Secure·HttpOnly session cookie 및 HSTS header를 검증하고 다음 작업을 운영 로그 수집과 민감정보 제외 정책으로 변경함.
 - 2026-09-01: Health root만 공개되어 liveness·readiness probe가 HTTP 401을 반환하는 문제를 확인하고 `/actuator/health/**`를 공개 matcher에 추가함. 보안 테스트와 전체 테스트 106개 성공, 이미지 재빌드, non-root 운영 profile 컨테이너 실행, MySQL·Flyway 연결을 확인했으며 Health 3개 경로의 HTTP 200·`UP`과 `/actuator/info`의 HTTP 401을 실제 컨테이너에서 검증함.
