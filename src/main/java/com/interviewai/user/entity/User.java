@@ -84,6 +84,11 @@ public class User {
     }
 
 
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();

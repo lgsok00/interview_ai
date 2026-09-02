@@ -2,6 +2,7 @@ package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.user.dto.CurrentUserResponse;
+import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
@@ -108,6 +109,67 @@ class UserServiceTest {
             ).isInstanceOf(InvalidAccessTokenException.class);
 
             verifyNoInteractions(userRepository);
+        }
+    }
+
+
+    @Nested
+    class UpdateCurrentUser {
+
+        @Test
+        @DisplayName("JWT subject에 해당하는 사용자의 닉네임을 수정한다")
+        void updatesNickname() {
+            String updatedNickname = "수정된닉네임";
+            UpdateUserRequest request = new UpdateUserRequest(updatedNickname);
+
+            when(userRepository.findById(USER_ID))
+                    .thenReturn(Optional.of(user));
+            when(user.getId()).thenReturn(USER_ID);
+            when(user.getEmail()).thenReturn(EMAIL);
+            when(user.getNickname()).thenReturn(updatedNickname);
+            when(user.getProvider()).thenReturn(AuthProvider.LOCAL);
+            when(user.getRole()).thenReturn(UserRole.USER);
+
+            CurrentUserResponse response = userService.updateCurrentUser(
+                    USER_ID.toString(),
+                    request
+            );
+
+            assertThat(response.nickname()).isEqualTo(updatedNickname);
+            verify(userRepository).findById(USER_ID);
+            verify(user).updateNickname(updatedNickname);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject에 해당하는 사용자가 없으면 수정에 실패한다")
+        void rejectsUnknownUser() {
+            UpdateUserRequest request = new UpdateUserRequest("수정닉네임");
+
+            when(userRepository.findById(USER_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.updateCurrentUser(
+                    USER_ID.toString(),
+                    request
+            )).isInstanceOf(UserNotFoundException.class);
+
+            verify(userRepository).findById(USER_ID);
+            verifyNoInteractions(user);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject가 숫자가 아니면 수정에 실패한다")
+        void rejectsNonNumericSubject() {
+            UpdateUserRequest request = new UpdateUserRequest("수정닉네임");
+
+            assertThatThrownBy(() -> userService.updateCurrentUser(
+                    "invalid-user-id",
+                    request
+            )).isInstanceOf(InvalidAccessTokenException.class);
+
+            verifyNoInteractions(userRepository, user);
         }
     }
 }

@@ -6,6 +6,7 @@ import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
 import com.interviewai.global.config.SecurityConfig;
 import com.interviewai.user.dto.CurrentUserResponse;
+import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
 import com.interviewai.user.exception.UserNotFoundException;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
@@ -145,5 +148,214 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.errors").isMap());
 
         verify(userService).getCurrentUser("invalid-user-id");
+    }
+
+
+    @Test
+    @DisplayName("JWT 인증 사용자의 닉네임을 수정한다")
+    void updatesCurrentUser() throws Exception {
+        String updatedNickname = "수정된닉네임";
+        CurrentUserResponse response = new CurrentUserResponse(
+                USER_ID,
+                EMAIL,
+                updatedNickname,
+                AuthProvider.LOCAL,
+                UserRole.USER
+        );
+
+        when(userService.updateCurrentUser(
+                USER_ID.toString(),
+                new UpdateUserRequest(updatedNickname)
+        )).thenReturn(response);
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"수정된닉네임\"}")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(USER_ID))
+                .andExpect(jsonPath("$.email").value(EMAIL))
+                .andExpect(jsonPath("$.nickname").value(updatedNickname))
+                .andExpect(jsonPath("$.provider").value("LOCAL"))
+                .andExpect(jsonPath("$.role").value("USER"));
+
+        verify(userService).updateCurrentUser(
+                USER_ID.toString(),
+                new UpdateUserRequest(updatedNickname)
+        );
+    }
+
+
+    @Test
+    @DisplayName("닉네임의 앞뒤 공백을 제거한 뒤 수정한다")
+    void trimsNicknameBeforeUpdate() throws Exception {
+        String trimmedNickname = "수정닉네임";
+        CurrentUserResponse response = new CurrentUserResponse(
+                USER_ID,
+                EMAIL,
+                trimmedNickname,
+                AuthProvider.LOCAL,
+                UserRole.USER
+        );
+
+        when(userService.updateCurrentUser(
+                USER_ID.toString(),
+                new UpdateUserRequest(trimmedNickname)
+        )).thenReturn(response);
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"  수정닉네임  \"}")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nickname").value(trimmedNickname));
+
+        verify(userService).updateCurrentUser(
+                USER_ID.toString(),
+                new UpdateUserRequest(trimmedNickname)
+        );
+    }
+
+
+    @Test
+    @DisplayName("2자와 50자 닉네임을 허용한다")
+    void acceptsNicknameBoundaryLengths() throws Exception {
+        String minNickname = "가나";
+        String maxNickname = "가".repeat(50);
+
+        when(userService.updateCurrentUser(
+                USER_ID.toString(),
+                new UpdateUserRequest(minNickname)
+        )).thenReturn(new CurrentUserResponse(
+                USER_ID, EMAIL, minNickname, AuthProvider.LOCAL, UserRole.USER
+        ));
+        when(userService.updateCurrentUser(
+                USER_ID.toString(),
+                new UpdateUserRequest(maxNickname)
+        )).thenReturn(new CurrentUserResponse(
+                USER_ID, EMAIL, maxNickname, AuthProvider.LOCAL, UserRole.USER
+        ));
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"" + minNickname + "\"}")
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"" + maxNickname + "\"}")
+                )
+                .andExpect(status().isOk());
+    }
+
+
+    @Test
+    @DisplayName("공백 닉네임이면 400을 반환한다")
+    void rejectsBlankNickname() throws Exception {
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"   \"}")
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors.nickname").isNotEmpty());
+
+        verifyNoInteractions(userService);
+    }
+
+
+    @Test
+    @DisplayName("닉네임이 1자이거나 50자를 초과하면 400을 반환한다")
+    void rejectsNicknameOutsideLengthBoundary() throws Exception {
+        String tooLongNickname = "가".repeat(51);
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"가\"}")
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.nickname")
+                        .value("닉네임은 2자 이상 50자 이하여야 합니다."));
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"" + tooLongNickname + "\"}")
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.nickname")
+                        .value("닉네임은 2자 이상 50자 이하여야 합니다."));
+
+        verifyNoInteractions(userService);
+    }
+
+
+    @Test
+    @DisplayName("JWT가 없으면 사용자 정보를 수정할 수 없다")
+    void rejectsUpdateWithoutJwt() throws Exception {
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"수정닉네임\"}")
+                )
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userService);
+    }
+
+
+    @Test
+    @DisplayName("수정할 사용자가 없으면 404를 반환한다")
+    void returnsNotFoundWhenUpdatedUserDoesNotExist() throws Exception {
+        UpdateUserRequest request = new UpdateUserRequest("수정닉네임");
+
+        when(userService.updateCurrentUser(USER_ID.toString(), request))
+                .thenThrow(new UserNotFoundException());
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"수정닉네임\"}")
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+
+        verify(userService).updateCurrentUser(USER_ID.toString(), request);
+    }
+
+
+    @Test
+    @DisplayName("잘못된 JWT subject이면 사용자 정보 수정 시 401을 반환한다")
+    void rejectsUpdateWithInvalidJwtSubject() throws Exception {
+        UpdateUserRequest request = new UpdateUserRequest("수정닉네임");
+
+        when(userService.updateCurrentUser("invalid-user-id", request))
+                .thenThrow(new InvalidAccessTokenException());
+
+        mockMvc.perform(
+                        put("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject("invalid-user-id")))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"nickname\":\"수정닉네임\"}")
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_ACCESS_TOKEN"));
+
+        verify(userService).updateCurrentUser("invalid-user-id", request);
     }
 }
