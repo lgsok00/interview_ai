@@ -1,11 +1,18 @@
 package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
+import com.interviewai.auth.service.RefreshTokenService;
+import com.interviewai.user.dto.ChangePasswordRequest;
 import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.entity.User;
+import com.interviewai.user.enums.AuthProvider;
+import com.interviewai.user.exception.InvalidCurrentPasswordException;
+import com.interviewai.user.exception.PasswordChangeNotSupportedException;
+import com.interviewai.user.exception.SamePasswordException;
 import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,10 +21,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
 
 
-    public UserService(UserRepository userRepository) {
+    public UserService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService
+    ) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.refreshTokenService = refreshTokenService;
     }
 
 
@@ -38,6 +52,29 @@ public class UserService {
         user.updateNickname(request.nickname());
 
         return CurrentUserResponse.from(user);
+    }
+
+
+    @Transactional
+    public void changePassword(String subject, ChangePasswordRequest request) {
+        Long userId = parseUserId(subject);
+
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+
+        if (user.getProvider() != AuthProvider.LOCAL) {
+            throw new PasswordChangeNotSupportedException();
+        }
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new InvalidCurrentPasswordException();
+        }
+
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new SamePasswordException();
+        }
+
+        user.changePassword(passwordEncoder.encode(request.newPassword()));
+        refreshTokenService.revokeAll(userId);
     }
 
 

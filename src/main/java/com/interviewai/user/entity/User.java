@@ -89,6 +89,11 @@ public class User {
     }
 
 
+    public void changePassword(String encodedPassword) {
+        this.passwordHash = encodedPassword;
+    }
+
+
     @PrePersist
     private void prePersist() {
         LocalDateTime now = LocalDateTime.now();

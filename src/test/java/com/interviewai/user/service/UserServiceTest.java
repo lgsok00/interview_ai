@@ -1,12 +1,17 @@
 package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
+import com.interviewai.auth.service.RefreshTokenService;
+import com.interviewai.user.dto.ChangePasswordRequest;
 import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
 import com.interviewai.user.exception.UserNotFoundException;
+import com.interviewai.user.exception.InvalidCurrentPasswordException;
+import com.interviewai.user.exception.PasswordChangeNotSupportedException;
+import com.interviewai.user.exception.SamePasswordException;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -28,9 +34,19 @@ class UserServiceTest {
     private static final Long USER_ID = 1L;
     private static final String EMAIL = "user@example.com";
     private static final String NICKNAME = "테스트유저";
+    private static final String CURRENT_PASSWORD = "password123";
+    private static final String NEW_PASSWORD = "new-password456";
+    private static final String ENCODED_PASSWORD = "{bcrypt}encoded-password";
+    private static final String ENCODED_NEW_PASSWORD = "{bcrypt}encoded-new-password";
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
 
     @Mock
     private User user;
@@ -40,7 +56,7 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository);
+        userService = new UserService(userRepository, passwordEncoder, refreshTokenService);
     }
 
 
@@ -170,6 +186,107 @@ class UserServiceTest {
             )).isInstanceOf(InvalidAccessTokenException.class);
 
             verifyNoInteractions(userRepository, user);
+        }
+    }
+
+
+    @Nested
+    class ChangePassword {
+
+        @Test
+        @DisplayName("로컬 사용자의 비밀번호를 변경하고 모든 Refresh Token을 폐기한다")
+        void changesPasswordAndRevokesRefreshTokens() {
+            ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(user.getProvider()).thenReturn(AuthProvider.LOCAL);
+            when(user.getPasswordHash()).thenReturn(ENCODED_PASSWORD);
+            when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+            when(passwordEncoder.matches(NEW_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
+            when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn(ENCODED_NEW_PASSWORD);
+
+            userService.changePassword(USER_ID.toString(), request);
+
+            verify(user).changePassword(ENCODED_NEW_PASSWORD);
+            verify(refreshTokenService).revokeAll(USER_ID);
+        }
+
+
+        @Test
+        @DisplayName("현재 비밀번호가 일치하지 않으면 변경과 세션 폐기를 수행하지 않는다")
+        void rejectsInvalidCurrentPassword() {
+            ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(user.getProvider()).thenReturn(AuthProvider.LOCAL);
+            when(user.getPasswordHash()).thenReturn(ENCODED_PASSWORD);
+            when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(false);
+
+            assertThatThrownBy(() -> userService.changePassword(USER_ID.toString(), request))
+                    .isInstanceOf(InvalidCurrentPasswordException.class);
+
+            verify(user, never()).changePassword(anyString());
+            verifyNoInteractions(refreshTokenService);
+        }
+
+
+        @Test
+        @DisplayName("새 비밀번호가 현재 비밀번호와 같으면 변경을 거부한다")
+        void rejectsSamePassword() {
+            ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, CURRENT_PASSWORD);
+
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(user.getProvider()).thenReturn(AuthProvider.LOCAL);
+            when(user.getPasswordHash()).thenReturn(ENCODED_PASSWORD);
+            when(passwordEncoder.matches(CURRENT_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+
+            assertThatThrownBy(() -> userService.changePassword(USER_ID.toString(), request))
+                    .isInstanceOf(SamePasswordException.class);
+
+            verify(passwordEncoder, never()).encode(anyString());
+            verify(user, never()).changePassword(anyString());
+            verifyNoInteractions(refreshTokenService);
+        }
+
+
+        @Test
+        @DisplayName("OAuth2 사용자는 비밀번호를 변경할 수 없다")
+        void rejectsOAuth2User() {
+            ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(user.getProvider()).thenReturn(AuthProvider.GOOGLE);
+
+            assertThatThrownBy(() -> userService.changePassword(USER_ID.toString(), request))
+                    .isInstanceOf(PasswordChangeNotSupportedException.class);
+
+            verifyNoInteractions(passwordEncoder, refreshTokenService);
+            verify(user, never()).changePassword(anyString());
+        }
+
+
+        @Test
+        @DisplayName("JWT subject에 해당하는 사용자가 없으면 비밀번호 변경에 실패한다")
+        void rejectsUnknownUser() {
+            ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.changePassword(USER_ID.toString(), request))
+                    .isInstanceOf(UserNotFoundException.class);
+
+            verifyNoInteractions(passwordEncoder, refreshTokenService, user);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject가 숫자가 아니면 비밀번호 변경에 실패한다")
+        void rejectsNonNumericSubject() {
+            ChangePasswordRequest request = new ChangePasswordRequest(CURRENT_PASSWORD, NEW_PASSWORD);
+
+            assertThatThrownBy(() -> userService.changePassword("invalid-user-id", request))
+                    .isInstanceOf(InvalidAccessTokenException.class);
+
+            verifyNoInteractions(userRepository, passwordEncoder, refreshTokenService, user);
         }
     }
 }

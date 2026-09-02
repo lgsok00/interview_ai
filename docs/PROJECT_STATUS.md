@@ -118,6 +118,9 @@
     - `INVALID_CREDENTIALS`: HTTP 401
     - `INVALID_ACCESS_TOKEN`: HTTP 401
     - `INVALID_REFRESH_TOKEN`: HTTP 401
+    - `INVALID_CURRENT_PASSWORD`: HTTP 401
+    - `PASSWORD_CHANGE_NOT_SUPPORTED`: HTTP 400
+    - `SAME_PASSWORD`: HTTP 400
     - `USER_NOT_FOUND`: HTTP 404
     - `VALIDATION_ERROR`: HTTP 400 및 field 오류 정보
 
@@ -136,6 +139,13 @@
     - 수정된 사용자 id, 이메일, 닉네임, 인증 제공자, 역할 반환
     - JWT subject 형식이 잘못되면 HTTP 401 반환
     - JWT 사용자와 일치하는 사용자가 없으면 HTTP 404 반환
+- `PUT /api/users/me/password`
+    - Bearer Access Token으로 인증된 LOCAL 사용자의 비밀번호 변경
+    - 현재 비밀번호 검증 후 새 비밀번호를 Delegating `PasswordEncoder`로 암호화해 저장
+    - 새 비밀번호 8자 이상 64자 이하 validation 및 현재 비밀번호 재사용 거부
+    - OAuth2 사용자의 비밀번호 변경 요청 거부
+    - 변경 성공 시 사용자의 모든 Refresh Token을 폐기하고 HTTP 204 반환
+    - 이미 발급된 stateless Access Token은 기존 만료 시점까지 유효
 
 ### 데이터베이스 통합 테스트 기반
 
@@ -146,6 +156,29 @@
 - 실제 MySQL에서 Flyway V1 migration 적용 여부 검증
 - `UserRepository`의 로컬 사용자 저장 및 이메일 조회 검증
 - 이메일 unique constraint 위반 시 `DataIntegrityViolationException` 발생 검증
+
+### 인증 ERD 기준
+
+- 인증 영역의 실제 스키마 기준은 수정 불가능한 과거 설계 문서가 아니라 순서대로 적용되는 Flyway migration이다.
+- `users`
+    - 기본 키: `id BIGINT AUTO_INCREMENT`
+    - 사용자 이메일: `email VARCHAR(255) NOT NULL`, unique
+    - 비밀번호: `password_hash VARCHAR(255) NULL`
+    - 닉네임: `nickname VARCHAR(50) NOT NULL`
+    - 인증 제공자: `provider VARCHAR(20) NOT NULL`, `LOCAL`, `GOOGLE`, `GITHUB`만 허용
+    - OAuth2 계정 식별자: `provider_id VARCHAR(255) NULL`
+    - 역할: `role VARCHAR(20) NOT NULL`, `USER`, `ADMIN`만 허용
+    - 생성·수정 시각: `created_at`, `updated_at DATETIME(6) NOT NULL`
+    - `provider`, `provider_id` 복합 unique constraint로 동일 provider 계정의 중복 가입 방지
+    - LOCAL 사용자는 `password_hash`가 필수이고 OAuth2 사용자는 `provider_id`가 필수인 check constraint 적용
+- `refresh_tokens`
+    - 기본 키: `id BIGINT AUTO_INCREMENT`
+    - 사용자 외래 키: `user_id BIGINT NOT NULL`, `users.id` 참조 및 사용자 삭제 시 cascade 삭제
+    - 토큰 해시: `token_hash CHAR(64) NOT NULL`, unique
+    - 만료 시각: `expires_at DATETIME(6) NOT NULL`
+    - 생성·수정 시각: `created_at`, `updated_at DATETIME(6) NOT NULL`
+    - 사용자별 조회·삭제를 위한 `user_id` index와 만료 정리를 위한 `expires_at` index 적용
+- `users`와 `refresh_tokens`는 일대다 관계이며, Refresh Token 원문은 저장하지 않고 SHA-256 해시만 저장한다.
 
 ## 테스트 상태
 
@@ -257,7 +290,7 @@
 공통 Testcontainers 기반인 `MySqlIntegrationTest`가 작성되어 있으며, MySQL 연결 정보는 Spring Boot `@ServiceConnection`으로 주입한다. 여러 통합 테스트
 클래스 실행 시 종료된 컨테이너의 datasource가 재사용되지 않도록 각 클래스 종료 후 Spring Context를 폐기한다.
 
-`UserServiceTest`에 다음 7개 시나리오가 작성되어 있다.
+`UserServiceTest`에 다음 13개 시나리오가 작성되어 있다.
 
 - JWT subject에 해당하는 사용자 조회 성공
 - JWT subject에 해당하는 사용자가 없을 때 실패
@@ -266,8 +299,14 @@
 - JWT subject에 해당하는 사용자의 닉네임 수정 성공
 - 수정할 사용자가 없을 때 실패
 - 닉네임 수정 요청의 JWT subject가 숫자가 아닐 때 실패
+- 로컬 사용자 비밀번호 변경과 모든 Refresh Token 폐기
+- 현재 비밀번호 불일치 시 변경과 세션 폐기 거부
+- 현재 비밀번호와 같은 새 비밀번호 거부
+- OAuth2 사용자의 비밀번호 변경 거부
+- 비밀번호를 변경할 사용자가 없을 때 실패
+- 비밀번호 변경 요청의 JWT subject가 숫자가 아닐 때 실패
 
-`UserControllerTest`에 다음 12개 시나리오가 작성되어 있다.
+`UserControllerTest`에 다음 20개 시나리오가 작성되어 있다.
 
 - JWT 인증 사용자의 정보 조회 성공
 - JWT가 없는 요청에 HTTP 401 반환
@@ -281,6 +320,14 @@
 - JWT 없는 수정 요청에 HTTP 401 반환
 - 수정할 사용자가 없을 때 HTTP 404와 `USER_NOT_FOUND` 반환
 - 잘못된 JWT subject의 수정 요청에 HTTP 401과 `INVALID_ACCESS_TOKEN` 반환
+- JWT 인증 로컬 사용자의 비밀번호 변경 성공 시 HTTP 204 반환
+- 현재 비밀번호 불일치 시 HTTP 401과 `INVALID_CURRENT_PASSWORD` 반환
+- 현재 비밀번호 재사용 시 HTTP 400과 `SAME_PASSWORD` 반환
+- OAuth2 사용자 요청 시 HTTP 400과 `PASSWORD_CHANGE_NOT_SUPPORTED` 반환
+- 새 비밀번호 8자와 64자 경계값 허용
+- 빈 현재 비밀번호 요청 시 HTTP 400과 field 오류 반환
+- 새 비밀번호 8자 미만과 64자 초과 시 HTTP 400 반환
+- JWT 없는 비밀번호 변경 요청에 HTTP 401 반환
 
 `GoogleOAuth2LoginServiceTest`에 다음 8개 시나리오가 작성되어 있다.
 
@@ -525,17 +572,24 @@
 - 전체 테스트 리포트: 123개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - 닉네임 수정, 공백 정규화, 2자·50자 경계, validation 실패, 인증 누락, 잘못된 JWT subject와 사용자 미존재 처리를 검증함
 
+2026-09-02 사용자 Windows 로컬 환경에서 로컬 사용자 비밀번호 변경 관련 테스트와 전체 테스트를 실행했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.user.service.UserServiceTest" --tests "com.interviewai.user.controller.UserControllerTest"`: 성공 (`BUILD SUCCESSFUL in 32s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+- `.\gradlew.bat test`: 성공 (`BUILD SUCCESSFUL in 44s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 137개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- 비밀번호 암호화 변경, 현재 비밀번호 검증, 기존 비밀번호 재사용 거부, OAuth2 사용자 거부, 8자·64자 경계, 모든 Refresh Token 폐기, validation 및 인증·사용자 오류 처리를 검증함
+
 ## 향후 구현 순서
 
 Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처 설계서, ERD 설계서, API 명세서, UI 설계서와 RAG 설계서를 기준으로 다음 순서로 진행한다. 실제 배포 환경 선정은 핵심 기능 구현 이후로 미룬다.
 
 1. 명세와 현재 구현의 기준 정리
-   - API base path(`/api`와 `/api/v1`), Refresh Token 재발급 URI(`/refresh`와 `/reissue`), 성공 응답 envelope 적용 여부를 결정한다.
-   - 현재 `ErrorResponse` 오류 코드와 Notion API 명세의 도메인별 오류 코드를 매핑한다.
-   - ERD의 `password`를 실제 `password_hash`로, OAuth2 계정 식별을 위한 `provider_id`와 `refresh_tokens` 테이블을 문서에 반영한다.
+   - API 기준 확정 완료: base path는 `/api`, Refresh Token 재발급 URI는 `/auth/refresh`, 성공 응답은 DTO 직접 반환을 유지한다.
+   - 오류 응답 기준 확정 완료: 별도 명세 오류 코드 없이 현재 `ErrorResponse` 구조와 구현된 오류 코드를 기준으로 사용한다.
+   - 인증 ERD 정합성 완료: Flyway를 실제 스키마 기준으로 삼고 `password_hash`, `provider_id`, `refresh_tokens` 및 관련 제약조건을 반영한다.
 2. 회원 관리 마무리
    - F-01-08 회원정보 수정 완료
-   - F-01-09 로컬 사용자 비밀번호 변경
+   - F-01-09 로컬 사용자 비밀번호 변경 완료
    - API 명세에 포함된 회원 탈퇴의 범위와 OAuth2 사용자 처리 정책 확정 후 구현
 3. 자기소개서 관리
    - 작성·조회·수정·삭제, 버전 관리, 대표 자기소개서 설정
@@ -583,6 +637,7 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
   실행 시에도 MySQL의 원자적 Batch 삭제로 결과가 멱등하며, 운영 중 DB 잠금 경합이 확인되면 분산 락 도입을 검토한다.
 - 개별 로그아웃은 Refresh Token 하나만 폐기하며, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 전체 세션 폐기는 요청 시점에 저장된 해당 사용자의 Refresh Token을 모두 삭제하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
+- 로컬 사용자 비밀번호 변경 시 해당 사용자의 모든 Refresh Token을 폐기하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 동일 Refresh Token의 동시 회전에 대한 비관적 잠금 동작을 실제 MySQL에서 검증하는 동시성 통합 테스트는 아직 없다.
 - OAuth2 성공 handler는 현재 토큰 쌍을 JSON으로 반환한다. 운영 배포 전 Refresh Token 전달 방식을 Secure·HttpOnly cookie 또는 일회용 교환 코드로 변경할지 결정해야
   한다.
@@ -593,9 +648,9 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
 - Google 사용자의 동시 최초 로그인에서 이메일 또는 provider 계정 unique constraint가 충돌하는 상황은 후속 통합 테스트로 검증해야 한다.
 - GitHub 사용자의 동시 최초 로그인에서 이메일 또는 provider 계정 unique constraint가 충돌하는 상황은 후속 통합 테스트로 검증해야 한다.
 - GitHub `/user/emails` API의 네트워크 오류와 비정상 응답은 현재 `RestClient` 예외로 전파되므로 운영 배포 전에 일반화된 OAuth2 인증 실패로 변환할지 검토해야 한다.
-- Notion API 명세는 base URL을 `/api/v1`로 정의하지만 현재 Controller는 `/api`를 사용한다. 전체 endpoint versioning 정책을 확정하기 전까지 일괄 변경하지 않는다.
-- Notion API 명세의 Access Token 재발급 URI는 `/auth/reissue`이지만 현재 구현과 테스트는 `/api/auth/refresh`를 사용한다.
-- Notion API 명세는 공통 성공 응답 envelope를 제시하지만 현재 API는 DTO를 직접 반환하며, 오류 응답은 `GlobalExceptionHandler`와 `ErrorResponse` 형식을 사용한다.
+- API base path는 현재 구현인 `/api`를 유지하며 URL 기반 버전(`/api/v1`)은 도입하지 않는다. 외부 공개나 독립 배포 클라이언트 도입 전에 버전 정책을 다시 검토한다.
+- Access Token 재발급 URI는 현재 구현인 `/api/auth/refresh`를 유지하고 Notion 명세의 `/auth/reissue`를 사용하지 않는다.
+- 성공 응답은 공통 envelope 없이 endpoint별 DTO를 직접 반환하고, 목록·페이징 응답은 도메인별 전용 DTO로 정의한다. HTTP 204 응답은 body 없이 유지하며 오류 응답은 기존 `GlobalExceptionHandler`와 `ErrorResponse` 형식을 유지한다.
 - Notion 회원가입 명세의 `name`은 실제 구현의 `nickname`과 다르다.
 - Notion ERD의 User에는 실제 스키마의 `provider_id`와 `refresh_tokens`가 빠져 있고 비밀번호 컬럼명도 실제 `password_hash`와 다르다.
 - 문서에 정의된 Spring AI, Qdrant, OpenAI embedding, 자기소개서·이력서·기업·채용공고·면접·평가·성장·관리자 모듈은 아직 구현되지 않았다.
@@ -613,9 +668,15 @@ reverse proxy 환경의 OAuth2 HTTPS callback과 운영 ECS JSON 표준 출력 �
 Refresh Token 정리 scheduler는 운영에서 전용 인스턴스 1개만 환경변수로 활성화하고 일반 API 인스턴스에서는 비활성화하기로 확정했다. 공통·운영 기본값은 비활성화하고 `local` profile은
 기본 활성화하며, 설정 조건에 따른 Scheduler Bean 생성 여부를 자동 테스트로 검증했다.
 
-Notion 프로젝트 문서를 기준으로 현재 구현을 대조한 결과, 인증 기반과 운영 실행 기반은 문서의 Spring Boot·Spring Security·OAuth2·JWT·MySQL·Docker 방향에 부합한다. 회원정보 수정은 현재 API 정책에 맞춘 `PUT /api/users/me`로 구현하고 검증했으며, 비밀번호 변경과 이후 핵심 도메인 및 Spring AI·Qdrant 기반 RAG는 아직 시작하지 않았다.
+Notion 프로젝트 문서를 기준으로 현재 구현을 대조한 결과, 인증 기반과 운영 실행 기반은 문서의 Spring Boot·Spring Security·OAuth2·JWT·MySQL·Docker 방향에 부합한다. 회원정보 수정과 로컬 사용자 비밀번호 변경을 현재 API 정책에 맞게 구현하고 검증했으며, 이후 핵심 도메인 및 Spring AI·Qdrant 기반 RAG는 아직 시작하지 않았다.
 
-다음 작업은 F-01-09 로컬 사용자 비밀번호 변경이다. 인증된 LOCAL 사용자에게 현재 비밀번호와 새 비밀번호를 입력받아 현재 비밀번호 일치 여부를 확인하고, 새 비밀번호를 기존과 같은 `PasswordEncoder`로 암호화해 저장한다. OAuth2 사용자의 요청 거부 정책, 새 비밀번호 8자·64자 경계, 현재 비밀번호 불일치, 잘못된 JWT subject와 사용자 미존재 시나리오를 포함한다. 이후 회원 탈퇴 범위와 OAuth2 사용자 처리 정책을 확정하고 자기소개서·이력서 모듈로 이동한다.
+API 기준은 현재 구현을 기준으로 base path `/api`, Refresh Token 재발급 URI `/api/auth/refresh`, 성공 응답 DTO 직접 반환, 오류 응답 `ErrorResponse` 공통 형식으로 확정했다. 이 결정은 애플리케이션의 현재 동작과 일치하므로 코드와 테스트 변경은 없다.
+
+별도의 명세 오류 코드 원문은 정의하지 않고 현재 구현을 공식 기준으로 사용한다. 오류 응답은 `code`, `message`, `errors` 필드로 구성하며 현재 `DUPLICATE_EMAIL`, `INVALID_CREDENTIALS`, `INVALID_ACCESS_TOKEN`, `INVALID_REFRESH_TOKEN`, `INVALID_CURRENT_PASSWORD`, `PASSWORD_CHANGE_NOT_SUPPORTED`, `SAME_PASSWORD`, `USER_NOT_FOUND`, `VALIDATION_ERROR`를 사용한다. 신규 오류 코드는 의미가 명확한 영문 대문자 `SNAKE_CASE`로 추가하고 HTTP 상태와 함께 `GlobalExceptionHandler`에서 관리한다.
+
+명세와 현재 구현의 기준 정리 1단계를 완료했다. 인증 ERD는 Flyway migration을 실제 스키마 기준으로 삼고 nullable `password_hash`, nullable `provider_id`, provider 계정 복합 unique constraint, 인증 방식 check constraint 및 별도 `refresh_tokens` 테이블을 기준으로 확정했다.
+
+다음 작업은 API 명세에 포함된 회원 탈퇴의 범위와 OAuth2 사용자 처리 정책을 확정하는 것이다. 탈퇴 시 사용자 데이터와 Refresh Token 삭제 범위, 재가입 허용 여부, LOCAL·OAuth2 계정의 동일 처리 여부를 결정한 뒤 구현하며, 완료 후 자기소개서·이력서 모듈로 이동한다.
 
 실제 배포 환경 선정과 배포 플랫폼별 구성은 자기소개서·이력서, 기업·채용공고, RAG 질문 생성, 면접 답변 평가와 결과 조회로 이어지는 MVP 핵심 흐름이 완성된 뒤 진행한다.
 
@@ -623,10 +684,14 @@ Notion 프로젝트 문서를 기준으로 현재 구현을 대조한 결과, �
 
 - 기준 브랜치: `main`
 - 기준 커밋: `57b9e92 fix: 운영 health probe 비인증 접근 허용`
-- reverse proxy OAuth2 callback 운영 검증, ECS structured logging 설정·테스트, 회원정보 수정 구현·테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- reverse proxy OAuth2 callback 운영 검증, ECS structured logging 설정·테스트, 회원정보 수정, 로컬 사용자 비밀번호 변경 구현·테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
 
 ## 변경 이력
 
+- 2026-09-02: Bearer Access Token으로 인증된 LOCAL 사용자의 `PUT /api/users/me/password` 비밀번호 변경을 구현함. 현재 비밀번호 확인, 새 비밀번호 8자·64자 validation, 기존 비밀번호 재사용과 OAuth2 사용자 요청 거부, 비밀번호 암호화 저장 및 모든 Refresh Token 폐기를 적용함. 정상·경계·실패 테스트 14개를 추가하고 전체 테스트 137개 성공을 확인했으며 다음 작업을 회원 탈퇴 범위와 OAuth2 사용자 처리 정책 확정으로 전환함.
+- 2026-09-02: Flyway migration을 인증 ERD의 실제 스키마 기준으로 확정하고 `users`의 `password_hash`, `provider_id`, provider 계정 unique 및 인증 방식 check constraint와 `refresh_tokens`의 사용자 관계, token hash unique, cascade 삭제 및 index를 문서화함. 명세와 현재 구현의 기준 정리 1단계를 완료하고 다음 작업을 로컬 사용자 비밀번호 변경으로 전환함.
+- 2026-09-02: 별도의 명세 오류 코드 원문 없이 현재 구현을 오류 응답의 공식 기준으로 사용하기로 확정함. `ErrorResponse`의 `code`, `message`, `errors` 구조와 구현된 오류 코드 6개를 유지하고 신규 오류 코드는 영문 대문자 `SNAKE_CASE`와 명시적인 HTTP 상태로 추가하기로 결정함. 다음 명세 정리 작업을 실제 Flyway schema 기반 ERD 정합성 반영으로 전환함.
+- 2026-09-02: API 기준을 현재 구현 중심으로 확정함. base path `/api`, Refresh Token 재발급 URI `/api/auth/refresh`, 성공 응답 DTO 직접 반환, HTTP 204 body 없음, 오류 응답 `ErrorResponse` 공통 형식을 유지하기로 결정함. 애플리케이션 변경 없이 다음 명세 정리 작업을 오류 코드 매핑으로 전환함.
 - 2026-09-02: Bearer Access Token으로 인증된 사용자가 자신의 닉네임을 수정하는 `PUT /api/users/me`를 구현함. 닉네임 앞뒤 공백 제거와 2자·50자 validation을 적용하고 정상·경계·실패 테스트 11개를 추가함. 관련 테스트와 전체 테스트 123개 성공을 확인하고 다음 작업을 로컬 사용자 비밀번호 변경으로 전환함.
 - 2026-09-02: Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처, ERD, API, UI 및 RAG 설계 문서를 분석하고 실제 저장소와 대조함. 인증·운영 기반은 전체 기술 방향과 부합하지만 API version·재발급 URI·응답 형식·오류 코드와 ERD 일부가 실제 구현과 다르고 핵심 도메인은 미구현임을 기록함. 다음 개발 순서를 명세 정합성 결정, 회원 관리 마무리, 자기소개서·이력서, 기업·채용공고, RAG, AI 질문·면접, 평가, 성장 분석, 관리자, 배포 순으로 재편함.
 - 2026-09-01: Refresh Token 정리 scheduler는 운영에서 전용 인스턴스 1개만 활성화하고 일반 API 인스턴스는 비활성화하는 정책으로 확정함. 공통·운영 기본값을 비활성화하고 `local`

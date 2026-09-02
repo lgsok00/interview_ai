@@ -4,6 +4,9 @@ import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
 import com.interviewai.auth.exception.InvalidRefreshTokenException;
+import com.interviewai.user.exception.InvalidCurrentPasswordException;
+import com.interviewai.user.exception.PasswordChangeNotSupportedException;
+import com.interviewai.user.exception.SamePasswordException;
 import com.interviewai.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -64,5 +67,26 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleInvalidRefreshToken(InvalidRefreshTokenException exception) {
         return ErrorResponse.of("INVALID_REFRESH_TOKEN", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(InvalidCurrentPasswordException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleInvalidCurrentPassword(InvalidCurrentPasswordException exception) {
+        return ErrorResponse.of("INVALID_CURRENT_PASSWORD", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(PasswordChangeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handlePasswordChangeNotSupported(PasswordChangeNotSupportedException exception) {
+        return ErrorResponse.of("PASSWORD_CHANGE_NOT_SUPPORTED", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(SamePasswordException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleSamePassword(SamePasswordException exception) {
+        return ErrorResponse.of("SAME_PASSWORD", exception.getMessage());
     }
 }
