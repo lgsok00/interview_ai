@@ -29,7 +29,7 @@
 - 빌드 산출물, IDE 설정, `.env` 등을 이미지 context에서 제외하는 `.dockerignore`
 - 환경변수를 통한 DB 이름, 사용자, 비밀번호, 포트 설정
 - Actuator의 `health`, `info` endpoint 노출
-- Flyway `V1__create_users.sql`, `V2__create_refresh_tokens.sql` migration
+- Flyway `V1__create_users.sql`, `V2__create_refresh_tokens.sql`, `V3__create_cover_letters.sql` migration
 - JPA schema validation 설정
 
 ### 사용자 도메인
@@ -122,6 +122,9 @@
     - `PASSWORD_CHANGE_NOT_SUPPORTED`: HTTP 400
     - `SAME_PASSWORD`: HTTP 400
     - `USER_NOT_FOUND`: HTTP 404
+    - `COVER_LETTER_NOT_FOUND`: HTTP 404
+    - `COVER_LETTER_VERSION_NOT_FOUND`: HTTP 404
+    - `REPRESENTATIVE_COVER_LETTER_NOT_FOUND`: HTTP 404
     - `VALIDATION_ERROR`: HTTP 400 및 field 오류 정보
 
 ### 사용자 API
@@ -154,6 +157,23 @@
     - 탈퇴 후 같은 이메일과 OAuth2 provider 계정으로 즉시 재가입할 수 있으며 새 사용자 id를 발급
     - 이미 발급된 stateless Access Token은 만료 전까지 서명상 유효하므로 사용자 기능에서 DB 사용자 존재를 확인
 
+### 자기소개서 API
+
+- 모든 endpoint는 Bearer Access Token 인증이 필요하며 JWT subject의 사용자 id를 기준으로 소유권을 검사한다.
+- `POST /api/cover-letters`: 제목 100자 이하, 본문 20,000자 이하 validation 후 자기소개서와 초기 버전 1을 생성하고 HTTP 201 반환
+- `GET /api/cover-letters`: 사용자의 자기소개서를 수정 시각 내림차순으로 조회하고 현재 버전 번호와 대표 여부 반환
+- `GET /api/cover-letters/{coverLetterId}`: 소유한 자기소개서의 현재 버전 제목·본문과 대표 여부 조회
+- `PUT /api/cover-letters/{coverLetterId}`: 기존 버전을 변경하지 않고 새 버전을 추가하며 비관적 잠금으로 동시 버전 번호 충돌 방지
+- `DELETE /api/cover-letters/{coverLetterId}`: 자기소개서를 hard delete하고 버전 및 대표 설정을 cascade 삭제
+- `GET /api/cover-letters/{coverLetterId}/versions`: 전체 버전을 버전 번호 내림차순으로 조회
+- `GET /api/cover-letters/{coverLetterId}/versions/{versionNumber}`: 특정 버전 조회
+- `POST /api/cover-letters/{coverLetterId}/versions/{versionNumber}/restore`: 과거 버전의 제목·본문을 새 버전으로 생성하여 복원
+- `GET /api/cover-letters/representative`: 대표 자기소개서 조회, 미설정 시 HTTP 404 반환
+- `PUT /api/cover-letters/{coverLetterId}/representative`: 대표 자기소개서를 새로 설정하거나 교체하고 HTTP 204 반환
+- `DELETE /api/cover-letters/representative`: 대표 설정을 멱등하게 해제하고 HTTP 204 반환
+- 다른 사용자의 자기소개서는 존재 여부가 노출되지 않도록 HTTP 404 `COVER_LETTER_NOT_FOUND`로 처리한다.
+- PDF 업로드와 텍스트 추출은 파일 저장 정책 확정 이후 별도 범위로 유지한다.
+
 ### 데이터베이스 통합 테스트 기반
 
 - Testcontainers 기반 MySQL 8.4 통합 테스트 환경
@@ -161,10 +181,12 @@
 - Docker를 사용할 수 없는 환경에서는 통합 테스트 자동 비활성화
 - 통합 테스트 클래스 종료 후 Spring Context를 폐기해 새 Testcontainer 주소를 사용하도록 구성
 - 실제 MySQL에서 Flyway V1 migration 적용 여부 검증
+- 실제 MySQL에서 Flyway V3 자기소개서 migration 적용 여부 검증
 - `UserRepository`의 로컬 사용자 저장 및 이메일 조회 검증
 - 이메일 unique constraint 위반 시 `DataIntegrityViolationException` 발생 검증
+- 자기소개서 버전 unique, 사용자별 대표 문서 unique, 대표 문서 소유권 복합 외래 키와 cascade 삭제 검증
 
-### 인증 ERD 기준
+### 데이터베이스 ERD 기준
 
 - 인증 영역의 실제 스키마 기준은 수정 불가능한 과거 설계 문서가 아니라 순서대로 적용되는 Flyway migration이다.
 - `users`
@@ -186,6 +208,19 @@
     - 생성·수정 시각: `created_at`, `updated_at DATETIME(6) NOT NULL`
     - 사용자별 조회·삭제를 위한 `user_id` index와 만료 정리를 위한 `expires_at` index 적용
 - `users`와 `refresh_tokens`는 일대다 관계이며, Refresh Token 원문은 저장하지 않고 SHA-256 해시만 저장한다.
+- `cover_letters`
+    - 사용자 외래 키 `user_id`와 현재 제목, 현재 버전 번호 및 생성·수정 시각 저장
+    - 사용자 삭제 시 자기소개서를 cascade 삭제
+    - 수정과 복원의 버전 번호 할당 시 비관적 잠금 적용
+- `cover_letter_versions`
+    - 자기소개서별 immutable 제목·본문 snapshot과 1부터 시작하는 버전 번호 저장
+    - `(cover_letter_id, version_number)` unique constraint 적용
+    - 자기소개서 삭제 시 모든 버전 cascade 삭제
+- `cover_letter_representatives`
+    - `user_id`를 기본 키로 사용해 사용자당 대표 자기소개서 최대 1개 보장
+    - `cover_letter_id` unique constraint로 하나의 자기소개서가 하나의 대표 설정에만 연결되도록 제한
+    - `(user_id, cover_letter_id)` 복합 외래 키로 대표 자기소개서의 소유권 일치 보장
+    - 자기소개서 또는 사용자 삭제 시 대표 설정 cascade 삭제
 
 ## 테스트 상태
 
@@ -344,6 +379,43 @@
 - JWT 없는 탈퇴 요청에 HTTP 401 반환
 - 탈퇴할 사용자가 없을 때 HTTP 404와 `USER_NOT_FOUND` 반환
 - 잘못된 JWT subject의 탈퇴 요청에 HTTP 401과 `INVALID_ACCESS_TOKEN` 반환
+
+`CoverLetterServiceTest`에 다음 12개 시나리오가 작성되어 있다.
+
+- 자기소개서와 초기 버전 생성
+- 존재하지 않는 사용자의 생성 거부
+- 목록의 대표 자기소개서 구분
+- 현재 버전 상세 조회
+- 다른 사용자 자기소개서 은닉
+- 수정 시 비관적 잠금과 새 버전 생성
+- 존재하지 않는 버전 조회 거부
+- 과거 버전을 새 버전으로 복원
+- 대표 자기소개서 신규 설정과 교체
+- 미설정 대표 자기소개서 조회 거부
+- 잘못된 JWT subject 거부
+
+`CoverLetterControllerTest`에 다음 14개 시나리오가 작성되어 있다.
+
+- 자기소개서 생성 시 HTTP 201과 응답 검증
+- 제목 앞뒤 공백 제거와 본문 공백 보존
+- 빈 제목·본문 validation
+- 제목 100자와 본문 20,000자 경계 허용 및 초과 거부
+- JWT 없는 요청의 HTTP 401
+- 자기소개서 목록·수정·삭제
+- 소유하지 않은 자기소개서의 `COVER_LETTER_NOT_FOUND`
+- 존재하지 않는 버전의 `COVER_LETTER_VERSION_NOT_FOUND`
+- 과거 버전 복원
+- 대표 자기소개서 설정·해제
+- 대표 자기소개서 미설정 오류
+
+`CoverLetterRepositoryIntegrationTest`에 다음 6개 MySQL 통합 시나리오가 작성되어 있다.
+
+- Flyway V3 migration 적용
+- 여러 버전 저장과 버전 번호 내림차순 조회
+- 사용자당 하나의 대표 자기소개서 유지 및 교체
+- 다른 사용자 문서의 대표 설정을 복합 외래 키로 거부
+- 자기소개서 삭제 시 버전과 대표 설정 cascade 삭제
+- 사용자 삭제 시 자기소개서와 버전 및 대표 설정 cascade 삭제
 
 `GoogleOAuth2LoginServiceTest`에 다음 8개 시나리오가 작성되어 있다.
 
@@ -612,6 +684,13 @@
 - 전체 테스트 리포트: 146개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - LOCAL·OAuth2 사용자의 동일한 탈퇴 처리, HTTP 204, 인증·사용자 오류, Refresh Token cascade 삭제와 동일 OAuth2 계정 재가입을 검증함
 
+2026-09-03 사용자 Windows 로컬 환경에서 자기소개서 관련 테스트와 전체 테스트를 실행했다.
+
+- `.\gradlew.bat test --tests "com.interviewai.coverletter.*"`: 성공 (`BUILD SUCCESSFUL in 34s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
+- `.\gradlew.bat test`: 성공 (`BUILD SUCCESSFUL in 1m 9s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
+- 전체 테스트 리포트: 178개 실행, 실패 0개, 오류 0개, 건너뜀 0개
+- CRUD, 사용자별 소유권, validation 경계, immutable 버전 추가·조회·복원, 대표 설정·교체·해제, Flyway V3 및 MySQL unique·복합 외래 키·cascade를 검증함
+
 ## 향후 구현 순서
 
 Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처 설계서, ERD 설계서, API 명세서, UI 설계서와 RAG 설계서를 기준으로 다음 순서로 진행한다. 실제 배포 환경 선정은 핵심 기능 구현 이후로
@@ -626,7 +705,7 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - F-01-09 로컬 사용자 비밀번호 변경 완료
     - 회원 탈퇴 범위와 OAuth2 사용자 처리 정책 확정 및 구현 완료
 3. 자기소개서 관리
-    - 작성·조회·수정·삭제, 버전 관리, 대표 자기소개서 설정
+    - 작성·조회·수정·삭제, 버전 관리, 대표 자기소개서 설정 완료
     - PDF 업로드와 텍스트 추출은 파일 저장 정책을 먼저 정한 후 추가
 4. 이력서 관리
     - PDF 업로드·조회·수정·삭제, 대표 이력서 설정
@@ -688,7 +767,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
   `GlobalExceptionHandler`와 `ErrorResponse` 형식을 유지한다.
 - Notion 회원가입 명세의 `name`은 실제 구현의 `nickname`과 다르다.
 - Notion ERD의 User에는 실제 스키마의 `provider_id`와 `refresh_tokens`가 빠져 있고 비밀번호 컬럼명도 실제 `password_hash`와 다르다.
-- 문서에 정의된 Spring AI, Qdrant, OpenAI embedding, 자기소개서·이력서·기업·채용공고·면접·평가·성장·관리자 모듈은 아직 구현되지 않았다.
+- 문서에 정의된 Spring AI, Qdrant, OpenAI embedding, 이력서·기업·채용공고·면접·평가·성장·관리자 모듈은 아직 구현되지 않았다.
+- 자기소개서 PDF 업로드와 텍스트 추출은 파일 저장 위치, 허용 형식·크기 및 원본 보관 정책 확정 전까지 제외한다.
 - RAG 설계의 `companyId AND jobPostingId AND userId` 조건은 기업 공용 문서와 사용자 전용 문서의 metadata가 다르므로 문서 유형별 필터 조합으로 구체화해야 한다.
 
 ## 다음 작업
@@ -720,19 +800,25 @@ provider 계정 복합 unique constraint, 인증 방식 check constraint 및 별
 회원 탈퇴는 LOCAL·Google·GitHub 사용자를 동일하게 hard delete하고 Refresh Token과 향후 사용자 소유 데이터를 cascade 삭제하며 즉시 재가입을 허용하는 정책으로 확정했다.
 Google·GitHub의 OAuth 앱 연결과 권한 해제는 서비스 탈퇴 범위에 포함하지 않는다.
 
-다음 작업은 자기소개서 관리의 API 범위와 데이터 모델을 확정하는 것이다. 사용자별 소유권, 작성·조회·수정·삭제, 버전 관리와 대표 자기소개서 설정 정책을 먼저 정한 뒤 Flyway migration과 기능을
-구현한다. PDF 업로드와 텍스트 추출은 파일 저장 정책을 확정한 후 별도 작업으로 진행한다.
+자기소개서 관리는 사용자별 작성·목록·상세·수정·삭제, immutable 버전 이력·조회·복원과 대표 자기소개서 설정·교체·해제 범위로 확정해 구현했다. Flyway V3는 자기소개서, 버전과 대표 설정
+테이블을 추가하며 unique·복합 외래 키·cascade 제약으로 버전과 소유권 정합성을 보장한다. 관련 32개 테스트와 전체 178개 테스트의 성공을 확인했다.
+
+다음 작업은 이력서 관리의 범위와 파일 저장 정책 및 데이터 모델을 확정하는 것이다. PDF 원본 저장 위치와 키 구조, 파일 형식·크기 제한, 텍스트 추출 상태·실패 처리, 사용자별 소유권과 대표 이력서
+설정 정책을 정한 뒤 새 Flyway migration과 기능을 구현한다. 자기소개서 PDF 업로드는 동일 파일 정책을 재사용할 수 있도록 이력서 파일 기반과 함께 후속 작업으로 진행한다.
 
 실제 배포 환경 선정과 배포 플랫폼별 구성은 자기소개서·이력서, 기업·채용공고, RAG 질문 생성, 면접 답변 평가와 결과 조회로 이어지는 MVP 핵심 흐름이 완성된 뒤 진행한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `62f2a81 feat: 로컬 사용자 비밀번호 변경 구현`
-- 회원 탈퇴 구현·테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 기준 커밋: `776f929 feat: 회원 탈퇴 및 OAuth2 재가입 정책 구현`
+- 자기소개서 관리 구현·테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
 
 ## 변경 이력
 
+- 2026-09-03: 자기소개서 관리 범위를 사용자별 CRUD, immutable 버전 이력·조회·복원과 대표 자기소개서 설정·교체·해제로 확정하고 구현함. Flyway V3에 자기소개서·버전·대표 설정 테이블과
+  버전 unique, 대표 문서 unique, 소유권 복합 외래 키 및 cascade 제약을 추가함. 정상·경계·실패·소유권·DB 제약 테스트 32개를 추가하고 전체 테스트 178개 성공을 확인했으며 다음 작업을 이력서
+  관리 범위와 파일 저장 정책 및 데이터 모델 확정으로 전환함.
 - 2026-09-03: Bearer Access Token으로 인증된 사용자의 `DELETE /api/users/me` 회원 탈퇴를 구현함. LOCAL·Google·GitHub 사용자를 동일하게 hard
   delete하고 DB cascade로 모든 Refresh Token을 삭제하며, OAuth 제공자 측 연결 해제 없이 동일 이메일·provider 계정의 즉시 재가입을 허용하는 정책을 확정함. 정상·경계·실패
   테스트 9개를 추가하고 전체 테스트 146개 성공을 확인했으며 다음 작업을 자기소개서 관리 범위와 데이터 모델 확정으로 전환함.

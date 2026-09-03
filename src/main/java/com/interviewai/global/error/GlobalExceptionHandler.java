@@ -4,6 +4,9 @@ import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
 import com.interviewai.auth.exception.InvalidRefreshTokenException;
+import com.interviewai.coverletter.exception.CoverLetterNotFoundException;
+import com.interviewai.coverletter.exception.CoverLetterVersionNotFoundException;
+import com.interviewai.coverletter.exception.RepresentativeCoverLetterNotFoundException;
 import com.interviewai.user.exception.InvalidCurrentPasswordException;
 import com.interviewai.user.exception.PasswordChangeNotSupportedException;
 import com.interviewai.user.exception.SamePasswordException;
@@ -88,5 +91,26 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleSamePassword(SamePasswordException exception) {
         return ErrorResponse.of("SAME_PASSWORD", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(CoverLetterNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleCoverLetterNotFound(CoverLetterNotFoundException exception) {
+        return ErrorResponse.of("COVER_LETTER_NOT_FOUND", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(CoverLetterVersionNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleCoverLetterVersionNotFound(CoverLetterVersionNotFoundException exception) {
+        return ErrorResponse.of("COVER_LETTER_VERSION_NOT_FOUND", exception.getMessage());
+    }
+
+
+    @ExceptionHandler(RepresentativeCoverLetterNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleRepresentativeCoverLetterNotFound(RepresentativeCoverLetterNotFoundException exception) {
+        return ErrorResponse.of("REPRESENTATIVE_COVER_LETTER_NOT_FOUND", exception.getMessage());
     }
 }
