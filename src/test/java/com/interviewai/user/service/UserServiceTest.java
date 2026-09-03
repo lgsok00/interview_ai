@@ -2,6 +2,8 @@ package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.service.RefreshTokenService;
+import com.interviewai.resume.repository.ResumeRepository;
+import com.interviewai.resume.storage.ResumeFileTransactionCleanup;
 import com.interviewai.user.dto.ChangePasswordRequest;
 import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.dto.UpdateUserRequest;
@@ -23,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,6 +52,12 @@ class UserServiceTest {
     private RefreshTokenService refreshTokenService;
 
     @Mock
+    private ResumeRepository resumeRepository;
+
+    @Mock
+    private ResumeFileTransactionCleanup resumeFileCleanup;
+
+    @Mock
     private User user;
 
     private UserService userService;
@@ -56,7 +65,13 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, passwordEncoder, refreshTokenService);
+        userService = new UserService(
+                userRepository,
+                passwordEncoder,
+                refreshTokenService,
+                resumeRepository,
+                resumeFileCleanup
+        );
     }
 
 
@@ -298,10 +313,14 @@ class UserServiceTest {
         @DisplayName("JWT subject에 해당하는 사용자를 삭제한다")
         void deletesCurrentUser() {
             when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(resumeRepository.findStorageKeysByUserId(USER_ID))
+                    .thenReturn(List.of("1/first.pdf", "1/second.pdf"));
 
             userService.deleteCurrentUser(USER_ID.toString());
 
             verify(userRepository).findById(USER_ID);
+            verify(resumeFileCleanup).deleteAfterCommit("1/first.pdf");
+            verify(resumeFileCleanup).deleteAfterCommit("1/second.pdf");
             verify(userRepository).delete(user);
             verifyNoInteractions(passwordEncoder, refreshTokenService);
         }

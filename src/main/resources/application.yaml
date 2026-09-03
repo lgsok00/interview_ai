@@ -5,6 +5,11 @@ spring:
   profiles:
     default: local
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
   jpa:
     open-in-view: false
     hibernate:
@@ -56,3 +61,8 @@ management:
     web:
       exposure:
         include: health, info
+
+resume:
+  file:
+    max-size: 10MB
+    storage-root: ${RESUME_STORAGE_ROOT:./data/resumes}

@@ -44,3 +44,7 @@ logging:
     root: INFO
     org.hibernate.SQL: WARN
     org.springframework.security: INFO
+
+resume:
+  file:
+    storage-root: ${RESUME_STORAGE_ROOT}
