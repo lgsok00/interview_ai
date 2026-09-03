@@ -73,4 +73,63 @@ class UserRepositoryIntegrationTest extends MySqlIntegrationTest {
         assertThatThrownBy(() -> userRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
+
+
+    @Test
+    @DisplayName("사용자를 삭제하면 해당 사용자의 모든 Refresh Token도 삭제한다")
+    void deletesRefreshTokensWhenUserIsDeleted() {
+        User user = userRepository.saveAndFlush(User.createLocalUser(
+                "user@example.com",
+                "{bcrypt}encoded-password",
+                "테스트유저"
+        ));
+
+        jdbcTemplate.update(
+                """
+                        INSERT INTO refresh_tokens
+                            (user_id, token_hash, expires_at, created_at, updated_at)
+                        VALUES
+                            (?, ?, DATE_ADD(NOW(6), INTERVAL 14 DAY), NOW(6), NOW(6)),
+                            (?, ?, DATE_ADD(NOW(6), INTERVAL 14 DAY), NOW(6), NOW(6))
+                        """,
+                user.getId(), "a".repeat(64),
+                user.getId(), "b".repeat(64)
+        );
+
+        userRepository.delete(user);
+        userRepository.flush();
+
+        Integer tokenCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = ?",
+                Integer.class,
+                user.getId()
+        );
+
+        assertThat(tokenCount).isZero();
+    }
+
+
+    @Test
+    @DisplayName("탈퇴한 OAuth2 사용자는 같은 이메일과 provider 계정으로 재가입할 수 있다")
+    void allowsOAuth2UserToRejoinAfterDeletion() {
+        User deletedUser = userRepository.saveAndFlush(User.createGoogleUser(
+                "oauth@example.com",
+                "OAuth 사용자",
+                "google-provider-id"
+        ));
+        Long deletedUserId = deletedUser.getId();
+
+        userRepository.delete(deletedUser);
+        userRepository.flush();
+
+        User rejoinedUser = userRepository.saveAndFlush(User.createGoogleUser(
+                "oauth@example.com",
+                "재가입 사용자",
+                "google-provider-id"
+        ));
+
+        assertThat(rejoinedUser.getId()).isNotEqualTo(deletedUserId);
+        assertThat(userRepository.findByEmail("oauth@example.com"))
+                .contains(rejoinedUser);
+    }
 }

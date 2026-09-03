@@ -289,4 +289,45 @@ class UserServiceTest {
             verifyNoInteractions(userRepository, passwordEncoder, refreshTokenService, user);
         }
     }
+
+
+    @Nested
+    class DeleteCurrentUser {
+
+        @Test
+        @DisplayName("JWT subject에 해당하는 사용자를 삭제한다")
+        void deletesCurrentUser() {
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+            userService.deleteCurrentUser(USER_ID.toString());
+
+            verify(userRepository).findById(USER_ID);
+            verify(userRepository).delete(user);
+            verifyNoInteractions(passwordEncoder, refreshTokenService);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject에 해당하는 사용자가 없으면 탈퇴에 실패한다")
+        void rejectsUnknownUser() {
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID.toString()))
+                    .isInstanceOf(UserNotFoundException.class);
+
+            verify(userRepository).findById(USER_ID);
+            verify(userRepository, never()).delete(any());
+            verifyNoInteractions(passwordEncoder, refreshTokenService, user);
+        }
+
+
+        @Test
+        @DisplayName("JWT subject가 숫자가 아니면 탈퇴에 실패한다")
+        void rejectsNonNumericSubject() {
+            assertThatThrownBy(() -> userService.deleteCurrentUser("invalid-user-id"))
+                    .isInstanceOf(InvalidAccessTokenException.class);
+
+            verifyNoInteractions(userRepository, passwordEncoder, refreshTokenService, user);
+        }
+    }
 }

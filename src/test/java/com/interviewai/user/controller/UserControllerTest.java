@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -549,5 +550,68 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(userService);
+    }
+
+
+    @Test
+    @DisplayName("JWT 인증 사용자가 탈퇴하면 204를 반환한다")
+    void deletesCurrentUser() throws Exception {
+        mockMvc.perform(
+                        delete("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                )
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(userService).deleteCurrentUser(USER_ID.toString());
+    }
+
+
+    @Test
+    @DisplayName("JWT가 없으면 탈퇴할 수 없다")
+    void rejectsDeleteWithoutJwt() throws Exception {
+        mockMvc.perform(delete("/api/users/me"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(userService);
+    }
+
+
+    @Test
+    @DisplayName("탈퇴할 사용자가 없으면 404를 반환한다")
+    void returnsNotFoundWhenDeletedUserDoesNotExist() throws Exception {
+        doThrow(new UserNotFoundException())
+                .when(userService).deleteCurrentUser(USER_ID.toString());
+
+        mockMvc.perform(
+                        delete("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject(USER_ID.toString())))
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("사용자를 찾을 수 없습니다."))
+                .andExpect(jsonPath("$.errors").isMap());
+
+        verify(userService).deleteCurrentUser(USER_ID.toString());
+    }
+
+
+    @Test
+    @DisplayName("잘못된 JWT subject이면 탈퇴 시 401을 반환한다")
+    void rejectsDeleteWithInvalidJwtSubject() throws Exception {
+        doThrow(new InvalidAccessTokenException())
+                .when(userService).deleteCurrentUser("invalid-user-id");
+
+        mockMvc.perform(
+                        delete("/api/users/me")
+                                .with(jwt().jwt(jwt -> jwt.subject("invalid-user-id")))
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_ACCESS_TOKEN"))
+                .andExpect(jsonPath("$.message")
+                        .value("Access Token의 인증 정보가 올바르지 않습니다."))
+                .andExpect(jsonPath("$.errors").isMap());
+
+        verify(userService).deleteCurrentUser("invalid-user-id");
     }
 }

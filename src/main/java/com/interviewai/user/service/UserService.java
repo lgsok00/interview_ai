@@ -78,6 +78,16 @@ public class UserService {
     }
 
 
+    @Transactional
+    public void deleteCurrentUser(String subject) {
+        Long userId = parseUserId(subject);
+
+        User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+
+        userRepository.delete(user);
+    }
+
+
     private Long parseUserId(String subject) {
         try {
             return Long.valueOf(subject);
