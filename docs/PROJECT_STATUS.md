@@ -1,6 +1,6 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-09-03
+최종 갱신일: 2026-09-04
 
 이 문서는 다른 PC 또는 새 Codex 세션에서도 개발을 이어갈 수 있도록 현재 구현, 검증 상태와 다음 작업을 기록한다. 실제 코드와 Git 이력을 기준으로 하며, 추측한 완료 상태는 기록하지 않는다.
 
@@ -677,8 +677,10 @@
 2026-09-02 사용자 Windows 로컬 환경에서 회원정보 수정 관련 테스트와 전체 테스트를 실행했다.
 
 -
+
 `.\gradlew.bat cleanTest test --tests "com.interviewai.user.service.UserServiceTest" --tests "com.interviewai.user.controller.UserControllerTest"`:
 성공 (`BUILD SUCCESSFUL in 10s`, `5 actionable tasks: 3 executed, 2 up-to-date`)
+
 - `.\gradlew.bat cleanTest test`: 성공 (`BUILD SUCCESSFUL in 43s`, `5 actionable tasks: 2 executed, 3 up-to-date`)
 - 전체 테스트 리포트: 123개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - 닉네임 수정, 공백 정규화, 2자·50자 경계, validation 실패, 인증 누락, 잘못된 JWT subject와 사용자 미존재 처리를 검증함
@@ -686,8 +688,10 @@
 2026-09-02 사용자 Windows 로컬 환경에서 로컬 사용자 비밀번호 변경 관련 테스트와 전체 테스트를 실행했다.
 
 -
+
 `.\gradlew.bat test --tests "com.interviewai.user.service.UserServiceTest" --tests "com.interviewai.user.controller.UserControllerTest"`:
 성공 (`BUILD SUCCESSFUL in 32s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+
 - `.\gradlew.bat test`: 성공 (`BUILD SUCCESSFUL in 44s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
 - 전체 테스트 리포트: 137개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - 비밀번호 암호화 변경, 현재 비밀번호 검증, 기존 비밀번호 재사용 거부, OAuth2 사용자 거부, 8자·64자 경계, 모든 Refresh Token 폐기, validation 및 인증·사용자 오류 처리를 검증함
@@ -695,25 +699,99 @@
 2026-09-03 사용자 Windows 로컬 환경에서 회원 탈퇴 관련 테스트와 전체 테스트를 실행했다.
 
 -
+
 `.\gradlew.bat test --tests "com.interviewai.user.service.UserServiceTest" --tests "com.interviewai.user.controller.UserControllerTest" --tests "com.interviewai.user.repository.UserRepositoryIntegrationTest"`:
 성공 (`BUILD SUCCESSFUL in 46s`, `4 actionable tasks: 3 executed, 1 up-to-date`)
+
 - `.\gradlew.bat test`: 성공 (`BUILD SUCCESSFUL in 41s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
 - 전체 테스트 리포트: 146개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - LOCAL·OAuth2 사용자의 동일한 탈퇴 처리, HTTP 204, 인증·사용자 오류, Refresh Token cascade 삭제와 동일 OAuth2 계정 재가입을 검증함
 
 2026-09-03 사용자 Windows 로컬 환경에서 자기소개서 관련 테스트와 전체 테스트를 실행했다.
 
-- `.\gradlew.bat test --tests "com.interviewai.coverletter.*"`: 성공 (`BUILD SUCCESSFUL in 34s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
+- `.\gradlew.bat test --tests "com.interviewai.coverletter.*"`: 성공 (`BUILD SUCCESSFUL in 34s`,
+  `4 actionable tasks: 2 executed, 2 up-to-date`)
 - `.\gradlew.bat test`: 성공 (`BUILD SUCCESSFUL in 1m 9s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
 - 전체 테스트 리포트: 178개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - CRUD, 사용자별 소유권, validation 경계, immutable 버전 추가·조회·복원, 대표 설정·교체·해제, Flyway V3 및 MySQL unique·복합 외래 키·cascade를 검증함
 
 2026-09-03 사용자 Windows 로컬 환경에서 이력서 관련 테스트와 전체 테스트를 실행했다.
 
-- `.\gradlew.bat test --tests "com.interviewai.resume.*"`: 성공 (`BUILD SUCCESSFUL in 36s`, `4 actionable tasks: 2 executed, 2 up-to-date`)
+- `.\gradlew.bat test --tests "com.interviewai.resume.*"`: 성공 (`BUILD SUCCESSFUL in 36s`,
+  `4 actionable tasks: 2 executed, 2 up-to-date`)
 - `.\gradlew.bat test`: 성공 (`BUILD SUCCESSFUL in 1m 3s`, `4 actionable tasks: 1 executed, 3 up-to-date`)
 - 전체 테스트 리포트: 205개 실행, 실패 0개, 오류 0개, 건너뜀 0개
 - multipart API, PDF 검증·텍스트 추출·SHA-256, 크기 제한, 소유권, 다운로드, 파일 교체·정리, 대표 설정, 경로 이탈 방지, Flyway V4 복합 외래 키·cascade를 검증함
+
+## 기업·채용공고 개발 진행 상황 (2026-09-04)
+
+현재 1~3단계 코드는 반영되어 있으나 **구현됨, 검증 대기** 상태다. 기업·채용공고 API 기능 전체가 완료된 것은 아니다.
+
+### 실제 반영된 코드
+
+- 1단계: `V5__create_companies_and_job_postings.sql` 작성. `companies`, `job_postings`, `company_favorites`와
+  FK·unique·CHECK·조회 인덱스를 정의함. DB migration 실행은 미확인.
+- 2단계: `Company`, `JobPosting`, `CompanyFavorite` 엔티티와 `EmploymentType`, `JobPostingStatus` enum 작성.
+- `JobPosting.statusAt(now)`에 수동 마감·종료 시각·시작 시각 순서의 상태 계산 구현. `update()`의 `updatedAt = now` 누락 수정 반영 확인.
+- 3단계: `CompanyRepository`, `CompanyFavoriteRepository`, `JobPostingRepository` 작성.
+- 기업명 검색과 관심 여부 projection, 관심 기업 목록·중복 등록 upsert·삭제 쿼리 작성.
+- 공고 제목·기업·상태 필터, 목록 projection, 기업 fetch join 상세 조회, 기업·공고 비관적 잠금 조회 작성.
+- `CompanyRepository.search()`의 `userId`가 `Long`으로 수정된 것을 확인함.
+- DTO, 입력 검증, UTC Clock, 관리자 권한 검사, Service, Controller, 신규 예외 매핑은 아직 반영되지 않음.
+
+### 이후 구현에서 유지할 결정
+
+- 기업·공고는 로그인 사용자가 조회하는 공용 데이터다. 관리자가 수동 등록·수정·삭제하며 외부 수집·크롤링·AI 분석은 후속 범위로 둔다.
+- 일반 사용자 기능은 기업 검색·상세·관심 등록·해제·목록과 공고 목록·상세·기업별 조회다. 관심 공고·지원 현황·첨부 파일·로고 업로드는 이번 범위에서 제외한다.
+- 상세 필드와 길이·DB 제약의 기준은 V5와 엔티티다. 기업명·홈페이지·공고 제목의 중복은 허용한다. 기업 소개는 20,000자, 공고 본문은 30,000자 이하의 일반 텍스트다.
+- 기업과 공고는 1:N이며 공고 소속 기업은 수정하지 않는다. 공고가 남아 있는 기업 삭제는 FK RESTRICT와 409 `COMPANY_HAS_JOB_POSTINGS`로 제한한다.
+- 기업·공고는 hard delete한다. 회원 또는 기업 삭제 시 관심 설정은 DB cascade로 삭제하며 회원 탈퇴로 공용 기업·공고는 삭제하지 않는다. 면접 세션 연계 전에 삭제 정책과 당시 내용
+  snapshot 보존을 재검토한다.
+- 관심 기업은 `(user_id, company_id)` unique와 upsert로 중복 등록을 처리하고 기존 등록 시각을 유지한다. 해제는 미등록·삭제된 기업에 대해서도 멱등하게 처리한다.
+- 상태는 저장하지 않는다. 수동 마감 또는 `now >= closesAt`이면 CLOSED, 그 외 `now < opensAt`이면 SCHEDULED, 나머지는 OPEN이다. NULL 시각은 해당 제한 없음으로
+  취급한다.
+- 기본 조회는 모든 상태를 포함하며 예정·마감 공고도 상세 조회를 허용한다. 목록 상태·필터·count는 동일한 기준 시각을 사용하고 별도 마감 scheduler는 두지 않는다.
+- 신규 도메인의 시각은 Service의 UTC Clock에서 생성해 엔티티에 전달한다. API는 offset 포함 시각을 사용하고 UTC·마이크로초 정밀도로 저장한다. 두 모집 시각이 있으면 시작 < 종료여야 하며
+  과거 공고도 등록 가능하다.
+- 문자열은 앞뒤 공백 제거 후 검증하고 선택 문자열의 빈 값은 NULL로 변환한다. URL은 host를 포함한 절대 HTTP/HTTPS 주소로 제한하며 서버에서 가져오지는 않는다.
+- 수정은 PUT 전체 교체다. 필수 값 누락은 400, 선택 값 누락·NULL은 기존 값 삭제다. 공고 생성의 수동 마감 기본값은 false이며 수정에서는 값을 명시한다.
+- 모든 Service 진입점은 JWT subject로 DB 사용자 존재를 확인한다. 관리자 쓰기는 DB의 최신 ADMIN 역할을 검사하며 JWT role claim만으로 허용하지 않는다. 공개 관리자 가입 API는
+  추가하지 않는다.
+- 쓰기 트랜잭션에서는 기업 잠금 → 공고 잠금 순서를 유지한다. 실제 FK 위반 변환은 정확한 제약과 원인을 구분하고 모든 무결성 오류를 기업 삭제 충돌로 처리하지 않는다.
+- keyword는 최대 100자, 공백 제거 후 빈 값이면 전체 조회다. 기업명·공고 제목 부분 일치 검색을 사용하고 `!`, `%`, `_`를 escape한다. 공고에는 companyId·status 필터를
+  제공한다.
+- page 기본 0·0 이상, size 기본 20·1~100. 일반 목록은 `createdAt DESC, id DESC`, 관심 목록은 관심 등록 시각·id 내림차순이다. 관심 목록에는 별도 Pageable 정렬을
+  추가하지 않는다.
+- API 목록은 본문을 제외하고 `items`, `page`, `size`, `totalElements`, `totalPages`의 도메인별 DTO로 반환한다. 기업 요약에는 관심 여부, 공고 요약에는 기업
+  id·이름과 모집 상태·기간을 포함한다.
+
+### 예정 API와 오류 (미구현)
+
+- `GET /api/companies`, `GET /api/companies/{companyId}`, `GET /api/companies/{companyId}/job-postings`
+- `GET /api/companies/favorites`, `PUT /api/companies/{companyId}/favorite`,
+  `DELETE /api/companies/{companyId}/favorite`
+- `GET /api/job-postings`, `GET /api/job-postings/{jobPostingId}`
+- `POST /api/admin/companies`, `PUT /api/admin/companies/{companyId}`, `DELETE /api/admin/companies/{companyId}`
+- `POST /api/admin/job-postings`, `PUT /api/admin/job-postings/{jobPostingId}`,
+  `DELETE /api/admin/job-postings/{jobPostingId}`
+- 생성은 201·Location·상세 DTO, 조회·수정은 200, 삭제·관심 설정·해제는 204로 응답한다.
+- 기업별 목록과 전체 공고의 companyId 필터 모두 미존재 기업은 404, 존재하는 기업의 빈 목록은 200으로 처리한다.
+- 신규 오류: `COMPANY_NOT_FOUND`·`JOB_POSTING_NOT_FOUND` 404, `COMPANY_HAS_JOB_POSTINGS` 409, `FORBIDDEN` 403. 기존
+  `USER_NOT_FOUND`, `INVALID_ACCESS_TOKEN`, `VALIDATION_ERROR`를 재사용한다.
+- JSON·enum·숫자·시각 변환 및 날짜 구간 오류도 GlobalExceptionHandler와 ErrorResponse 형식으로 처리한다.
+
+### 검증 상태와 재개 순서
+
+- 2026-09-04: 실제 파일과 Git 상태를 확인함. 기업·채용공고 테스트는 아직 작성되지 않았으며 컴파일·테스트·DB migration 실행 결과는 확인되지 않음.
+- 테스트 실행 명령·날짜·성공 여부: 미실행으로 해당 없음. 기존 전체 205개 성공 기록은 이전 이력서 단계의 결과이며 이번 변경의 검증 결과가 아니다.
+- 다음 작업은 4단계다. 4-1 DTO·공통 입력 검증·UTC Clock·관리자 권한 검사, 4-2 Service·업무 예외, 5단계 Controller·전역 예외 연결 순서로 진행한다.
+- 6단계에서 반영 코드를 확인한 뒤 Codex가 정상·경계·실패 테스트를 작성한다. 사용자는 `.\gradlew.bat test`로 실행하고 결과를 전달한다. Docker 기반 MySQL 통합 테스트의 skip
+  여부도 확인한다.
+- 검증 대상: 문자열·URL·페이지 경계, 시작·종료 시각 경계와 UTC 변환, 검색 escape·projection·페이징, DB 역할 변경·탈퇴·비인증, FK·unique·CHECK·cascade, 관심 중복
+  등록과 기업 삭제·공고 생성 경합.
+- 구현 코드는 채팅에서 하위 단계별로 제공하고 사용자가 반영한다. 새 파일은 전체 코드, 기존 파일은 변경 위치와 필요한 문맥을 제공한다.
+- `COMPANY_JOB_POSTING_DESIGN.md`, `COMPANY_JOB_POSTING_IMPLEMENTATION.md`는 임시 설계·코드 가이드다. 지속적으로 필요한 결정과 재개 지점은 이 문서에
+  통합했으므로 두 파일 없이 개발을 이어갈 수 있다. 미반영 가이드 코드는 구현 완료의 근거로 사용하지 않는다.
 
 ## 향후 구현 순서
 
@@ -735,9 +813,10 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - PDF 업로드·조회·다운로드·제목 수정·파일 교체·삭제와 대표 이력서 설정 완료
     - 사용자별 소유권, PDF 형식·10MB 제한, 텍스트 추출 상태와 트랜잭션 기반 원본 파일 정리 완료
 5. 기업 및 채용공고
-    - 기업 검색·상세 조회·관심 기업
-    - 채용공고 목록·상세 조회와 기업별 조회
-    - 등록·수정·삭제는 관리자 권한과 함께 구현
+    - 범위·모델 결정 후 V5, 엔티티·enum, Repository를 작성함: 구현됨, 검증 대기
+    - 다음은 DTO·입력 검증·관리자 권한·Service 구현
+    - 기업 검색·상세·관심 기업 및 공고 목록·상세·기업별 API 연결은 후속 단계
+    - 등록·수정·삭제는 관리자 권한과 함께 구현하고 테스트 결과 확인 후 완료 처리
 6. RAG 기반 구축
     - Spring AI와 Qdrant 연결
     - 기업·채용공고·자기소개서·이력서 문서 모델과 metadata 설계
@@ -791,7 +870,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
   `GlobalExceptionHandler`와 `ErrorResponse` 형식을 유지한다.
 - Notion 회원가입 명세의 `name`은 실제 구현의 `nickname`과 다르다.
 - Notion ERD의 User에는 실제 스키마의 `provider_id`와 `refresh_tokens`가 빠져 있고 비밀번호 컬럼명도 실제 `password_hash`와 다르다.
-- 문서에 정의된 Spring AI, Qdrant, OpenAI embedding, 기업·채용공고·면접·평가·성장·관리자 모듈은 아직 구현되지 않았다.
+- 기업·채용공고는 V5·엔티티·Repository까지 작성되었으며 검증 대기 상태다. 해당 API·관리자 권한과 Spring AI, Qdrant, OpenAI embedding, 면접·평가·성장 모듈은 아직
+  구현되지 않았다.
 - 자기소개서 PDF 업로드와 텍스트 추출은 확정된 이력서 파일 정책을 공통화하는 후속 범위로 유지한다.
 - RAG 설계의 `companyId AND jobPostingId AND userId` 조건은 기업 공용 문서와 사용자 전용 문서의 metadata가 다르므로 문서 유형별 필터 조합으로 구체화해야 한다.
 
@@ -808,7 +888,8 @@ Refresh Token 정리 scheduler는 운영에서 전용 인스턴스 1개만 환�
 기본 활성화하며, 설정 조건에 따른 Scheduler Bean 생성 여부를 자동 테스트로 검증했다.
 
 Notion 프로젝트 문서를 기준으로 현재 구현을 대조한 결과, 인증 기반과 운영 실행 기반은 문서의 Spring Boot·Spring Security·OAuth2·JWT·MySQL·Docker 방향에 부합한다.
-회원정보 수정, 로컬 사용자 비밀번호 변경과 회원 탈퇴를 현재 API 정책에 맞게 구현하고 검증했으며, 이후 핵심 도메인 및 Spring AI·Qdrant 기반 RAG는 아직 시작하지 않았다.
+회원정보 수정, 로컬 사용자 비밀번호 변경과 회원 탈퇴를 현재 API 정책에 맞게 구현하고 검증했다. 자기소개서·이력서도 구현·검증했으며 기업·채용공고는 데이터 모델·Repository를 작성한 상태다. Spring
+AI·Qdrant 기반 RAG는 아직 시작하지 않았다.
 
 API 기준은 현재 구현을 기준으로 base path `/api`, Refresh Token 재발급 URI `/api/auth/refresh`, 성공 응답 DTO 직접 반환, 오류 응답 `ErrorResponse`
 공통 형식으로 확정했다. 이 결정은 애플리케이션의 현재 동작과 일치하므로 코드와 테스트 변경은 없다.
@@ -827,27 +908,34 @@ Google·GitHub의 OAuth 앱 연결과 권한 해제는 서비스 탈퇴 범위�
 자기소개서 관리는 사용자별 작성·목록·상세·수정·삭제, immutable 버전 이력·조회·복원과 대표 자기소개서 설정·교체·해제 범위로 확정해 구현했다. Flyway V3는 자기소개서, 버전과 대표 설정
 테이블을 추가하며 unique·복합 외래 키·cascade 제약으로 버전과 소유권 정합성을 보장한다. 관련 32개 테스트와 전체 178개 테스트의 성공을 확인했다.
 
-이력서 관리는 사용자별 PDF 등록·조회·다운로드·제목 수정·파일 교체·삭제와 대표 설정 범위로 구현했다. Flyway V4는 파일 크기·추출 상태 check, 저장 키 unique, 소유권 복합 외래 키와 cascade
+이력서 관리는 사용자별 PDF 등록·조회·다운로드·제목 수정·파일 교체·삭제와 대표 설정 범위로 구현했다. Flyway V4는 파일 크기·추출 상태 check, 저장 키 unique, 소유권 복합 외래 키와
+cascade
 제약을 적용한다. 관련 테스트를 포함한 전체 205개 테스트 성공을 확인했다.
 
-다음 작업은 기업 및 채용공고 관리의 범위, 외부 데이터 수집 여부, 관리자 등록·수정·삭제 권한과 데이터 모델을 확정하는 것이다. 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는
-별도 후속 작업으로 유지한다.
+다음 작업은 기업·채용공고 4-1단계인 DTO·공통 입력 검증·UTC Clock·관리자 권한 검사 구현이다. 1~3단계의 V5·엔티티·enum·Repository는 코드 반영을 확인했으며 검증 대기 상태다.
+이후 Service, Controller·전역 예외 연결, 테스트 작성·사용자 실행으로 진행한다. 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업으로 유지한다.
 
 실제 배포 환경 선정과 배포 플랫폼별 구성은 자기소개서·이력서, 기업·채용공고, RAG 질문 생성, 면접 답변 평가와 결과 조회로 이어지는 MVP 핵심 흐름이 완성된 뒤 진행한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `8290c64 feat: 자기소개서 관리 및 버전 기능 구현`
-- 이력서 관리 구현·테스트 및 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 기준 커밋: `1c10f14 feat: 이력서 PDF 관리 및 파일 저장 기능 구현`
+- 기업·채용공고 V5, 엔티티·enum·Repository와 이 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 임시 설계·구현 가이드 두 파일은 갱신 시점에 untracked 상태이며 필수 커밋 대상이 아니다.
 
 ## 변경 이력
 
+- 2026-09-04: 기업·채용공고를 관리자 수동 관리와 로그인 사용자 조회·관심 기업 범위로 정리함. V5, 엔티티 3개·enum 2개·Repository 3개의 코드 반영과 JobPosting 수정 시각·기업
+  검색 userId 타입 보완을 확인함. 테스트·DB 적용은 미확인으로 `구현됨, 검증 대기`로 기록함. 임시 문서의 핵심 결정과 재개 지점을 이 문서에 통합하고 다음 작업을 4-1단계 DTO·검증·UTC
+  Clock·관리자 권한 검사로 지정함.
 - 2026-09-03: 이력서 관리를 사용자별 PDF 등록·조회·다운로드·제목 수정·파일 교체·삭제와 대표 설정 범위로 구현함. 로컬 원본 저장, 불투명 저장 키, PDFBox 텍스트 추출, SHA-256,
-  10MB 제한, 추출 상태·실패 코드와 commit·rollback 기반 파일 정리를 적용함. Flyway V4에 이력서·대표 설정 테이블과 check·unique·소유권 복합 외래 키·cascade를 추가하고 전체
+  10MB 제한, 추출 상태·실패 코드와 commit·rollback 기반 파일 정리를 적용함. Flyway V4에 이력서·대표 설정 테이블과 check·unique·소유권 복합 외래 키·cascade를 추가하고
+  전체
   205개 테스트 성공을 확인했으며 다음 작업을 기업 및 채용공고 관리 범위와 데이터 모델 확정으로 전환함.
 - 2026-09-03: 자기소개서 관리 범위를 사용자별 CRUD, immutable 버전 이력·조회·복원과 대표 자기소개서 설정·교체·해제로 확정하고 구현함. Flyway V3에 자기소개서·버전·대표 설정 테이블과
-  버전 unique, 대표 문서 unique, 소유권 복합 외래 키 및 cascade 제약을 추가함. 정상·경계·실패·소유권·DB 제약 테스트 32개를 추가하고 전체 테스트 178개 성공을 확인했으며 다음 작업을 이력서
+  버전 unique, 대표 문서 unique, 소유권 복합 외래 키 및 cascade 제약을 추가함. 정상·경계·실패·소유권·DB 제약 테스트 32개를 추가하고 전체 테스트 178개 성공을 확인했으며 다음 작업을
+  이력서
   관리 범위와 파일 저장 정책 및 데이터 모델 확정으로 전환함.
 - 2026-09-03: Bearer Access Token으로 인증된 사용자의 `DELETE /api/users/me` 회원 탈퇴를 구현함. LOCAL·Google·GitHub 사용자를 동일하게 hard
   delete하고 DB cascade로 모든 Refresh Token을 삭제하며, OAuth 제공자 측 연결 해제 없이 동일 이메일·provider 계정의 즉시 재가입을 허용하는 정책을 확정함. 정상·경계·실패
