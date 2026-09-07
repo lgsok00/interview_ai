@@ -78,6 +78,7 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
     @Query("SELECT j.company.id FROM JobPosting j WHERE j.id = :id")
     Optional<Long> findCompanyId(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_READ)
     boolean existsByCompanyId(Long companyId);
 
 

@@ -18,6 +18,8 @@ import com.interviewai.jobposting.entity.JobPosting;
 import com.interviewai.jobposting.enums.EmploymentType;
 import com.interviewai.jobposting.repository.JobPostingRepository;
 import com.interviewai.jobposting.service.JobPostingService;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.support.AuthFixtures;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.UserRole;
@@ -81,6 +83,7 @@ class CatalogApiTest {
     @MockitoBean CompanyFavoriteRepository favorites;
     @MockitoBean JobPostingRepository postings;
     @MockitoBean UserRepository users;
+    @MockitoBean RagSourceChangeRegistrationService ragRegistrationService;
     @MockitoBean OAuth2AuthenticationSuccessHandler successHandler;
     @MockitoBean OAuth2AuthenticationFailureHandler failureHandler;
     @MockitoBean GithubOAuth2UserService githubOAuth2UserService;
@@ -105,7 +108,7 @@ class CatalogApiTest {
     @DisplayName("관리자가 기업을 생성하면 조회 가능한 Location과 상세 응답을 반환한다")
     void createsCompanyWithLocation() throws Exception {
         admin();
-        when(companies.save(any(Company.class))).thenAnswer(call -> {
+        when(companies.saveAndFlush(any(Company.class))).thenAnswer(call -> {
             Company saved = call.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 10L);
             return saved;
@@ -116,6 +119,7 @@ class CatalogApiTest {
                 .andExpect(header().string("Location", "/api/companies/10"))
                 .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.name").value("기업"));
+        verify(ragRegistrationService).registerCompanyUpsert(any(Company.class));
     }
 
     @Test
@@ -123,7 +127,7 @@ class CatalogApiTest {
     void createsPostingWithLocation() throws Exception {
         admin();
         when(companies.findLockedById(10L)).thenReturn(Optional.of(company));
-        when(postings.save(any(JobPosting.class))).thenAnswer(call -> {
+        when(postings.saveAndFlush(any(JobPosting.class))).thenAnswer(call -> {
             JobPosting saved = call.getArgument(0);
             ReflectionTestUtils.setField(saved, "id", 20L);
             return saved;
@@ -135,6 +139,7 @@ class CatalogApiTest {
                 .andExpect(jsonPath("$.companyId").value(10))
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.manuallyClosed").value(false));
+        verify(ragRegistrationService).registerJobPostingUpsert(any(JobPosting.class));
     }
 
     @Test
@@ -216,6 +221,7 @@ class CatalogApiTest {
         assertThat(company.getIndustry()).isNull();
         assertThat(company.getWebsiteUrl()).isNull();
         assertThat(company.getLocation()).isNull();
+        verify(ragRegistrationService).registerCompanyUpsert(company);
     }
 
     @Test
@@ -239,6 +245,7 @@ class CatalogApiTest {
         order.verify(postings).findCompanyId(20L);
         order.verify(companies).findLockedById(10L);
         order.verify(postings).findDetailForUpdate(20L);
+        verify(ragRegistrationService).registerJobPostingUpsert(posting);
     }
 
     @Test
@@ -254,6 +261,8 @@ class CatalogApiTest {
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
         verify(postings).delete(posting);
         verify(companies).delete(company);
+        verify(ragRegistrationService).registerDelete(RagSourceType.JOB_POSTING, 20L);
+        verify(ragRegistrationService).registerDelete(RagSourceType.COMPANY, 10L);
     }
 
     @Test
@@ -304,15 +313,15 @@ class CatalogApiTest {
     @DisplayName("기업 요청은 이름과 본문의 최대 길이를 허용하고 초과 입력은 저장하지 않는다")
     void validatesCompanyLengths(int nameLength, int bodyLength, int expectedStatus) throws Exception {
         admin();
-        when(companies.save(any(Company.class))).thenReturn(company);
+        when(companies.saveAndFlush(any(Company.class))).thenReturn(company);
         mvc.perform(auth(post("/api/admin/companies")).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + "가".repeat(nameLength)
                                 + "\",\"description\":\"" + "나".repeat(bodyLength) + "\"}"))
                 .andExpect(status().is(expectedStatus));
         if (expectedStatus == 400) {
-            verify(companies, never()).save(any(Company.class));
+            verify(companies, never()).saveAndFlush(any(Company.class));
         } else {
-            verify(companies).save(any(Company.class));
+            verify(companies).saveAndFlush(any(Company.class));
         }
     }
 
@@ -322,15 +331,15 @@ class CatalogApiTest {
     void validatesPostingLengths(int titleLength, int bodyLength, int expectedStatus) throws Exception {
         admin();
         when(companies.findLockedById(10L)).thenReturn(Optional.of(company));
-        when(postings.save(any(JobPosting.class))).thenReturn(posting);
+        when(postings.saveAndFlush(any(JobPosting.class))).thenReturn(posting);
         String body = POSTING_JSON.replace("개발자", "가".repeat(titleLength))
                 .replace("공고 본문", "나".repeat(bodyLength));
         mvc.perform(auth(post("/api/admin/job-postings")).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().is(expectedStatus));
         if (expectedStatus == 400) {
-            verify(postings, never()).save(any(JobPosting.class));
+            verify(postings, never()).saveAndFlush(any(JobPosting.class));
         } else {
-            verify(postings).save(any(JobPosting.class));
+            verify(postings).saveAndFlush(any(JobPosting.class));
         }
     }
 

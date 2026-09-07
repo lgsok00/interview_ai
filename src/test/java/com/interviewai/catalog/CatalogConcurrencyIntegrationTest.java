@@ -9,6 +9,7 @@ import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.jobposting.dto.CreateJobPostingRequest;
 import com.interviewai.jobposting.enums.EmploymentType;
 import com.interviewai.jobposting.service.JobPostingService;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
@@ -22,6 +23,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -40,6 +42,7 @@ class CatalogConcurrencyIntegrationTest extends MySqlIntegrationTest {
     @Autowired JobPostingService postings;
     @Autowired UserRepository users;
     @Autowired JdbcTemplate jdbc;
+    @MockitoBean RagSourceChangeRegistrationService ragRegistrationService;
     private Long userId;
     private Long companyId;
 

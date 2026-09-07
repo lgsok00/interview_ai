@@ -8,6 +8,9 @@
 
 현재 V5·엔티티·Repository·공통 기반·DTO·Service·Controller·전역 예외가 반영되었으며, 2026-09-07 전체 307개 테스트 성공으로 기업·채용공고 API 구현 및 검증을 완료했다.
 
+2026-09-08 기업·채용공고 생성·수정·삭제에 RAG UPSERT·DELETE 작업 등록을 같은 트랜잭션으로 연결했다. 기업 삭제의 공고 존재 확인은 비관적 읽기 잠금으로 변경해 동시 생성된 공고를 최신 상태로
+확인한다. 신규 단위·MVC·MySQL 동시성 테스트를 포함한 전체 435개 성공으로 검증을 완료했다.
+
 ### 2026-09-04 당시 반영 코드 (과거 기록)
 
 - 1단계: `V5__create_companies_and_job_postings.sql` 작성. `companies`, `job_postings`, `company_favorites`와
@@ -21,7 +24,8 @@
 - 4-1단계 공통 기반: `CatalogException`, `CatalogInput`, `CatalogTimeConfig`, `AdminAuthorizationService` 작성.
 - `CatalogInput`에 문자열 정규화·길이, HTTP/HTTPS URL, 양의 ID, 페이지 범위, 검색어 escape, UTC·마이크로초 변환과 모집 기간 검증 구현.
 - `CatalogTimeConfig`에 `catalogClock` UTC Bean 등록. `AdminAuthorizationService`에 subject 형식·DB 사용자 존재·DB의 ADMIN 역할 확인 구현.
-- `CatalogException.errors` 필드와 private 생성자의 매개변수가 모두 `Map<String, String>`으로 수정되어 기존 `ErrorResponse`와 타입이 일치하는 것을 확인함. 컴파일·테스트 검증은 아직 수행하지 않음.
+- `CatalogException.errors` 필드와 private 생성자의 매개변수가 모두 `Map<String, String>`으로 수정되어 기존 `ErrorResponse`와 타입이 일치하는 것을 확인함.
+  컴파일·테스트 검증은 아직 수행하지 않음.
 - DTO, Service, Controller, 신규 예외 매핑은 아직 반영되지 않음. 관리자 검사 메서드는 작성되었으나 실제 API 호출 경로에는 아직 연결되지 않음.
 
 ### 이후 구현에서 유지할 결정
@@ -67,7 +71,8 @@
 
 ### 검증 상태와 재개 순서
 
-- 2026-09-07 재개 지점: 전체 307개 테스트 성공·건너뜀 0을 확인해 기업·채용공고 단계를 완료했다. 다음 작업은 RAG 문서 모델·metadata·접근 제어 설계다. 아래 항목은 2026-09-04 당시 검증 상태와 구현 순서의 이력이며, 최신 결과는 [테스트 실행 기록](TEST_RESULTS.md)을 따른다.
+- 2026-09-07 재개 지점: 전체 307개 테스트 성공·건너뜀 0을 확인해 기업·채용공고 단계를 완료했다. 다음 작업은 RAG 문서 모델·metadata·접근 제어 설계다. 아래 항목은 2026-09-04
+  당시 검증 상태와 구현 순서의 이력이며, 최신 결과는 [테스트 실행 기록](TEST_RESULTS.md)을 따른다.
 
 - 2026-09-04: 실제 파일과 Git 상태를 확인함. 기업·채용공고 테스트는 아직 작성되지 않았으며 컴파일·테스트·DB migration 실행 결과는 확인되지 않음.
 - 테스트 실행 명령·날짜·성공 여부: 미실행으로 해당 없음. 기존 전체 205개 성공 기록은 이전 이력서 단계의 결과이며 이번 변경의 검증 결과가 아니다.

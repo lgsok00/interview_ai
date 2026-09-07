@@ -16,14 +16,26 @@
 
 ## 현재 구현된 기능
 
+### 기업·채용공고 RAG 작업 등록 연결 (2026-09-08)
+
+- `RagSourceChangeRegistrationService`가 스냅샷 생성과 `rag-v1`, 최대 3회 실행 정책을 공통화한다.
+- 기업·채용공고 생성은 ID 확정 후, 수정은 잠근 원본 변경 직후, 삭제는 원본 삭제 전에 같은 쓰기 트랜잭션에서 UPSERT 또는 DELETE 작업을 등록한다.
+- 작업 등록 실패 시 원본 변경도 함께 롤백되며 외부 색인 호출은 CRUD 트랜잭션에서 수행하지 않는다.
+- 신규 단위 테스트 7개와 MVC 테스트 61개를 포함한 전체 435개가 성공했다. 실패·오류·건너뜀은 0이며 MySQL 원자성·동시성 회귀도 완료했다.
+- 기업 삭제의 공고 존재 확인에는 비관적 읽기 잠금을 적용해 `REPEATABLE_READ`의 과거 일관 읽기 스냅샷 대신 최신 커밋 상태를 확인한다.
+- 자기소개서·이력서 CRUD 연결은 다음 구현 범위다.
+
 ### RAG 작업 등록 영속화 (2026-09-07)
 
-- `V7__create_rag_index_jobs.sql`과 `RagIndexJobEntity`·`RagIndexJobRepository`·`RagIndexJobRegistrationService`로 작업 등록을 저장한다.
-- UPSERT는 원본 키·소유자/기업 ID·제목·본문·revision·pipeline version을 보존하고 DELETE는 원본 키만 저장한다. 문자열 스냅샷은 LONGTEXT, pipeline version은 VARCHAR(100)이다.
+- `V7__create_rag_index_jobs.sql`과 `RagIndexJobEntity`·`RagIndexJobRepository`·`RagIndexJobRegistrationService`로 작업 등록을
+  저장한다.
+- UPSERT는 원본 키·소유자/기업 ID·제목·본문·revision·pipeline version을 보존하고 DELETE는 원본 키만 저장한다. 문자열 스냅샷은 LONGTEXT, pipeline version은
+  VARCHAR (100)이다.
 - 초기 상태 PENDING, 최대 실행 횟수·시도 횟수 0, UTC 마이크로초 생성/수정 시각, 낙관적 잠금 버전을 저장한다. 작업 ID는 BIGINT 자동 생성이다.
 - 원본 키·순번 unique, V6 원본 관리 행 FK, 작업 종류·상태·횟수·시각·본문 CHECK 제약을 적용한다. 실제 원본 테이블에는 FK를 두지 않는다.
 - 등록 서비스는 MANDATORY로 호출자의 트랜잭션에 참여하고 기존 순번 서비스의 행 잠금과 순번 발급 이후 작업을 저장한다. 작업 INSERT 실패 및 호출자 롤백 시 순번·작업을 함께 롤백한다.
-- 기존 CRUD 연결·원본 변경과 등록의 원자성 정책, 실행 상태 전이 저장·worker·lease·활성 generation·tombstone·외부 색인 연결은 후속 범위다. 기존 `RagIndexJob`은 메모리 내 실행 모델로 유지한다.
+- 기존 CRUD 연결·원본 변경과 등록의 원자성 정책, 실행 상태 전이 저장·worker·lease·활성 generation·tombstone·외부 색인 연결은 후속 범위다. 기존 `RagIndexJob`은 메모리
+  내 실행 모델로 유지한다.
 - 신규 단위 6개·MySQL 통합 40개를 포함한 전체 428개 성공을 확인했다. 상세 근거는 [테스트 실행 기록](TEST_RESULTS.md)을 참고한다.
 
 ### 실행 환경과 데이터베이스

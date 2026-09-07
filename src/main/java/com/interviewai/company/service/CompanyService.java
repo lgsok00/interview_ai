@@ -12,6 +12,8 @@ import com.interviewai.company.repository.CompanyRepository;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.global.validation.CatalogInput;
 import com.interviewai.jobposting.repository.JobPostingRepository;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.user.entity.User;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -30,6 +32,7 @@ public class CompanyService {
     private final CompanyFavoriteRepository favoriteRepository;
     private final JobPostingRepository jobPostingRepository;
     private final AdminAuthorizationService authorizationService;
+    private final RagSourceChangeRegistrationService ragRegistrationService;
     private final Clock catalogClock;
 
 
@@ -38,12 +41,14 @@ public class CompanyService {
             CompanyFavoriteRepository favoriteRepository,
             JobPostingRepository jobPostingRepository,
             AdminAuthorizationService authorizationService,
+            RagSourceChangeRegistrationService ragRegistrationService,
             Clock catalogClock
     ) {
         this.companyRepository = companyRepository;
         this.favoriteRepository = favoriteRepository;
         this.jobPostingRepository = jobPostingRepository;
         this.authorizationService = authorizationService;
+        this.ragRegistrationService = ragRegistrationService;
         this.catalogClock = catalogClock;
     }
 
@@ -107,9 +112,10 @@ public class CompanyService {
         String websiteUrl = CatalogInput.url(request.websiteUrl(), "websiteUrl");
         String location = CatalogInput.text(request.location(), "location", 200, false);
 
-        Company company = companyRepository.save(
-                Company.create(name, industry, description, websiteUrl, location, now())
-        );
+        Company company = companyRepository
+                .saveAndFlush(Company.create(name, industry, description, websiteUrl, location, now()));
+
+        ragRegistrationService.registerCompanyUpsert(company);
 
         return CompanyResponse.of(company, false);
     }
@@ -130,6 +136,8 @@ public class CompanyService {
 
         company.update(name, industry, description, websiteUrl, location, now());
 
+        ragRegistrationService.registerCompanyUpsert(company);
+
         boolean favorite = favoriteRepository.existsByUserIdAndCompanyId(admin.getId(), validatedCompanyId);
 
         return CompanyResponse.of(company, favorite);
@@ -146,6 +154,8 @@ public class CompanyService {
         if (jobPostingRepository.existsByCompanyId(validatedCompanyId)) {
             throw new CompanyHasJobPostingsException();
         }
+
+        ragRegistrationService.registerDelete(RagSourceType.COMPANY, validatedCompanyId);
 
         companyRepository.delete(company);
     }

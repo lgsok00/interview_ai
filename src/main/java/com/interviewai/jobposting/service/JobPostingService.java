@@ -15,6 +15,8 @@ import com.interviewai.jobposting.enums.EmploymentType;
 import com.interviewai.jobposting.enums.JobPostingStatus;
 import com.interviewai.jobposting.exception.JobPostingNotFoundException;
 import com.interviewai.jobposting.repository.JobPostingRepository;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,7 @@ public class JobPostingService {
     private final JobPostingRepository jobPostingRepository;
     private final CompanyRepository companyRepository;
     private final AdminAuthorizationService authorizationService;
+    private final RagSourceChangeRegistrationService ragRegistrationService;
     private final Clock catalogClock;
 
 
@@ -37,11 +40,13 @@ public class JobPostingService {
             JobPostingRepository jobPostingRepository,
             CompanyRepository companyRepository,
             AdminAuthorizationService authorizationService,
+            RagSourceChangeRegistrationService ragRegistrationService,
             Clock catalogClock
     ) {
         this.jobPostingRepository = jobPostingRepository;
         this.companyRepository = companyRepository;
         this.authorizationService = authorizationService;
+        this.ragRegistrationService = ragRegistrationService;
         this.catalogClock = catalogClock;
     }
 
@@ -105,7 +110,7 @@ public class JobPostingService {
         Company company = findLockedCompany(companyId);
         LocalDateTime now = now();
 
-        JobPosting jobPosting = jobPostingRepository.save(
+        JobPosting jobPosting = jobPostingRepository.saveAndFlush(
                 JobPosting.create(
                         company,
                         title,
@@ -120,6 +125,8 @@ public class JobPostingService {
                         now
                 )
         );
+
+        ragRegistrationService.registerJobPostingUpsert(jobPosting);
 
         return JobPostingResponse.of(jobPosting, now);
     }
@@ -169,6 +176,8 @@ public class JobPostingService {
                 now
         );
 
+        ragRegistrationService.registerJobPostingUpsert(jobPosting);
+
         return JobPostingResponse.of(jobPosting, now);
     }
 
@@ -186,6 +195,8 @@ public class JobPostingService {
 
         JobPosting jobPosting = jobPostingRepository.findDetailForUpdate(validatedJobPostingId)
                 .orElseThrow(JobPostingNotFoundException::new);
+
+        ragRegistrationService.registerDelete(RagSourceType.JOB_POSTING, validatedJobPostingId);
 
         jobPostingRepository.delete(jobPosting);
     }

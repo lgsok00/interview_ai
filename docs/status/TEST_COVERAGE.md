@@ -8,6 +8,12 @@
 
 `RagIndexJobEntityTest` 6개와 `RagIndexJobRegistrationServiceIntegrationTest` 40개가 2026-09-07 전체 실행에서 성공했다.
 
+#### 기업·채용공고 RAG 등록 연결
+
+- `RagSourceChangeRegistrationServiceTest` 7개: 네 원본 유형의 UPSERT/DELETE 분기, `rag-v1`, 최대 3회 시도, null 이력서 실패를 검증한다.
+- `CatalogApiTest`: 기업·채용공고 생성·수정·삭제가 공용 RAG 등록 서비스를 호출하고 생성 시 `saveAndFlush`로 ID를 확정하는 흐름을 검증한다.
+- `CatalogConcurrencyIntegrationTest`: 비관적 읽기 잠금으로 기업 삭제·공고 생성 경합을 직렬화하고 고아 공고와 FK 오류가 남지 않는지 실제 MySQL에서 검증한다.
+
 - 엔티티: 순번·최대 실행 횟수의 0/음수 거부, 필수값 거부, 최대 순번 허용·마이크로초 시간 정밀도 (6개)
 - MySQL: V7 적용, 네 원본 유형별 UPSERT 저장·복원 및 DELETE 등록 (9개)
 - 같은 트랜잭션의 UPSERT·DELETE 연속 등록, 다른 유형·ID의 독립 순번 (2개)
