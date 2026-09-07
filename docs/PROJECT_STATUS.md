@@ -249,7 +249,7 @@
 - 두 테스트를 SQL 오류 코드 `3819`, SQLState `HY000`과 해당 CHECK 제약 이름을 검사하도록 수정했다.
 - 2026-09-07 사용자 재실행: `.\gradlew.bat test --tests "com.interviewai.catalog.CatalogRepositoryIntegrationTest" --console=plain` — BUILD SUCCESSFUL. 실제 XML에서 17개, 실패 0, 오류 0, 건너뜀 0을 확인했다.
 - 2026-09-07 사용자 전체 실행: `.\gradlew.bat test --console=plain` — BUILD SUCCESSFUL. 실제 XML 41개에서 전체 307개, 실패 0, 오류 0, 건너뜀 0을 확인했다. 신규 기업·채용공고 및 입력 검증 102개를 포함하며 MySQL 통합 테스트도 실행되었다.
-- 현재 상태: 기업·채용공고 API 구현 및 전체 회귀 검증 완료. RAG 문서 불변 모델과 문서 유형별 변환기·접근 제어 계약 구현 및 선택 테스트 검증을 완료했으며, 다음 작업은 Qdrant metadata와 색인 상태·작업 수명주기 설계다.
+- 현재 상태: 기업·채용공고 API와 RAG 문서·변환기·접근 제어·metadata·메모리 내 색인 작업 모델 구현 및 전체 회귀 검증 완료. 최신 전체 365개 성공을 확인했으며, 다음 작업은 색인 작업 영속화와 동시 실행 제어 설계·구현이다.
 - 2026-09-07 경고 정리 후 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.catalog.CatalogConcurrencyIntegrationTest"` — BUILD SUCCESSFUL. 실제 XML에서 2개 성공, 실패·오류·건너뜀 0을 확인했다. count 반환형을 Integer로 변경하고 Executor에 try-with-resources를 적용했으며 finally의 throw를 제거했다. 자원 정리는 작업 종료를 기다리므로 기존 종료 대기 30초 제한과는 동작이 다르다.
 - 같은 작업 트리의 `GlobalExceptionHandler.handleMessageNotReadable()` 미사용 매개변수 제거도 확인했다. 이번 실행은 동시성 테스트만 포함하므로 해당 MVC 변경의 재검증은 대기 상태다. 이전 전체 307개 성공 기록은 경고 정리 이전 결과다.
 - 실행 환경: 사용자 터미널에서 JDK 21 선택 및 UTF-8 출력 설정 후 테스트를 진행했다. 한글 테스트 이름은 최신 사용자 출력에서 정상 표시된다.
@@ -266,7 +266,20 @@
 - 2026-09-07 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL. 실제 XML 3개에서 전체 33개, 실패 0, 오류 0, 건너뜀 0을 확인했다. 신규 변환기 테스트 10개와 접근 제어 서비스 테스트 9개를 포함한다.
 - `RagSourceSnapshotFactoryTest`에서 항상 1이 전달되던 현재 버전 helper 매개변수 2개를 제거한 뒤 사용자가 같은 RAG 선택 테스트를 재실행했다. BUILD SUCCESSFUL과 실제 XML 전체 33개 성공·실패 0·오류 0·건너뜀 0을 다시 확인했다.
 - 실행 중 출력된 OpenJDK class-data sharing 경고는 Mockito의 테스트용 클래스 계측 과정에서 발생한 JVM 경고이며 테스트 실패나 애플리케이션 실행 결과가 아니다.
-- 이번 실행은 RAG 선택 테스트만 포함한다. 이전 전체 307개 성공 이후 추가된 RAG 코드까지 포함한 전체 회귀 검증은 대기 상태다.
+- 위 33개 실행 당시에는 RAG 선택 테스트만 포함해 전체 회귀 검증이 대기 상태였다. 이후 아래 전체 365개 실행으로 RAG 추가 코드와 기존 MVC 변경을 포함한 회귀 검증을 완료했다.
+
+### Qdrant metadata와 색인 작업 모델 최신 검증 (2026-09-07)
+
+- `RagIndexTarget`, `RagIndexOperation`, `RagIndexJobStatus`, `RagIndexStatus`, `RagIndexJob`, `RagChunkMetadata`를 추가했다.
+- metadata는 검증된 스냅샷에서 생성하며 문서 유형·공개 범위·원본 revision·색인 설정 버전·generation·chunk 정보와 해당 유형의 소유자·기업·공고 ID를 포함한다. metadata Map은 불변이며 원본 본문은 포함하지 않는다.
+- `pipelineVersion`으로 전처리·chunk·embedding 설정 변경을 구분하고 작업 UUID를 generation으로 사용한다. 동일 작업·chunk는 재시도 시 같은 point UUID를 유지하며 새 작업은 다른 generation과 point ID를 사용한다.
+- 작업 상태는 `PENDING → RUNNING → SUCCEEDED/FAILED`, 실패 후 제한 횟수 내 재시도, 대기·실행·실패 작업 취소를 지원한다. 실행별 attempt UUID로 이전 실행의 늦은 완료·실패 응답을 거부한다.
+- 삭제 작업은 원본 스냅샷 없이 원본 키로 생성한다. 색인 상태는 해당 작업의 목표 상태이며 현재 검색 가능한 generation의 상태를 의미하지 않는다.
+- `RagChunkMetadata.from()`의 범위 검사를 `chunkIndex < 0 || chunkIndex >= chunkCount`로 수정했다. 음수 chunk 번호와 0 이하 chunk 개수를 거부하면서 중복 조건 IDE 경고를 제거했다.
+- 정상·경계·실패 테스트 25개를 추가했다: `RagIndexTargetTest` 3개, `RagIndexJobTest` 11개, `RagChunkMetadataTest` 11개.
+- 2026-09-07 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL. 선택 실행 성공은 사용자 출력으로 확인했다. 이후 전체 실행으로 XML이 갱신되어 선택 실행 당시의 XML은 별도로 남아 있지 않다.
+- 2026-09-07 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL. 실제 최신 XML에서 전체 365개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다. RAG 6개 클래스 58개 성공이며 이번 추가 25개를 포함한다.
+- 현재 범위는 메모리 내 모델이다. DB 영속화, worker 선점·lease·동시 실행 제어, 활성 generation 교체, 삭제 tombstone, 외부 요청 중단·부분 기록 정리, Spring AI·Qdrant 연결 및 실제 색인·검색은 미구현이다.
 
 ### 작성된 자동 테스트
 
@@ -856,7 +869,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - Spring AI와 Qdrant 연결
     - 기업·채용공고·자기소개서·이력서의 문서 유형·공개 범위·원본 키·스냅샷 불변 모델 구현 및 선택 테스트 완료
     - 문서 유형별 변환기, 현재 버전·추출 완료 조건과 사용자별 접근 제어 계약 구현 및 선택 테스트 완료
-    - Qdrant metadata와 색인 수명주기 설계 예정
+    - Qdrant metadata와 메모리 내 색인 상태·작업 수명주기 모델 구현 및 전체 회귀 검증 완료
+    - 다음 단계: 새 Flyway migration과 JPA 기반 작업 영속화, 원본별 작업 순서·선점·활성 generation·삭제 tombstone 설계 및 구현
     - 전처리, 700 token chunk와 100 token overlap, embedding, metadata filtering, Top-K 5 검색
     - 사용자 문서가 다른 사용자 검색 결과에 포함되지 않도록 `userId` 필터와 통합 테스트 적용
 7. AI 질문 생성과 면접 세션
@@ -925,7 +939,7 @@ Refresh Token 정리 scheduler는 운영에서 전용 인스턴스 1개만 환�
 
 Notion 프로젝트 문서를 기준으로 현재 구현을 대조한 결과, 인증 기반과 운영 실행 기반은 문서의 Spring Boot·Spring Security·OAuth2·JWT·MySQL·Docker 방향에 부합한다.
 회원정보 수정, 로컬 사용자 비밀번호 변경과 회원 탈퇴를 현재 API 정책에 맞게 구현하고 검증했다. 자기소개서·이력서도 구현·검증했으며 기업·채용공고는 데이터 모델·Repository를 작성한 상태다. Spring
-AI·Qdrant 기반 RAG는 아직 시작하지 않았다.
+RAG 문서·접근 제어·metadata·메모리 내 색인 작업 모델은 구현·검증했다. AI·Qdrant 외부 연결과 실제 색인·검색은 아직 구현하지 않았다.
 
 API 기준은 현재 구현을 기준으로 base path `/api`, Refresh Token 재발급 URI `/api/auth/refresh`, 성공 응답 DTO 직접 반환, 오류 응답 `ErrorResponse`
 공통 형식으로 확정했다. 이 결정은 애플리케이션의 현재 동작과 일치하므로 코드와 테스트 변경은 없다.
@@ -949,7 +963,7 @@ cascade
 제약을 적용한다. 관련 테스트를 포함한 전체 205개 테스트 성공을 확인했다.
 
 기업·채용공고 DTO·Service·Controller·전역 예외와 테스트가 반영되었고 전체 307개 테스트 성공·실패 0·오류 0·건너뜀 0을 확인했다.
-RAG 기반 구축에서 네 문서 유형의 공개 범위·원본 키·스냅샷 불변 모델과 유형별 변환기·접근 제어 서비스를 추가했다. 현재 자기소개서 버전, 이력서 추출 상태와 사용자 소유권을 적용했으며 RAG 선택 테스트 전체 33개 성공을 확인했다. 다음 작업은 Qdrant metadata와 색인 상태·작업 수명주기 설계다. 이후 Spring AI·Qdrant 연결과 실제 색인·검색으로 진행한다.
+RAG 기반 구축에서 네 문서 유형의 공개 범위·원본 키·스냅샷 불변 모델과 유형별 변환기·접근 제어 서비스를 추가했다. Qdrant metadata와 메모리 내 색인·삭제 작업, 재시도·취소·attempt 검증 모델도 구현했다. RAG 58개를 포함한 전체 365개 성공·실패 0·오류 0·건너뜀 0을 확인했다. 다음 작업은 새 Flyway migration과 JPA 기반 색인 작업 영속화 및 원본별 동시 실행 제어다. 작업 선점·lease, 활성 generation 교체와 삭제 tombstone을 구체화한 뒤 Spring AI·Qdrant 연결과 실제 색인·검색으로 진행한다.
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업으로 유지한다.
 
 실제 배포 환경 선정과 배포 플랫폼별 구성은 자기소개서·이력서, 기업·채용공고, RAG 질문 생성, 면접 답변 평가와 결과 조회로 이어지는 MVP 핵심 흐름이 완성된 뒤 진행한다.
@@ -957,11 +971,13 @@ RAG 기반 구축에서 네 문서 유형의 공개 범위·원본 키·스냅�
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `5a839b8 feat: RAG 문서 모델과 접근 범위 규칙 추가`
-- RAG 문서 불변 모델과 테스트가 기준 커밋에 포함되어 있다. 현재 작업 트리에는 신규 RAG 문서 변환기·접근 제어 서비스·테스트와 현황 문서 변경이 있다.
+- 기준 커밋: `d2e95ab feat: RAG 문서 변환과 접근 제어 추가`
+- RAG 문서 모델·변환기·접근 제어 서비스와 기존 테스트는 커밋되어 있다. 현재 작업 트리에는 신규 metadata·색인 작업 모델 6개, 테스트 3개와 현황 문서 변경이 있다.
 - 임시 설계·구현 가이드 두 파일은 삭제된 것을 확인했다. 필요한 결정과 재개 지점은 이 문서에서 유지한다.
 
 ## 변경 이력
+
+- 2026-09-07: Qdrant metadata와 메모리 내 색인·삭제 작업 수명주기 모델을 구현했다. generation별 point ID, 실행별 attempt 검증, 제한된 재시도·취소와 chunk 범위 검증을 추가했다. 사용자 선택·전체 실행의 BUILD SUCCESSFUL 및 최신 XML의 전체 365개 성공(RAG 58개 포함)·실패 0·오류 0·건너뜀 0을 확인했다. 다음 작업을 색인 작업 영속화·동시 실행 제어로 변경했으며 실제 Qdrant 연결·worker 실행은 후속 범위로 유지한다.
 
 - 2026-09-07: `RagSourceSnapshotFactoryTest`의 항상 같은 값을 받는 현재 자기소개서 버전 helper 매개변수 2개를 제거해 IDE 경고를 정리했다. 사용자 RAG 선택 테스트 재실행의 BUILD SUCCESSFUL과 실제 XML 전체 33개 성공·실패 0·오류 0·건너뜀 0을 확인했다.
 
