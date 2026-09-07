@@ -2,9 +2,25 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-07의 382개 성공이며, 이전 기록의 검증 대기·실패 표시는 당시 상태다.
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-07의 428개 성공이며, 이전 기록의 검증 대기·실패 표시는 당시 상태다.
+
+### RAG 작업 등록 영속화 검증 (2026-09-07)
+
+- JPA가 관리하는 `lockVersion`의 초기값과 IDE 경고 억제를 명시한 뒤 사용자 재실행: `.\gradlew.bat test --tests "com.interviewai.rag.service.RagIndexJobRegistrationServiceIntegrationTest"` — BUILD SUCCESSFUL (28초). 최신 XML에서 40개 성공, 실패·오류·건너뜀 0 확인.
+- SQL 문자열 조합 경고를 고정 SQL과 값 바인딩으로 수정한 뒤 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.rag.service.RagIndexJobRegistrationServiceIntegrationTest"` — BUILD SUCCESSFUL (29초). 최신 XML에서 40개 성공, 실패·오류·건너뜀 0 확인.
+- 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (41초). 선택 실행 성공은 사용자 출력으로 확인했으며 XML은 후속 전체 실행으로 갱신되었다.
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (2분 19초). 최신 XML 51개에서 전체 428개 성공, 실패·오류·건너뜀 0 확인.
+- RAG 10개 클래스 121개 성공. 신규 `RagIndexJobEntityTest` 6개·`RagIndexJobRegistrationServiceIntegrationTest` 40개를 포함하며 MySQL 통합 테스트도 건너뜀 없이 실행되었다.
+- 실제 V7·작업 엔티티·Repository·등록 서비스를 확인했다. 네 원본 유형의 UPSERT 스냅샷 저장·복원, 원본 없는 DELETE 등록, 초기 PENDING·UTC 마이크로초 시각, 동일 트랜잭션 연속 등록·독립 순번, 호출자 트랜잭션 요구, 롤백·동시 등록·DB 제약·overflow를 검증했다.
+- 실제 작업 INSERT의 unique 충돌 시 순번·버전이 유지되고, 호출자 실패 또는 rollback-only 시 작업과 순번이 함께 롤백되는 것을 검증했다.
+- 완료 범위는 작업 본문·초기 상태와 순번의 원자적 등록이다. 기존 CRUD 연결, 원본 변경과 등록의 원자성·스냅샷 조회 시점 정책, 실행 상태 전이 저장, worker·lease·활성 generation·tombstone·외부 색인 연결은 후속 범위다.
+- Codex는 테스트를 실행하지 않고 사용자 출력과 최신 XML을 확인했다. OpenJDK class-data sharing 경고가 출력되었지만 두 실행 모두 성공했다.
 
 ### RAG 원본별 순번 영속화·등록 직렬화 기반 검증 (2026-09-07)
+
+- 경고 수정 후 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.rag.service.RagIndexSequenceServiceIntegrationTest"` — BUILD SUCCESSFUL (28초). 최신 XML에서 15개 성공, 실패·오류·건너뜀 0 확인. 전체 실행은 다시 수행하지 않았다.
+- DELETE는 테스트 원본 키만, UPDATE는 대상 원본만 처리하도록 제한하고 UPDATE 영향 행 1개를 검사한다. Executor는 try-with-resources 및 shutdownNow를 사용하고 awaitTermination 호출을 제거했다. close는 실제 종료까지 기다리므로 기존 종료 대기 10초 제한과 동작이 다르다.
+- 사용자 커밋 `84f81cb`에 구현·테스트와 위 경고 수정이 포함된 것을 확인했다. 확인 시 작업 트리는 깨끗했다. 아래 전체 382개 기록은 경고 수정 이전 실행이다.
 
 - 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (34초). 성공은 사용자 출력으로 확인했으며 선택 실행 XML은 후속 전체 실행으로 갱신되었다.
 - 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (1분 55초). 최신 XML 49개에서 전체 382개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다.

@@ -14,14 +14,15 @@
 | 기업·채용공고             | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                |
 | RAG 기반 모델           | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기          |
 | RAG 순번·등록 직렬화 기반 | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백 |
-| RAG 작업 저장·외부 연결 | 미구현: 작업 본문·상태 저장, worker·lease, 활성 generation·tombstone, Spring AI·Qdrant |
+| RAG 작업 등록 영속화 | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백 |
+| RAG API 연결·작업 실행·외부 연결 | 미구현: 기존 CRUD 연결, 실행 상태 전이 저장, worker·lease, 활성 generation·tombstone, Spring AI·Qdrant |
 | 운영 실행 기반            | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료         |
 | 면접·평가·성장 분석 및 실제 배포 | 후속 범위                                                             |
 
 ## 다음 작업
 
-1. 새 Flyway migration과 JPA 기반 작업 본문·상태 저장을 구현하고 순번 발급과 같은 트랜잭션에 연결한다.
-2. 원본 변경·삭제와 작업 등록의 원자성 및 스냅샷 조회 시점을 정하고, worker 선점·lease, 활성 generation 교체, 삭제 tombstone을 구체화한다.
+1. 원본 변경·삭제와 작업 등록의 원자성, 스냅샷 조회 시점과 원본 동시 변경 잠금 정책을 정하고 기존 CRUD에 등록 서비스를 연결한다.
+2. 실행 상태 전이 저장과 worker 선점·lease, 활성 generation 교체, 삭제 tombstone을 구체화한다.
 3. 이후 Spring AI·Qdrant 연결과 실제 색인·검색으로 진행한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
@@ -29,9 +30,10 @@
 ## 최신 검증
 
 - 실행일: 2026-09-07
-- 사용자 실행 명령: `.\gradlew.bat test`
-- BUILD SUCCESSFUL, 최신 XML 49개에서 전체 382개 성공, 실패·오류·건너뜀 0. RAG 8개 클래스 75개이며 신규 단위 2개·MySQL 통합 15개를 포함한다.
-- RAG 선택 실행도 사용자 출력으로 성공을 확인했다. Codex는 테스트를 실행하지 않고 전체 실행 XML을 확인했다. 상세 근거와 이전 결과는 [테스트 실행 기록](status/TEST_RESULTS.md)을 참고한다.
+- 최신 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.rag.service.RagIndexJobRegistrationServiceIntegrationTest"` — BUILD SUCCESSFUL (28초). SQL 문자열 조합과 JPA `lockVersion` IDE 경고 정리 후 XML에서 40개 성공, 실패·오류·건너뜀 0 확인.
+- 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (41초), 사용자 출력 확인.
+- 최신 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (2분 19초). XML 51개에서 전체 428개 성공, 실패·오류·건너뜀 0 확인. RAG 10개 클래스 121개이며 신규 단위 6개·MySQL 통합 40개를 포함한다.
+- Codex는 테스트를 실행하지 않고 사용자 출력과 XML을 확인했다. 상세 근거와 이전 결과는 [테스트 실행 기록](status/TEST_RESULTS.md)을 참고한다.
 
 ## 상세 문서
 
@@ -50,8 +52,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 검증 시 확인한 HEAD: `bbb951e docs: 프로젝트 현황 문서 분리 및 개발 지침 보완`
-- V6·엔티티·Repository·순번 서비스와 신규 테스트 2개 파일은 미추적 상태이며 이번 문서 변경과 함께 커밋 대기 중이다.
+- 이번 검증 시 확인한 HEAD: `84f81cb feat: RAG 원본별 순번 영속화와 등록 직렬화 기반 추가`
+- 위 HEAD 이후 V7·작업 엔티티·Repository·등록 서비스·신규 테스트 2개 및 관련 문서가 커밋 대기 상태다. 기존 문서 수정도 보존하여 최신 결과를 반영했다.
 
 ## 문서 갱신 규칙
 

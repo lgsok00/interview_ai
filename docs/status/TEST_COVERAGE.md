@@ -6,6 +6,19 @@
 
 ### 작성된 자동 테스트
 
+`RagIndexJobEntityTest` 6개와 `RagIndexJobRegistrationServiceIntegrationTest` 40개가 2026-09-07 전체 실행에서 성공했다.
+
+- 엔티티: 순번·최대 실행 횟수의 0/음수 거부, 필수값 거부, 최대 순번 허용·마이크로초 시간 정밀도 (6개)
+- MySQL: V7 적용, 네 원본 유형별 UPSERT 저장·복원 및 DELETE 등록 (9개)
+- 같은 트랜잭션의 UPSERT·DELETE 연속 등록, 다른 유형·ID의 독립 순번 (2개)
+- 트랜잭션 없는 호출, 잘못된 최대 실행 횟수, null 입력 거부 (4개)
+- 신규 원본·작업 롤백, 기존 순번·버전·복수 작업 롤백, 실제 INSERT unique 충돌 시 순번 롤백 (3개)
+- 신규·기존 원본의 동시 등록 (2개)
+- 순번·상태·횟수·버전·시간·본문 CHECK 제약 (15개), 관리 행 FK (1개), 공고·개인 문서의 필수 소유 메타데이터 (3개), overflow 시 값 보존 (1개)
+- UPSERT 재조회에는 긴 한글·이모지 본문과 100자 pipeline version, 초기 상태·UTC 시각 확인을 포함한다.
+
+위 테스트는 등록 영속화를 검증하며 기존 CRUD 연동, 실행 상태 전이 저장, worker·lease·외부 색인 실행은 포함하지 않는다.
+
 `RagIndexSourceTest`에 순번 증가와 최대 순번 초과 시 엔티티 값 보존 2개 시나리오가 작성되어 있다.
 
 `RagIndexSequenceServiceIntegrationTest`에 다음 MySQL 시나리오 15개가 작성되어 있다 (2026-09-07 전체 실행 성공).
@@ -20,7 +33,7 @@
 - 신규·기존 원본의 독립 트랜잭션 동시 등록 (2개)
 - 잘못된 유형·0 ID·음수 순번·음수 버전의 MySQL CHECK 제약 (4개)
 
-작업 저장·worker·lease·외부 색인 동시성 검증은 포함하지 않는다.
+위 순번 서비스 테스트 자체에는 작업 저장·worker·lease·외부 색인 동시성 검증을 포함하지 않는다. 작업 저장 검증은 앞의 등록 서비스 테스트에서 다룬다.
 
 `AuthServiceTest`에 다음 13개 시나리오가 작성되어 있다.
 
