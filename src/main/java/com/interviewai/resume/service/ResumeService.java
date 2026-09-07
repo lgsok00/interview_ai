@@ -1,6 +1,8 @@
 package com.interviewai.resume.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.resume.dto.ResumeResponse;
 import com.interviewai.resume.dto.ResumeSummaryResponse;
 import com.interviewai.resume.dto.ResumeUploadRequest;
@@ -35,6 +37,7 @@ public class ResumeService {
     private final ResumeRepository resumeRepository;
     private final ResumeRepresentativeRepository representativeRepository;
     private final UserRepository userRepository;
+    private final RagSourceChangeRegistrationService ragRegistrationService;
     private final ResumeUploadFileValidator fileValidator;
     private final ResumePdfProcessor pdfProcessor;
     private final ResumeFileStorage fileStorage;
@@ -45,6 +48,7 @@ public class ResumeService {
             ResumeRepository resumeRepository,
             ResumeRepresentativeRepository representativeRepository,
             UserRepository userRepository,
+            RagSourceChangeRegistrationService ragRegistrationService,
             ResumeUploadFileValidator fileValidator,
             ResumePdfProcessor pdfProcessor,
             ResumeFileStorage fileStorage,
@@ -53,6 +57,7 @@ public class ResumeService {
         this.resumeRepository = resumeRepository;
         this.representativeRepository = representativeRepository;
         this.userRepository = userRepository;
+        this.ragRegistrationService = ragRegistrationService;
         this.fileValidator = fileValidator;
         this.pdfProcessor = pdfProcessor;
         this.fileStorage = fileStorage;
@@ -84,7 +89,9 @@ public class ResumeService {
 
         applyExtractionResult(resume, analysis);
 
-        Resume savedResume = resumeRepository.save(resume);
+        Resume savedResume = resumeRepository.saveAndFlush(resume);
+
+        ragRegistrationService.registerResumeChange(savedResume);
 
         return ResumeResponse.of(savedResume, false);
     }
@@ -134,6 +141,8 @@ public class ResumeService {
 
         resume.updateTitle(request.title());
 
+        ragRegistrationService.registerResumeChange(resume);
+
         return ResumeResponse.of(resume, isRepresentative(userId, resumeId));
     }
 
@@ -162,6 +171,8 @@ public class ResumeService {
 
         applyExtractionResult(resume, analysis);
 
+        ragRegistrationService.registerResumeChange(resume);
+
         return ResumeResponse.of(resume, isRepresentative(userId, resumeId));
     }
 
@@ -169,8 +180,10 @@ public class ResumeService {
     @Transactional
     public void delete(String subject, Long resumeId) {
         Long userId = parseUserId(subject);
-        Resume resume = findOwned(userId, resumeId);
+        Resume resume = findOwnedForUpdate(userId, resumeId);
         String storageKey = resume.getStorageKey();
+
+        ragRegistrationService.registerDelete(RagSourceType.RESUME, resumeId);
 
         resumeRepository.delete(resume);
         fileCleanup.deleteAfterCommit(storageKey);

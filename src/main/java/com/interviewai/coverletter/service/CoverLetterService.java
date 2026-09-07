@@ -16,6 +16,8 @@ import com.interviewai.coverletter.exception.RepresentativeCoverLetterNotFoundEx
 import com.interviewai.coverletter.repository.CoverLetterRepository;
 import com.interviewai.coverletter.repository.CoverLetterRepresentativeRepository;
 import com.interviewai.coverletter.repository.CoverLetterVersionRepository;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.repository.UserRepository;
@@ -32,6 +34,7 @@ public class CoverLetterService {
     private final CoverLetterRepository coverLetterRepository;
     private final CoverLetterVersionRepository versionRepository;
     private final CoverLetterRepresentativeRepository representativeRepository;
+    private final RagSourceChangeRegistrationService ragRegistrationService;
     private final UserRepository userRepository;
 
 
@@ -39,11 +42,13 @@ public class CoverLetterService {
             CoverLetterRepository coverLetterRepository,
             CoverLetterVersionRepository versionRepository,
             CoverLetterRepresentativeRepository representativeRepository,
+            RagSourceChangeRegistrationService ragRegistrationService,
             UserRepository userRepository
     ) {
         this.coverLetterRepository = coverLetterRepository;
         this.versionRepository = versionRepository;
         this.representativeRepository = representativeRepository;
+        this.ragRegistrationService = ragRegistrationService;
         this.userRepository = userRepository;
     }
 
@@ -53,10 +58,12 @@ public class CoverLetterService {
         Long userId = parseUserId(subject);
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
 
-        CoverLetter coverLetter = coverLetterRepository.save(CoverLetter.create(user, request.title()));
+        CoverLetter coverLetter = coverLetterRepository.saveAndFlush(CoverLetter.create(user, request.title()));
 
         CoverLetterVersion version = versionRepository
                 .save(CoverLetterVersion.createInitial(coverLetter, request.title(), request.content()));
+
+        ragRegistrationService.registerCoverLetterUpsert(coverLetter, version);
 
         return CoverLetterResponse.of(coverLetter, version, false);
     }
@@ -96,9 +103,10 @@ public class CoverLetterService {
 
         int versionNumber = coverLetter.addVersion(request.title());
 
-        CoverLetterVersion version = versionRepository.save(
-                CoverLetterVersion.create(coverLetter, versionNumber, request.title(), request.content())
-        );
+        CoverLetterVersion version = versionRepository
+                .save(CoverLetterVersion.create(coverLetter, versionNumber, request.title(), request.content()));
+
+        ragRegistrationService.registerCoverLetterUpsert(coverLetter, version);
 
         return CoverLetterResponse.of(coverLetter, version, isRepresentative(userId, coverLetterId));
     }
@@ -107,7 +115,9 @@ public class CoverLetterService {
     @Transactional
     public void delete(String subject, Long coverLetterId) {
         Long userId = parseUserId(subject);
-        CoverLetter coverLetter = findOwned(userId, coverLetterId);
+        CoverLetter coverLetter = findOwnedForUpdate(userId, coverLetterId);
+
+        ragRegistrationService.registerDelete(RagSourceType.COVER_LETTER, coverLetterId);
 
         coverLetterRepository.delete(coverLetter);
     }
@@ -153,6 +163,8 @@ public class CoverLetterService {
                         sourceVersion.getContent()
                 )
         );
+
+        ragRegistrationService.registerCoverLetterUpsert(coverLetter, restoredVersion);
 
         return CoverLetterResponse.of(coverLetter, restoredVersion, isRepresentative(userId, coverLetterId));
     }

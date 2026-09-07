@@ -2,7 +2,19 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 435개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 440개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 자기소개서·이력서 RAG 등록 연결 검증 (2026-09-08)
+
+- 사용자 선택 실행:
+  `./gradlew test --tests "com.interviewai.coverletter.service.CoverLetterServiceTest" --tests "com.interviewai.resume.service.ResumeServiceTest" --tests "com.interviewai.rag.service.RagSourceChangeRegistrationServiceTest"` —
+  BUILD SUCCESSFUL (3초). XML에서 자기소개서 서비스 14개, 이력서 서비스 11개, 공용 등록 서비스 7개로 합계 32개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 최초 선택 실행은 자기소개서 생성 테스트의 중첩 Mockito `verify` 때문에 32개 중 1개가 실패했다. 검증 대상 인자를 각각 먼저 캡처하도록 테스트를 수정했고 위 재실행에서 성공했다.
+- 사용자 전체 실행: `./gradlew test --rerun-tasks` — BUILD SUCCESSFUL (1분 15초). 최신 XML 52개에서 전체 440개 성공, 실패 0, 오류 0, 건너뜀 0을
+  확인했다.
+- 자기소개서 생성·수정·복원 UPSERT와 삭제 DELETE, 이력서 생성·제목 수정·파일 교체의 추출 상태별 등록과 삭제 DELETE를 검증했다. 등록 실패 시 삭제를 진행하지 않는 실패 경로와 이력서 파일 정리
+  예약 순서도 포함한다.
+- Codex는 테스트를 직접 실행하지 않았으며 사용자 실행 결과와 XML을 대조했다. OpenJDK class-data sharing 경고는 테스트 성공에 영향을 주지 않았다.
 
 ### 기업·채용공고 RAG 등록 연결 검증 (2026-09-08)
 

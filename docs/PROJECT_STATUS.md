@@ -15,23 +15,27 @@
 | RAG 기반 모델                    | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기    |
 | RAG 순번·등록 직렬화 기반        | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                               |
 | RAG 작업 등록 영속화             | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백 |
-| RAG CRUD 연결                    | 기업·채용공고 연결 및 MySQL 원자성·삭제/생성 경합 검증 완료, 자기소개서·이력서 연결 대기   |
+| RAG CRUD 연결                    | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료           |
 | RAG 작업 실행·외부 연결          | 미구현: 실행 상태 전이 저장, worker·lease, 활성 generation·tombstone, Spring AI·Qdrant     |
 | 운영 실행 기반                   | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                    |
 | 면접·평가·성장 분석 및 실제 배포 | 후속 범위                                                                                  |
 
 ## 다음 작업
 
-1. 자기소개서·이력서 CRUD에 같은 트랜잭션 등록 정책을 연결하고 정상·경계·실패 시나리오를 검증한다.
-2. 실행 상태 전이 저장과 worker 선점·lease, 활성 generation 교체, 삭제 tombstone을 구체화한다.
-3. 이후 Spring AI·Qdrant 연결과 실제 색인·검색으로 진행한다.
+1. 실행 상태 전이 저장과 worker 선점·lease, 활성 generation 교체, 삭제 tombstone을 구체화한다.
+2. Spring AI·Qdrant 연결과 실제 색인·검색으로 진행한다.
+3. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
 
 - 실행일: 2026-09-08
-- 최신 사용자 전체 실행: Colima 소켓을 명시한 `./gradlew test --rerun-tasks` — BUILD SUCCESSFUL (1분 16초). XML 52개에서 전체 435개 성공,
+- 최신 사용자 전체 실행: `./gradlew test --rerun-tasks` — BUILD SUCCESSFUL (1분 15초). XML 52개에서 전체 440개 성공, 실패·오류·건너뜀 0 확인.
+- 자기소개서·이력서 선택 실행은 서비스 테스트와 공용 변경 등록 서비스 테스트 합계 32개가 성공했고 실패·오류·건너뜀은 0이다.
+- 자기소개서 생성·수정·복원과 이력서 생성·제목 수정·파일 교체는 UPSERT 또는 추출 상태 기반 DELETE를 등록하며, 원본 삭제는 DELETE 작업을 먼저 등록한다.
+- 아래 435개 전체 실행 기록은 기업·채용공고 연결 완료 당시의 직전 검증이다.
+- 직전 사용자 전체 실행: Colima 소켓을 명시한 `./gradlew test --rerun-tasks` — BUILD SUCCESSFUL (1분 16초). XML 52개에서 전체 435개 성공,
   실패·오류·건너뜀 0 확인.
 - 사용자 선택 재실행: `CatalogConcurrencyIntegrationTest` — BUILD SUCCESSFUL (16초), XML에서 2개 성공, 실패·오류·건너뜀 0 확인.
 - 공고 존재 확인을 비관적 읽기 잠금으로 변경해 기업 삭제와 공고 생성 경합이 도메인 정책대로 직렬화되는 것을 실제 MySQL에서 확인했다.
@@ -69,8 +73,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 검증 시 확인한 HEAD: `c6d2b43 feat: 기업·채용공고 RAG 작업 등록 연결`
-- 기업·채용공고 CRUD 연결, 공용 변경 등록 서비스, 잠금 읽기 동시성 수정, 테스트와 관련 문서가 위 커밋에 포함됐으며 `origin/main`과 일치한다.
+- 이번 검증 시 확인한 HEAD: `ce9efc5 docs: RAG CRUD 연결 커밋 기준점 갱신`
+- 자기소개서·이력서 CRUD 연결과 신규 테스트·문서 변경은 작업 트리에 있으며 커밋 대기 상태다.
 
 ## 문서 갱신 규칙
 

@@ -14,6 +14,8 @@ import com.interviewai.coverletter.exception.RepresentativeCoverLetterNotFoundEx
 import com.interviewai.coverletter.repository.CoverLetterRepository;
 import com.interviewai.coverletter.repository.CoverLetterRepresentativeRepository;
 import com.interviewai.coverletter.repository.CoverLetterVersionRepository;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.repository.UserRepository;
@@ -51,6 +53,8 @@ class CoverLetterServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private RagSourceChangeRegistrationService ragRegistrationService;
+    @Mock
     private User user;
     @Mock
     private CoverLetter coverLetter;
@@ -68,6 +72,7 @@ class CoverLetterServiceTest {
                 coverLetterRepository,
                 versionRepository,
                 representativeRepository,
+                ragRegistrationService,
                 userRepository
         );
     }
@@ -78,18 +83,23 @@ class CoverLetterServiceTest {
     void createsCoverLetterWithInitialVersion() {
         CreateCoverLetterRequest request = new CreateCoverLetterRequest(TITLE, CONTENT);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        when(coverLetterRepository.save(any(CoverLetter.class)))
+        when(coverLetterRepository.saveAndFlush(any(CoverLetter.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(versionRepository.save(any(CoverLetterVersion.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         CoverLetterResponse response = coverLetterService.create(USER_ID.toString(), request);
 
-        ArgumentCaptor<CoverLetterVersion> captor = ArgumentCaptor.forClass(CoverLetterVersion.class);
-        verify(versionRepository).save(captor.capture());
-        assertThat(captor.getValue().getVersionNumber()).isEqualTo(1);
-        assertThat(captor.getValue().getTitle()).isEqualTo(TITLE);
-        assertThat(captor.getValue().getContent()).isEqualTo(CONTENT);
+        ArgumentCaptor<CoverLetter> coverLetterCaptor = ArgumentCaptor.forClass(CoverLetter.class);
+        ArgumentCaptor<CoverLetterVersion> versionCaptor = ArgumentCaptor.forClass(CoverLetterVersion.class);
+        verify(coverLetterRepository).saveAndFlush(coverLetterCaptor.capture());
+        verify(versionRepository).save(versionCaptor.capture());
+        verify(ragRegistrationService).registerCoverLetterUpsert(
+                coverLetterCaptor.getValue(), versionCaptor.getValue()
+        );
+        assertThat(versionCaptor.getValue().getVersionNumber()).isEqualTo(1);
+        assertThat(versionCaptor.getValue().getTitle()).isEqualTo(TITLE);
+        assertThat(versionCaptor.getValue().getContent()).isEqualTo(CONTENT);
         assertThat(response.currentVersionNumber()).isEqualTo(1);
         assertThat(response.representative()).isFalse();
     }
@@ -104,7 +114,12 @@ class CoverLetterServiceTest {
                 USER_ID.toString(), new CreateCoverLetterRequest(TITLE, CONTENT)
         )).isInstanceOf(UserNotFoundException.class);
 
-        verifyNoInteractions(coverLetterRepository, versionRepository, representativeRepository);
+        verifyNoInteractions(
+                coverLetterRepository,
+                versionRepository,
+                representativeRepository,
+                ragRegistrationService
+        );
     }
 
 
@@ -183,9 +198,41 @@ class CoverLetterServiceTest {
 
         ArgumentCaptor<CoverLetterVersion> captor = ArgumentCaptor.forClass(CoverLetterVersion.class);
         verify(versionRepository).save(captor.capture());
+        verify(ragRegistrationService).registerCoverLetterUpsert(coverLetter, captor.getValue());
         assertThat(captor.getValue().getVersionNumber()).isEqualTo(3);
         assertThat(captor.getValue().getContent()).isEqualTo("수정 본문");
         assertThat(response.currentVersionNumber()).isEqualTo(3);
+    }
+
+
+    @Test
+    @DisplayName("자기소개서 삭제는 잠근 원본에 DELETE 작업을 먼저 등록한다")
+    void registersDeleteBeforeDeletingCoverLetter() {
+        when(coverLetterRepository.findOwnedForUpdate(COVER_LETTER_ID, USER_ID))
+                .thenReturn(Optional.of(coverLetter));
+
+        coverLetterService.delete(USER_ID.toString(), COVER_LETTER_ID);
+
+        var inOrder = inOrder(ragRegistrationService, coverLetterRepository);
+        inOrder.verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, COVER_LETTER_ID);
+        inOrder.verify(coverLetterRepository).delete(coverLetter);
+    }
+
+
+    @Test
+    @DisplayName("자기소개서 DELETE 작업 등록 실패 시 원본을 삭제하지 않는다")
+    void doesNotDeleteCoverLetterWhenRegistrationFails() {
+        when(coverLetterRepository.findOwnedForUpdate(COVER_LETTER_ID, USER_ID))
+                .thenReturn(Optional.of(coverLetter));
+        doThrow(new IllegalStateException("registration failed"))
+                .when(ragRegistrationService)
+                .registerDelete(RagSourceType.COVER_LETTER, COVER_LETTER_ID);
+
+        assertThatThrownBy(() -> coverLetterService.delete(USER_ID.toString(), COVER_LETTER_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("registration failed");
+
+        verify(coverLetterRepository, never()).delete(any());
     }
 
 
@@ -222,6 +269,7 @@ class CoverLetterServiceTest {
 
         ArgumentCaptor<CoverLetterVersion> captor = ArgumentCaptor.forClass(CoverLetterVersion.class);
         verify(versionRepository).save(captor.capture());
+        verify(ragRegistrationService).registerCoverLetterUpsert(coverLetter, captor.getValue());
         assertThat(captor.getValue().getVersionNumber()).isEqualTo(4);
         assertThat(captor.getValue().getTitle()).isEqualTo("과거 제목");
         assertThat(captor.getValue().getContent()).isEqualTo("과거 본문");

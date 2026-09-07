@@ -1,8 +1,11 @@
 package com.interviewai.resume.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.resume.dto.ResumeResponse;
 import com.interviewai.resume.dto.ResumeUploadRequest;
+import com.interviewai.resume.dto.UpdateResumeTitleRequest;
 import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.entity.ResumeRepresentative;
 import com.interviewai.resume.exception.RepresentativeResumeNotFoundException;
@@ -22,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
@@ -43,6 +47,7 @@ class ResumeServiceTest {
     @Mock private ResumeRepository resumeRepository;
     @Mock private ResumeRepresentativeRepository representativeRepository;
     @Mock private UserRepository userRepository;
+    @Mock private RagSourceChangeRegistrationService ragRegistrationService;
     @Mock private ResumeUploadFileValidator fileValidator;
     @Mock private ResumePdfProcessor pdfProcessor;
     @Mock private ResumeFileStorage fileStorage;
@@ -58,7 +63,7 @@ class ResumeServiceTest {
     void setUp() {
         resumeService = new ResumeService(
                 resumeRepository, representativeRepository, userRepository,
-                fileValidator, pdfProcessor, fileStorage, fileCleanup
+                ragRegistrationService, fileValidator, pdfProcessor, fileStorage, fileCleanup
         );
         multipartFile = new MockMultipartFile(
                 "file", "resume.pdf", "application/pdf", PDF
@@ -75,16 +80,41 @@ class ResumeServiceTest {
         when(fileValidator.validate(multipartFile)).thenReturn(validated);
         when(pdfProcessor.analyze(PDF)).thenReturn(analysis);
         when(fileStorage.store(USER_ID, PDF)).thenReturn("1/new.pdf");
-        when(resumeRepository.save(any(Resume.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(resumeRepository.saveAndFlush(any(Resume.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ResumeResponse response = resumeService.create(
                 USER_ID.toString(), new ResumeUploadRequest("이력서"), multipartFile
         );
 
         verify(fileCleanup).deleteAfterRollback("1/new.pdf");
-        verify(resumeRepository).save(any(Resume.class));
+        ArgumentCaptor<Resume> captor = ArgumentCaptor.forClass(Resume.class);
+        verify(resumeRepository).saveAndFlush(captor.capture());
+        verify(ragRegistrationService).registerResumeChange(captor.getValue());
         assertThat(response.extractionStatus().name()).isEqualTo("COMPLETED");
         assertThat(response.extractedText()).isEqualTo("resume text");
+    }
+
+
+    @Test
+    @DisplayName("텍스트 추출에 실패한 이력서도 RAG 상태 정리를 등록한다")
+    void registersFailedExtractionResumeChange() {
+        ValidatedResumeFile validated = new ValidatedResumeFile("resume.pdf", "application/pdf", PDF);
+        ResumePdfAnalysis analysis = ResumePdfAnalysis.failed("a".repeat(64), "NO_TEXT");
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        when(fileValidator.validate(multipartFile)).thenReturn(validated);
+        when(pdfProcessor.analyze(PDF)).thenReturn(analysis);
+        when(fileStorage.store(USER_ID, PDF)).thenReturn("1/new.pdf");
+        when(resumeRepository.saveAndFlush(any(Resume.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ResumeResponse response = resumeService.create(
+                USER_ID.toString(), new ResumeUploadRequest("이력서"), multipartFile
+        );
+
+        ArgumentCaptor<Resume> captor = ArgumentCaptor.forClass(Resume.class);
+        verify(resumeRepository).saveAndFlush(captor.capture());
+        verify(ragRegistrationService).registerResumeChange(captor.getValue());
+        assertThat(response.extractionStatus().name()).isEqualTo("FAILED");
+        assertThat(response.extractionFailureCode()).isEqualTo("NO_TEXT");
     }
 
 
@@ -97,7 +127,7 @@ class ResumeServiceTest {
                 USER_ID.toString(), new ResumeUploadRequest("이력서"), multipartFile
         )).isInstanceOf(UserNotFoundException.class);
 
-        verifyNoInteractions(fileValidator, pdfProcessor, fileStorage, fileCleanup);
+        verifyNoInteractions(fileValidator, pdfProcessor, fileStorage, fileCleanup, ragRegistrationService);
     }
 
 
@@ -127,19 +157,55 @@ class ResumeServiceTest {
         verify(fileCleanup).deleteAfterCommit("1/old.pdf");
         verify(resume).replaceFile("new.pdf", "1/new.pdf", "application/pdf", PDF.length, "b".repeat(64));
         verify(resume).completeExtraction("new text");
+        verify(ragRegistrationService).registerResumeChange(resume);
+    }
+
+
+    @Test
+    @DisplayName("이력서 제목 수정은 잠근 원본의 변경 작업을 등록한다")
+    void registersResumeChangeAfterTitleUpdate() {
+        when(resumeRepository.findOwnedForUpdate(RESUME_ID, USER_ID)).thenReturn(Optional.of(resume));
+
+        resumeService.updateTitle(
+                USER_ID.toString(), RESUME_ID, new UpdateResumeTitleRequest("수정 이력서")
+        );
+
+        var inOrder = inOrder(resume, ragRegistrationService);
+        inOrder.verify(resume).updateTitle("수정 이력서");
+        inOrder.verify(ragRegistrationService).registerResumeChange(resume);
     }
 
 
     @Test
     @DisplayName("이력서 삭제는 DB 삭제 후 파일 삭제를 예약한다")
     void deletesResumeAndSchedulesFileCleanup() {
-        when(resumeRepository.findByIdAndUser_Id(RESUME_ID, USER_ID)).thenReturn(Optional.of(resume));
+        when(resumeRepository.findOwnedForUpdate(RESUME_ID, USER_ID)).thenReturn(Optional.of(resume));
         when(resume.getStorageKey()).thenReturn("1/resume.pdf");
 
         resumeService.delete(USER_ID.toString(), RESUME_ID);
 
-        verify(resumeRepository).delete(resume);
-        verify(fileCleanup).deleteAfterCommit("1/resume.pdf");
+        var inOrder = inOrder(ragRegistrationService, resumeRepository, fileCleanup);
+        inOrder.verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, RESUME_ID);
+        inOrder.verify(resumeRepository).delete(resume);
+        inOrder.verify(fileCleanup).deleteAfterCommit("1/resume.pdf");
+    }
+
+
+    @Test
+    @DisplayName("이력서 DELETE 작업 등록 실패 시 DB와 파일 삭제를 예약하지 않는다")
+    void doesNotDeleteResumeWhenRegistrationFails() {
+        when(resumeRepository.findOwnedForUpdate(RESUME_ID, USER_ID)).thenReturn(Optional.of(resume));
+        when(resume.getStorageKey()).thenReturn("1/resume.pdf");
+        doThrow(new IllegalStateException("registration failed"))
+                .when(ragRegistrationService)
+                .registerDelete(RagSourceType.RESUME, RESUME_ID);
+
+        assertThatThrownBy(() -> resumeService.delete(USER_ID.toString(), RESUME_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("registration failed");
+
+        verify(resumeRepository, never()).delete(any());
+        verify(fileCleanup, never()).deleteAfterCommit(any());
     }
 
 
