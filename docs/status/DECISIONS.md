@@ -6,6 +6,11 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 
 ## 알려진 확인 사항
 
+- RAG 원본 관리 코드는 기존 `rag.entity`·`rag.repository`·`rag.service` 구조를 따른다. Repository는 생성·잠금 연산만 노출하도록 Spring Data `Repository`를 상속한다.
+- 원본 관리 행은 `(source_type, source_id)` unique로 식별하고 원본 테이블 외래 키를 두지 않는다. 향후 원본 삭제 이후 삭제 작업·tombstone 기준으로 유지할 계획이며 tombstone 자체는 미구현이다.
+- RAG 순번은 DB 등록 직렬화 순서이며 revision·작업 UUID와 구분한다. `MANDATORY`로 호출자의 쓰기 트랜잭션에 참여하고 다음 단계에서 작업 저장과 함께 커밋·롤백한다.
+- 현재 구현은 순번 발급과 행 잠금까지다. 원본 변경·삭제와 등록의 원자성, 스냅샷 조회 시점, worker 선점·lease 및 늦은 외부 쓰기 처리는 후속 설계·검증 대상이다.
+
 - 로컬 애플리케이션 실행에는 `MYSQL_PASSWORD`가 필요하다.
 - Docker Compose 실행에는 `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` 설정이 필요하다.
 - `.env`는 Git에서 제외되며 PC마다 별도로 구성해야 한다.
