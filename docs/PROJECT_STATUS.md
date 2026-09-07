@@ -249,7 +249,7 @@
 - 두 테스트를 SQL 오류 코드 `3819`, SQLState `HY000`과 해당 CHECK 제약 이름을 검사하도록 수정했다.
 - 2026-09-07 사용자 재실행: `.\gradlew.bat test --tests "com.interviewai.catalog.CatalogRepositoryIntegrationTest" --console=plain` — BUILD SUCCESSFUL. 실제 XML에서 17개, 실패 0, 오류 0, 건너뜀 0을 확인했다.
 - 2026-09-07 사용자 전체 실행: `.\gradlew.bat test --console=plain` — BUILD SUCCESSFUL. 실제 XML 41개에서 전체 307개, 실패 0, 오류 0, 건너뜀 0을 확인했다. 신규 기업·채용공고 및 입력 검증 102개를 포함하며 MySQL 통합 테스트도 실행되었다.
-- 현재 상태: 기업·채용공고 API 구현 및 전체 회귀 검증 완료. RAG 문서 유형·공개 범위·원본 키·스냅샷 불변 모델 구현과 선택 테스트 검증을 완료했으며, 다음 작업은 문서 유형별 변환기와 접근 제어 계약이다.
+- 현재 상태: 기업·채용공고 API 구현 및 전체 회귀 검증 완료. RAG 문서 불변 모델과 문서 유형별 변환기·접근 제어 계약 구현 및 선택 테스트 검증을 완료했으며, 다음 작업은 Qdrant metadata와 색인 상태·작업 수명주기 설계다.
 - 2026-09-07 경고 정리 후 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.catalog.CatalogConcurrencyIntegrationTest"` — BUILD SUCCESSFUL. 실제 XML에서 2개 성공, 실패·오류·건너뜀 0을 확인했다. count 반환형을 Integer로 변경하고 Executor에 try-with-resources를 적용했으며 finally의 throw를 제거했다. 자원 정리는 작업 종료를 기다리므로 기존 종료 대기 30초 제한과는 동작이 다르다.
 - 같은 작업 트리의 `GlobalExceptionHandler.handleMessageNotReadable()` 미사용 매개변수 제거도 확인했다. 이번 실행은 동시성 테스트만 포함하므로 해당 MVC 변경의 재검증은 대기 상태다. 이전 전체 307개 성공 기록은 경고 정리 이전 결과다.
 - 실행 환경: 사용자 터미널에서 JDK 21 선택 및 UTF-8 출력 설정 후 테스트를 진행했다. 한글 테스트 이름은 최신 사용자 출력에서 정상 표시된다.
@@ -262,7 +262,11 @@
 - 사용자가 실행한 `.\gradlew.bat test --tests "com.interviewai.rag.document.RagSourceDocumentTest" --console=plain`에서 BUILD SUCCESSFUL을 확인했다.
 - 실제 XML에서 14개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다.
 - 예외 발생만 검증하는 테스트 helper 3개의 사용되지 않는 반환 값 경고를 제거한 뒤 사용자가 같은 선택 테스트를 재실행했다. BUILD SUCCESSFUL과 실제 XML 14개 성공·실패 0·오류 0·건너뜀 0을 다시 확인했다.
-- 이번 실행은 RAG 문서 모델 선택 테스트만 포함한다. 이전 전체 307개 성공 이후 추가된 RAG 코드까지 포함한 전체 회귀 검증은 대기 상태다.
+- `RagSourceStatus`, `RagSourceResolution`, `RagSourceSnapshotFactory`, `RagSourceAccessService`를 추가했다. 기업·채용공고의 공용 변환, 현재 자기소개서 버전과 사용자 소유권, 이력서 추출 상태별 색인 가능 여부 및 실제 색인 내용 기반 SHA-256 revision을 적용한다.
+- 2026-09-07 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL. 실제 XML 3개에서 전체 33개, 실패 0, 오류 0, 건너뜀 0을 확인했다. 신규 변환기 테스트 10개와 접근 제어 서비스 테스트 9개를 포함한다.
+- `RagSourceSnapshotFactoryTest`에서 항상 1이 전달되던 현재 버전 helper 매개변수 2개를 제거한 뒤 사용자가 같은 RAG 선택 테스트를 재실행했다. BUILD SUCCESSFUL과 실제 XML 전체 33개 성공·실패 0·오류 0·건너뜀 0을 다시 확인했다.
+- 실행 중 출력된 OpenJDK class-data sharing 경고는 Mockito의 테스트용 클래스 계측 과정에서 발생한 JVM 경고이며 테스트 실패나 애플리케이션 실행 결과가 아니다.
+- 이번 실행은 RAG 선택 테스트만 포함한다. 이전 전체 307개 성공 이후 추가된 RAG 코드까지 포함한 전체 회귀 검증은 대기 상태다.
 
 ### 작성된 자동 테스트
 
@@ -851,7 +855,7 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
 6. RAG 기반 구축
     - Spring AI와 Qdrant 연결
     - 기업·채용공고·자기소개서·이력서의 문서 유형·공개 범위·원본 키·스냅샷 불변 모델 구현 및 선택 테스트 완료
-    - 문서 유형별 변환기, 현재 버전·추출 완료 조건과 사용자별 접근 제어 계약 구현 예정
+    - 문서 유형별 변환기, 현재 버전·추출 완료 조건과 사용자별 접근 제어 계약 구현 및 선택 테스트 완료
     - Qdrant metadata와 색인 수명주기 설계 예정
     - 전처리, 700 token chunk와 100 token overlap, embedding, metadata filtering, Top-K 5 검색
     - 사용자 문서가 다른 사용자 검색 결과에 포함되지 않도록 `userId` 필터와 통합 테스트 적용
@@ -945,7 +949,7 @@ cascade
 제약을 적용한다. 관련 테스트를 포함한 전체 205개 테스트 성공을 확인했다.
 
 기업·채용공고 DTO·Service·Controller·전역 예외와 테스트가 반영되었고 전체 307개 테스트 성공·실패 0·오류 0·건너뜀 0을 확인했다.
-RAG 기반 구축의 첫 구현으로 네 문서 유형의 공개 범위·원본 키·스냅샷 불변 모델을 추가했고 선택 테스트 14개 성공을 확인했다. 다음 작업은 기존 도메인을 RAG 스냅샷으로 변환하는 유형별 변환기와 현재 사용자만 개인 문서를 선택할 수 있도록 하는 접근 제어 계약이다. 이후 metadata·색인 수명주기와 Spring AI·Qdrant 연결로 진행한다.
+RAG 기반 구축에서 네 문서 유형의 공개 범위·원본 키·스냅샷 불변 모델과 유형별 변환기·접근 제어 서비스를 추가했다. 현재 자기소개서 버전, 이력서 추출 상태와 사용자 소유권을 적용했으며 RAG 선택 테스트 전체 33개 성공을 확인했다. 다음 작업은 Qdrant metadata와 색인 상태·작업 수명주기 설계다. 이후 Spring AI·Qdrant 연결과 실제 색인·검색으로 진행한다.
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업으로 유지한다.
 
 실제 배포 환경 선정과 배포 플랫폼별 구성은 자기소개서·이력서, 기업·채용공고, RAG 질문 생성, 면접 답변 평가와 결과 조회로 이어지는 MVP 핵심 흐름이 완성된 뒤 진행한다.
@@ -953,11 +957,15 @@ RAG 기반 구축의 첫 구현으로 네 문서 유형의 공개 범위·원본
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `993451a feat: 기업·채용공고 API 연결 및 통합 테스트 추가`
-- 기업·채용공고 API와 테스트가 기준 커밋에 포함되어 있다. 현재 작업 트리에는 신규 RAG 문서 모델·테스트와 현황 문서 변경이 있다.
+- 기준 커밋: `5a839b8 feat: RAG 문서 모델과 접근 범위 규칙 추가`
+- RAG 문서 불변 모델과 테스트가 기준 커밋에 포함되어 있다. 현재 작업 트리에는 신규 RAG 문서 변환기·접근 제어 서비스·테스트와 현황 문서 변경이 있다.
 - 임시 설계·구현 가이드 두 파일은 삭제된 것을 확인했다. 필요한 결정과 재개 지점은 이 문서에서 유지한다.
 
 ## 변경 이력
+
+- 2026-09-07: `RagSourceSnapshotFactoryTest`의 항상 같은 값을 받는 현재 자기소개서 버전 helper 매개변수 2개를 제거해 IDE 경고를 정리했다. 사용자 RAG 선택 테스트 재실행의 BUILD SUCCESSFUL과 실제 XML 전체 33개 성공·실패 0·오류 0·건너뜀 0을 확인했다.
+
+- 2026-09-07: 기업·채용공고·현재 자기소개서 버전·이력서 추출 상태를 RAG 스냅샷과 상태 결과로 변환하고, 인증 사용자 확인과 개인 문서 소유권 조건을 적용했다. 사용자 RAG 선택 테스트 실행의 BUILD SUCCESSFUL과 실제 XML 전체 33개 성공·실패 0·오류 0·건너뜀 0을 확인했다. 전체 회귀 검증은 대기 상태이며 다음 작업을 Qdrant metadata와 색인 상태·작업 수명주기 설계로 변경했다.
 
 - 2026-09-07: `RagSourceDocumentTest`의 예외 검증 helper 3개를 반환 값이 없는 메서드로 변경해 IDE 경고를 제거했다. 사용자 재실행의 BUILD SUCCESSFUL과 실제 XML 14개 성공·실패 0·오류 0·건너뜀 0을 확인했다.
 
