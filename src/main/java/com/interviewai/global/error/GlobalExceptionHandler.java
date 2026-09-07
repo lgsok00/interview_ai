@@ -20,10 +20,13 @@ import com.interviewai.user.exception.PasswordChangeNotSupportedException;
 import com.interviewai.user.exception.SamePasswordException;
 import com.interviewai.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
@@ -51,6 +54,39 @@ public class GlobalExceptionHandler {
                 );
 
         return ErrorResponse.of("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", errors);
+    }
+
+
+    @ExceptionHandler(CatalogException.class)
+    public ResponseEntity<ErrorResponse> handleCatalog(CatalogException exception) {
+        return ResponseEntity
+                .status(exception.getStatus())
+                .body(ErrorResponse.of(
+                        exception.getCode(),
+                        exception.getMessage(),
+                        exception.getErrors()
+                ));
+    }
+
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleArgumentTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        return ErrorResponse.of(
+                "VALIDATION_ERROR",
+                "요청 값이 올바르지 않습니다.",
+                Map.of(exception.getName(), "값의 형식이 올바르지 않습니다.")
+        );
+    }
+
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMessageNotReadable() {
+        return ErrorResponse.of(
+                "VALIDATION_ERROR",
+                "요청 본문의 JSON 형식 또는 필드 값이 올바르지 않습니다."
+        );
     }
 
 

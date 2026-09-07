@@ -1,6 +1,6 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-09-04
+최종 갱신일: 2026-09-07
 
 이 문서는 다른 PC 또는 새 Codex 세션에서도 개발을 이어갈 수 있도록 현재 구현, 검증 상태와 다음 작업을 기록한다. 실제 코드와 Git 이력을 기준으로 하며, 추측한 완료 상태는 기록하지 않는다.
 
@@ -240,6 +240,19 @@
     - 이력서 또는 사용자 삭제 시 대표 설정 cascade 삭제
 
 ## 테스트 상태
+
+### 기업·채용공고 최신 검증 (2026-09-07)
+
+- DTO·Service·Controller 4개와 전역 예외 연결 반영을 확인했다. 생성 Location의 경로 구분자와 관심 해제의 Service 호출 수정도 확인했다.
+- `CatalogApiTest`, `CatalogInputTest`, `CatalogRepositoryIntegrationTest`, `CatalogConcurrencyIntegrationTest`를 작성했다. 실제 Service·DB 역할 검사, 입력 경계, MySQL 제약·검색·페이징·상태·cascade와 동시성 시나리오를 포함한다.
+- 2026-09-07 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.catalog.*" --tests "com.interviewai.global.validation.CatalogInputTest" --console=plain --rerun-tasks` — 102개 중 2개 실패. CHECK 제약은 정상 동작했으나 테스트가 Spring 예외 타입을 잘못 예상했다.
+- 두 테스트를 SQL 오류 코드 `3819`, SQLState `HY000`과 해당 CHECK 제약 이름을 검사하도록 수정했다.
+- 2026-09-07 사용자 재실행: `.\gradlew.bat test --tests "com.interviewai.catalog.CatalogRepositoryIntegrationTest" --console=plain` — BUILD SUCCESSFUL. 실제 XML에서 17개, 실패 0, 오류 0, 건너뜀 0을 확인했다.
+- 2026-09-07 사용자 전체 실행: `.\gradlew.bat test --console=plain` — BUILD SUCCESSFUL. 실제 XML 41개에서 전체 307개, 실패 0, 오류 0, 건너뜀 0을 확인했다. 신규 기업·채용공고 및 입력 검증 102개를 포함하며 MySQL 통합 테스트도 실행되었다.
+- 현재 상태: 기업·채용공고 API 구현 및 전체 회귀 검증 완료. 다음 작업은 RAG 기반의 문서 모델·metadata·접근 제어 설계다.
+- 2026-09-07 경고 정리 후 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.catalog.CatalogConcurrencyIntegrationTest"` — BUILD SUCCESSFUL. 실제 XML에서 2개 성공, 실패·오류·건너뜀 0을 확인했다. count 반환형을 Integer로 변경하고 Executor에 try-with-resources를 적용했으며 finally의 throw를 제거했다. 자원 정리는 작업 종료를 기다리므로 기존 종료 대기 30초 제한과는 동작이 다르다.
+- 같은 작업 트리의 `GlobalExceptionHandler.handleMessageNotReadable()` 미사용 매개변수 제거도 확인했다. 이번 실행은 동시성 테스트만 포함하므로 해당 MVC 변경의 재검증은 대기 상태다. 이전 전체 307개 성공 기록은 경고 정리 이전 결과다.
+- 실행 환경: 사용자 터미널에서 JDK 21 선택 및 UTF-8 출력 설정 후 테스트를 진행했다. 한글 테스트 이름은 최신 사용자 출력에서 정상 표시된다.
 
 ### 작성된 자동 테스트
 
@@ -725,7 +738,7 @@
 
 ## 기업·채용공고 개발 진행 상황 (2026-09-04)
 
-현재 1~3단계와 4-1단계 중 공통 기반 코드는 반영되어 있으나 **구현됨, 검증 대기** 상태다. 공통 예외의 타입 보완은 반영을 확인했으며 기업·채용공고 API 기능 전체가 완료된 것은 아니다.
+현재 V5·엔티티·Repository·공통 기반·DTO·Service·Controller·전역 예외가 반영되었으며, 2026-09-07 전체 307개 테스트 성공으로 기업·채용공고 API 구현 및 검증을 완료했다.
 
 ### 실제 반영된 코드
 
@@ -769,7 +782,7 @@
 - API 목록은 본문을 제외하고 `items`, `page`, `size`, `totalElements`, `totalPages`의 도메인별 DTO로 반환한다. 기업 요약에는 관심 여부, 공고 요약에는 기업
   id·이름과 모집 상태·기간을 포함한다.
 
-### 예정 API와 오류 (미구현)
+### 구현된 API와 오류
 
 - `GET /api/companies`, `GET /api/companies/{companyId}`, `GET /api/companies/{companyId}/job-postings`
 - `GET /api/companies/favorites`, `PUT /api/companies/{companyId}/favorite`,
@@ -785,6 +798,8 @@
 - JSON·enum·숫자·시각 변환 및 날짜 구간 오류도 GlobalExceptionHandler와 ErrorResponse 형식으로 처리한다.
 
 ### 검증 상태와 재개 순서
+
+- 2026-09-07 재개 지점: 전체 307개 테스트 성공·건너뜀 0을 확인해 기업·채용공고 단계를 완료했다. 다음 작업은 RAG 문서 모델·metadata·접근 제어 설계다. 아래 항목은 2026-09-04 당시 검증 상태와 구현 순서의 이력이며, 최신 결과는 위 테스트 상태 절을 따른다.
 
 - 2026-09-04: 실제 파일과 Git 상태를 확인함. 기업·채용공고 테스트는 아직 작성되지 않았으며 컴파일·테스트·DB migration 실행 결과는 확인되지 않음.
 - 테스트 실행 명령·날짜·성공 여부: 미실행으로 해당 없음. 기존 전체 205개 성공 기록은 이전 이력서 단계의 결과이며 이번 변경의 검증 결과가 아니다.
@@ -818,11 +833,11 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - PDF 업로드·조회·다운로드·제목 수정·파일 교체·삭제와 대표 이력서 설정 완료
     - 사용자별 소유권, PDF 형식·10MB 제한, 텍스트 추출 상태와 트랜잭션 기반 원본 파일 정리 완료
 5. 기업 및 채용공고
-    - 범위·모델 결정 후 V5, 엔티티·enum, Repository를 작성함: 구현됨, 검증 대기
-    - 공통 입력 검증·UTC Clock·관리자 검사 작성 및 공통 예외 타입 보완 반영 확인, 검증 대기
-    - 다음은 DTO·Service 구현
-    - 기업 검색·상세·관심 기업 및 공고 목록·상세·기업별 API 연결은 후속 단계
-    - 등록·수정·삭제는 관리자 권한과 함께 구현하고 테스트 결과 확인 후 완료 처리
+    - V5·엔티티·Repository·공통 검증·UTC Clock·DB 관리자 검사 구현 완료
+    - DTO·Service·Controller·전역 예외 연결 완료
+    - 기업 검색·상세·관심 기업 및 공고 목록·상세·기업별 API 구현 완료
+    - 관리자 등록·수정·삭제 구현 완료
+    - 관련 102개 포함 전체 307개 테스트 성공, 실패·오류·건너뜀 0 확인
 6. RAG 기반 구축
     - Spring AI와 Qdrant 연결
     - 기업·채용공고·자기소개서·이력서 문서 모델과 metadata 설계
@@ -876,8 +891,7 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
   `GlobalExceptionHandler`와 `ErrorResponse` 형식을 유지한다.
 - Notion 회원가입 명세의 `name`은 실제 구현의 `nickname`과 다르다.
 - Notion ERD의 User에는 실제 스키마의 `provider_id`와 `refresh_tokens`가 빠져 있고 비밀번호 컬럼명도 실제 `password_hash`와 다르다.
-- 기업·채용공고는 V5·엔티티·Repository까지 작성되었으며 검증 대기 상태다. 해당 API·관리자 권한과 Spring AI, Qdrant, OpenAI embedding, 면접·평가·성장 모듈은 아직
-  구현되지 않았다.
+- 기업·채용공고 API와 DB 관리자 권한 검사는 구현·검증을 완료했다. Spring AI, Qdrant, OpenAI embedding, 면접·평가·성장 모듈은 아직 구현되지 않았다.
 - 자기소개서 PDF 업로드와 텍스트 추출은 확정된 이력서 파일 정책을 공통화하는 후속 범위로 유지한다.
 - RAG 설계의 `companyId AND jobPostingId AND userId` 조건은 기업 공용 문서와 사용자 전용 문서의 metadata가 다르므로 문서 유형별 필터 조합으로 구체화해야 한다.
 
@@ -918,20 +932,26 @@ Google·GitHub의 OAuth 앱 연결과 권한 해제는 서비스 탈퇴 범위�
 cascade
 제약을 적용한다. 관련 테스트를 포함한 전체 205개 테스트 성공을 확인했다.
 
-다음 작업은 4-1단계의 기업·채용공고 요청·응답 DTO 작성이다. `CatalogException.errors`의 필드·생성자 매개변수가 모두 `Map<String, String>`으로 보완된 것을 확인했다.
-1~3단계의 V5·엔티티·enum·Repository와 4-1단계의 공통 입력 검증·UTC Clock·관리자 검사 코드는 반영되었으며 검증 대기 상태다. API 권한 검사와 신규 오류 응답 연결은 아직 미구현이다.
-이후 Service, Controller·전역 예외 연결, 테스트 작성·사용자 실행으로 진행한다. 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업으로 유지한다.
+기업·채용공고 DTO·Service·Controller·전역 예외와 테스트가 반영되었고 전체 307개 테스트 성공·실패 0·오류 0·건너뜀 0을 확인했다.
+다음 작업은 RAG 기반 구축의 첫 단계로 기업·채용공고·자기소개서·이력서 문서 모델과 metadata 및 문서 유형별 접근 제어 정책을 설계하는 것이다. 이후 Spring AI·Qdrant 연결과 색인·검색 구현으로 진행한다.
+자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업으로 유지한다.
 
 실제 배포 환경 선정과 배포 플랫폼별 구성은 자기소개서·이력서, 기업·채용공고, RAG 질문 생성, 면접 답변 평가와 결과 조회로 이어지는 MVP 핵심 흐름이 완성된 뒤 진행한다.
 
 ## Git 기준점
 
 - 기준 브랜치: `main`
-- 기준 커밋: `e5f4f55 feat: 기업·채용공고 데이터 모델 및 Repository 추가`
-- 기업·채용공고 V5·엔티티·enum·Repository는 위 커밋에 반영되었다. 공통 기반 신규 파일 4개와 이번 현황 문서 변경은 아직 커밋되지 않은 작업 트리 변경사항이다.
+- 기준 커밋: `993451a feat: 기업·채용공고 API 연결 및 통합 테스트 추가`
+- 기업·채용공고 API와 테스트가 커밋되었다. 현재 작업 트리에는 동시성 테스트 경고 정리, GlobalExceptionHandler 미사용 매개변수 제거 및 현황 문서 변경이 있다.
 - 임시 설계·구현 가이드 두 파일은 삭제된 것을 확인했다. 필요한 결정과 재개 지점은 이 문서에서 유지한다.
 
 ## 변경 이력
+
+- 2026-09-07: 동시성 테스트의 nullable 언박싱·Executor 자원 관리·finally throw 경고를 정리하고 사용자 재실행 2개 성공·건너뜀 0을 확인했다. 별도 전역 예외 handler 매개변수 제거는 MVC 재검증 대기로 구분했다.
+
+- 2026-09-07: 사용자 전체 테스트 명령 `.\gradlew.bat test --console=plain`의 BUILD SUCCESSFUL과 실제 XML 41개의 전체 307개 성공·실패 0·오류 0·건너뜀 0을 확인했다. 기업·채용공고 API 단계를 완료하고 다음 작업을 RAG 문서 모델·metadata·접근 제어 설계로 변경했다.
+
+- 2026-09-07: 기업·채용공고 Controller·전역 예외 반영과 Location·관심 해제 호출 수정 확인. 테스트 4개 파일 추가 후 사용자 선택 실행에서 CHECK 제약 예외 기대값 오류 2개를 확인해 보완했다. Repository 통합 테스트 17개 성공·건너뜀 0을 확인하고 전체 회귀 검증 대기로 기록했다.
 
 - 2026-09-04: `CatalogException.errors` 필드와 private 생성자 매개변수의 `Map<String, String>` 수정 반영을 확인하여 현재 수정 대기 표시를 해제함. 컴파일·테스트는 여전히 미확인으로 검증 대기를 유지하고 다음 작업을 요청·응답 DTO 작성으로 정리함.
 - 2026-09-04: 공통 예외·입력 검증·UTC Clock·DB 사용자 및 관리자 역할 검사 코드 4개의 반영을 확인함. `CatalogException.errors`의 `Map<String, Object>`를 `Map<String, String>`으로 보완할 필요가 있어 수정 대기로 기록함. 테스트·컴파일은 미확인이며 다음 작업은 타입 보완 확인과 요청·응답 DTO 작성이다. Git 기준점을 기업·채용공고 모델·Repository 커밋 `e5f4f55`로 갱신함.
