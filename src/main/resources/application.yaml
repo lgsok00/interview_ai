@@ -99,3 +99,6 @@ rag:
     chunk-overlap: 100
     max-chunks: 10000
     write-batch-size: ${RAG_INDEXING_WRITE_BATCH_SIZE:20}
+
+  search:
+    enabled: ${RAG_SEARCH_ENABLED:false}
