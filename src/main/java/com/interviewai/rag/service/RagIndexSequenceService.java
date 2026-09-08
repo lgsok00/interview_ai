@@ -22,13 +22,27 @@ public class RagIndexSequenceService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public long allocateNext(RagSourceKey sourceKey) {
+        return findSourceLocked(sourceKey).allocateNextSequence();
+    }
+
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public long allocateNextForDelete(RagSourceKey sourceKey) {
+        RagIndexSource source = findSourceLocked(sourceKey);
+        long sequence = source.allocateNextSequence();
+
+        source.recordDelete(sequence);
+
+        return sequence;
+    }
+
+
+    private RagIndexSource findSourceLocked(RagSourceKey sourceKey) {
         Objects.requireNonNull(sourceKey, "sourceKey는 필수입니다.");
 
         ragIndexSourceRepository.ensureExists(sourceKey.sourceType().name(), sourceKey.sourceId());
 
-        RagIndexSource source = ragIndexSourceRepository.findLocked(sourceKey.sourceType(), sourceKey.sourceId())
+        return ragIndexSourceRepository.findLocked(sourceKey.sourceType(), sourceKey.sourceId())
                 .orElseThrow(() -> new IllegalStateException("RAG 원본 관리 행을 찾을 수 없습니다."));
-
-        return source.allocateNextSequence();
     }
 }

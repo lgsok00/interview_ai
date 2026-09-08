@@ -8,8 +8,7 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 
 - RAG 원본 관리 코드는 기존 `rag.entity`·`rag.repository`·`rag.service` 구조를 따른다. Repository는 생성·잠금 연산만 노출하도록 Spring Data
   `Repository`를 상속한다.
-- 원본 관리 행은 `(source_type, source_id)` unique로 식별하고 원본 테이블 외래 키를 두지 않는다. 향후 원본 삭제 이후 삭제 작업·tombstone 기준으로 유지할 계획이며
-  tombstone 자체는 미구현이다.
+- 원본 관리 행은 `(source_type, source_id)` unique로 식별하고 원본 테이블 외래 키를 두지 않는다. 원본 삭제 후에도 DELETE tombstone과 순번 기준으로 유지한다.
 - RAG 순번은 DB 등록 직렬화 순서이며 원본 revision의 최신 순서를 보장하지 않는다. 순번 서비스와 등록 서비스 모두 `MANDATORY`로 호출자의 쓰기 트랜잭션에 참여하며 작업 저장과 함께
   커밋·롤백한다.
 - V7 작업은 `(source_type, source_id, source_sequence)` unique와 원본 관리 행 FK를 사용한다. 실제 원본 테이블에는 FK가 없어 원본 없는 DELETE 등록이 가능하다.
@@ -25,8 +24,14 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 - 대표 문서 설정·해제는 원본 스냅샷 내용이 바뀌지 않아 RAG 작업을 등록하지 않는다. 회원 탈퇴 cascade로 제거되는 개인 문서의 DELETE 등록은 별도 후속 보강 대상이다.
 - worker 선점·lease는 V8·JDBC 실행 Repository·독립 트랜잭션 서비스·단건 worker로 구현·검증했다. 실행 서비스 실패 코드 정규식도 수정하고 경계 테스트로 검증했다.
 - 실행 전용 컬럼은 JDBC Repository가 관리하며 기존 JPA 엔티티에 매핑하지 않는다. JDBC 변경도 `lock_version`을 증가시킨다. lease와 재시도 시각은 DB UTC 기준으로 판단한다.
-- 실행은 중복될 수 있다. 현재 attempt·lease 조건은 DB 상태 변경만 보호하며, 동일 원본의 순서 역전과 늦은 외부 쓰기는 generation·tombstone 단계에서 제어해야 한다. 실제
-  Processor·scheduler는 아직 연결하지 않는다.
+- 실행 attempt UUID를 외부 generation으로 사용하고 작업·attempt·chunk 조합으로 point UUID를 결정한다. 같은 작업 재선점도 새 generation을 사용해 만료된 외부 요청과
+  분리한다.
+- DELETE 등록은 호출자 트랜잭션에서 tombstone을 즉시 전진시키고 활성 generation을 제거한다. 이후 늦게 끝난 UPSERT는 최신 등록 순번이 아니므로 활성화되지 않는다.
+- UPSERT 성공은 유효 attempt·lease와 원본의 최신 순번을 함께 확인하며 작업 성공과 활성 generation 교체를 원자적으로 커밋한다. 새 작업 처리 중에는 기존 활성 generation을
+  유지한다.
+- DELETE Processor의 외부 정리는 해당 DELETE 순번 이하만 대상으로 해야 한다. 늦은 DELETE 완료가 이후 UPSERT generation을 제거하지 않도록 원본 키 전체 삭제는 사용하지
+  않는다.
+- 외부 검색 후보는 활성 generation 조회를 통과한 결과만 사용한다. 실제 Processor·scheduler와 Spring AI·Qdrant 연결은 아직 구현하지 않았다.
 
 - 로컬 애플리케이션 실행에는 `MYSQL_PASSWORD`가 필요하다.
 - Docker Compose 실행에는 `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` 설정이 필요하다.

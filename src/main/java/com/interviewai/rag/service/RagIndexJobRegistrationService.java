@@ -54,7 +54,7 @@ public class RagIndexJobRegistrationService {
         Objects.requireNonNull(sourceKey, "sourceKey는 필수입니다.");
         validateMaxAttempts(maxAttempts);
 
-        long sequence = sequenceService.allocateNext(sourceKey);
+        long sequence = sequenceService.allocateNextForDelete(sourceKey);
 
         return jobRepository.save(RagIndexJobEntity.delete(sourceKey, sequence, maxAttempts, clock.instant()));
     }

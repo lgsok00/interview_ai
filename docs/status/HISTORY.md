@@ -2,6 +2,19 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-08 — RAG 활성 generation·DELETE tombstone 구현과 검증
+
+- V9으로 원본 관리 행에 활성 generation·활성 순번·tombstone 순번을 추가하고 기존 DELETE 작업의 최신 순번을 이관했다.
+- DELETE 등록 시 같은 트랜잭션에서 tombstone을 즉시 반영해 기존 검색 generation을 무효화한다. UPSERT 완료는 현재 attempt·lease와 최신 원본 순번을 통과한 경우에만 활성
+  generation을 교체한다.
+- 선점 attempt를 외부 generation으로 사용하고 결정적 point ID를 제공해 재선점과 늦은 외부 쓰기를 분리했다. 검색 후보용 활성 generation 조회와 Processor의 순번 제한
+  DELETE 계약도 추가했다.
+- Codex가 정상·경계·실패·롤백·동시성·V9 이관 테스트 37개를 추가했다. trigger 권한으로 실패한 DB 롤백 테스트는 임시 unique index 방식으로 수정했다.
+- 사용자 단건 재실행은 26초, RAG 선택 실행은 1분 29초, 전체 실행은 3분 15초에 BUILD SUCCESSFUL이었다. XML 58개에서 전체 528개, RAG 17개 클래스 216개가 성공했고
+  실패·오류·건너뜀은 0이다.
+- 확인한 HEAD는 `f315e5d`이며 generation·tombstone 구현·테스트·문서는 작업 트리에서 커밋 대기다. 다음 작업은 실제 Processor·scheduler와 Spring AI·Qdrant
+  색인·검색 연결이다.
+
 ## 2026-09-08 — RAG 실행 기반 반영과 전용 테스트 추가
 
 - 사용자가 V8과 JDBC 실행 Repository, 실행 서비스, 단건 worker를 반영했다. DB 선점·attempt·lease·재시도 제한과 트랜잭션 밖 처리 기반이며 외부

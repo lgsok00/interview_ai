@@ -2,7 +2,22 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 491개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 528개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+
+### RAG 활성 generation·DELETE tombstone 검증 (2026-09-08)
+
+- DB 실패 롤백 단건 재실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.RagActiveGenerationIntegrationTest.sourceUpdateFailureAlsoRollsBackJdbcJobSuccess"` —
+  BUILD SUCCESSFUL (26초).
+- 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 29초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 15초). 최신 XML 58개에서 전체 528개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다.
+- 전체 결과의 RAG 테스트는 17개 클래스 216개다. 신규 `RagActiveGenerationIntegrationTest` 25개,
+  `RagActiveGenerationMigrationIntegrationTest` 1개, `RagClaimedJobGenerationTest` 2개와 기존 테스트 추가 9개로 합계 37개가 포함됐다.
+- 실제 MySQL에서 V9 이관과 CHECK, DELETE 등록 즉시 무효화·롤백, 최신 generation 교체, 오래된 완료·만료·재선점 attempt 차단, 작업 성공과 활성화의 원자성 및 등록/완료 동시성을
+  검증했다.
+- 최초 DB 실패 롤백 테스트는 binary logging 환경에서 trigger 생성에 `SUPER` 권한이 없어 RAG 216개 중 1개가 실패했다. 같은 실패를 임시 unique index로 유도하도록 수정한
+  뒤 단건·RAG 전체·전체 회귀가 모두 성공했다.
+- Codex는 테스트를 직접 실행하지 않았으며 사용자 실행 결과와 최신 XML을 대조했다. OpenJDK class-data sharing 경고는 테스트 성공에 영향을 주지 않았다.
 
 ### RAG DB 작업 실행 기반 검증 (2026-09-08)
 

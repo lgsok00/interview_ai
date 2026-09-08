@@ -6,6 +6,21 @@
 
 ### 작성된 자동 테스트
 
+#### RAG 활성 generation·DELETE tombstone — 검증 완료 (2026-09-08)
+
+- `RagIndexSourceTest` 10개: 기존 순번·overflow와 함께 활성 generation 최초 게시·교체·유지, DELETE 무효화, tombstone 이전 순번 거부, 잘못된 입력의 상태 보존과
+  최대 순번 경계를 검증한다.
+- `RagClaimedJobGenerationTest` 2개: attempt UUID generation, 같은 실행·chunk의 결정적 point ID, 작업·attempt·chunk 간 분리, DELETE와
+  음수 chunk 거부를 검증한다.
+- `RagIndexJobExecutionServiceTest` 23개: 기존 실행 입력 경계에 활성 generation 조회 null 입력과 Repository 미호출 검증을 추가했다.
+- `RagActiveGenerationMigrationIntegrationTest` 1개: V8 상태에서 V9로 올릴 때 작업 상태와 관계없이 최신 DELETE 순번을 tombstone으로 이관하고 활성
+  generation을 임의 추정하지 않는지 실제 MySQL에서 검증한다.
+- `RagActiveGenerationIntegrationTest` 25개: 최초·교체 게시, 새 작업 대기·실패 시 기존 generation 유지, 최신/과거 완료 순서 역전, DELETE 즉시 무효화와 이후
+  재활성화, 반복 DELETE, 잘못된·만료·재선점 attempt 차단을 검증한다.
+- 같은 통합 테스트에서 원본별 활성 조회, 같은 트랜잭션의 DELETE→UPSERT, 최초/기존 원본 롤백, 작업 INSERT 실패, 활성화 DB 실패 시 JDBC 성공 롤백, V9 CHECK, DELETE
+  등록·완료 동시성과 잠금 대기 중 lease 만료를 검증한다.
+- 신규 테스트는 새 클래스 3개 28개, 기존 엔티티 8개, 실행 서비스 1개로 합계 37개다. RAG 17개 클래스 216개와 전체 58개 클래스 528개가 성공했으며 실패·오류·건너뜀은 0이다.
+
 #### RAG 실행 기반 — 검증 완료 (2026-09-08)
 
 - `RagIndexJobExecutionServiceTest`: 정상 실패 코드·100자 경계, null·빈 값·잘못된 문자·길이 초과, lease·재시도 설정과 작업 ID·attempt 입력 검증. 실패 코드

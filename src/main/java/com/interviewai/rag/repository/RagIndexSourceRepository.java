@@ -37,4 +37,18 @@ public interface RagIndexSourceRepository extends Repository<RagIndexSource, Lon
               AND s.sourceId = :sourceId
             """)
     Optional<RagIndexSource> findLocked(@Param("sourceType") RagSourceType sourceType, @Param("sourceId") Long sourceId);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END
+            FROM RagIndexSource s
+            WHERE s.sourceType = :sourceType
+              AND s.sourceId = :sourceId
+              AND s.activeGenerationId = :generationId
+              AND s.activeSequence > s.tombstoneSequence
+            """)
+    boolean isActiveGeneration(
+            @Param("sourceType") RagSourceType sourceType,
+            @Param("sourceId") Long sourceId,
+            @Param("generationId") String generationId
+    );
 }

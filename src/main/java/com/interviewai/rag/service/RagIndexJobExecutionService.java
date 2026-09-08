@@ -2,16 +2,19 @@ package com.interviewai.rag.service;
 
 import com.interviewai.rag.document.RagSourceKey;
 import com.interviewai.rag.entity.RagIndexJobEntity;
+import com.interviewai.rag.entity.RagIndexSource;
 import com.interviewai.rag.index.RagIndexOperation;
 import com.interviewai.rag.index.RagIndexTarget;
 import com.interviewai.rag.repository.RagIndexJobExecutionRepository;
 import com.interviewai.rag.repository.RagIndexJobRepository;
+import com.interviewai.rag.repository.RagIndexSourceRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +28,7 @@ public class RagIndexJobExecutionService {
 
     private final RagIndexJobExecutionRepository executionRepository;
     private final RagIndexJobRepository jobRepository;
+    private final RagIndexSourceRepository sourceRepository;
     private final int leaseSeconds;
     private final int retryDelaySeconds;
 
@@ -32,6 +36,7 @@ public class RagIndexJobExecutionService {
     public RagIndexJobExecutionService(
             RagIndexJobExecutionRepository executionRepository,
             RagIndexJobRepository jobRepository,
+            RagIndexSourceRepository sourceRepository,
             @Value("${rag.worker.lease-seconds:60}") int leaseSeconds,
             @Value("${rag.worker.retry-delay-seconds:30}") int retryDelaySeconds
     ) {
@@ -45,6 +50,7 @@ public class RagIndexJobExecutionService {
 
         this.executionRepository = executionRepository;
         this.jobRepository = jobRepository;
+        this.sourceRepository = sourceRepository;
         this.leaseSeconds = leaseSeconds;
         this.retryDelaySeconds = retryDelaySeconds;
     }
@@ -103,7 +109,26 @@ public class RagIndexJobExecutionService {
     public boolean succeed(long jobId, UUID attemptId) {
         validateAttempt(jobId, attemptId);
 
-        return executionRepository.succeed(jobId, attemptId) == 1;
+        RagIndexJobEntity job = jobRepository.findById(jobId).orElse(null);
+
+        if (job == null) {
+            return false;
+        }
+
+        RagSourceKey sourceKey = job.getSourceKey();
+
+        RagIndexSource source = sourceRepository.findLocked(sourceKey.sourceType(), sourceKey.sourceId())
+                .orElseThrow(() -> new IllegalStateException("RAG 원본 관리 행을 찾을 수 없습니다."));
+
+        if (executionRepository.succeed(jobId, attemptId) != 1) {
+            return false;
+        }
+
+        if (job.getOperation() == RagIndexOperation.UPSERT) {
+            source.activate(job.getSourceSequence(), attemptId);
+        }
+
+        return true;
     }
 
 
@@ -119,6 +144,19 @@ public class RagIndexJobExecutionService {
     }
 
 
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            isolation = Isolation.READ_COMMITTED,
+            readOnly = true
+    )
+    public boolean isActiveGeneration(RagSourceKey sourceKey, UUID generationId) {
+        Objects.requireNonNull(sourceKey, "sourceKey는 필수입니다.");
+        Objects.requireNonNull(generationId, "generationId는 필수입니다.");
+
+        return sourceRepository.isActiveGeneration(sourceKey.sourceType(), sourceKey.sourceId(), generationId.toString());
+    }
+
+
     public record ClaimedJob(
             long jobId,
             UUID attemptId,
@@ -128,5 +166,29 @@ public class RagIndexJobExecutionService {
             RagIndexTarget target,
             int attemptCount
     ) {
+
+        public UUID generationId() {
+            return attemptId;
+        }
+
+
+        public UUID pointId(int chunkIndex) {
+            if (operation != RagIndexOperation.UPSERT) {
+                throw new IllegalStateException("UPSERT 작업만 point ID를 생성할 수 있습니다.");
+            }
+
+            if (chunkIndex < 0) {
+                throw new IllegalArgumentException("chunkIndex는 0 이상이어야 합니다.");
+            }
+
+            String pointKey = "rag:persisted"
+                    + jobId
+                    + ":"
+                    + generationId()
+                    + ":"
+                    + chunkIndex;
+
+            return UUID.nameUUIDFromBytes(pointKey.getBytes(StandardCharsets.UTF_8));
+        }
     }
 }

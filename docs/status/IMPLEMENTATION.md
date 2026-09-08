@@ -16,6 +16,22 @@
 
 ## 현재 구현된 기능
 
+### RAG 활성 generation·DELETE tombstone — 구현·검증 완료 (2026-09-08)
+
+- V9은 원본 관리 행에 `active_generation_id`, `active_sequence`, `tombstone_sequence`와 일관성 CHECK를 추가한다. 기존 DELETE 작업이 있는 원본은
+  상태와 관계없이 가장 큰 DELETE 순번을 tombstone으로 이관하며 기존 성공 작업으로 활성 generation을 추정하지 않는다.
+- DELETE 등록은 순번 발급과 같은 원본 행 잠금 안에서 tombstone을 즉시 전진시키고 활성 generation을 제거한다. 작업 저장·원본 변경과 같은 호출자 트랜잭션에 참여하므로 실패 시 함께
+  롤백된다.
+- UPSERT 외부 쓰기는 매 선점 attempt UUID를 generation으로 사용하며 작업·attempt·chunk별 결정적 point UUID를 제공한다. 재선점된 실행은 이전 외부 쓰기와 다른
+  generation·point를 사용한다.
+- UPSERT 성공은 원본 관리 행을 잠근 뒤 현재 attempt와 lease 조건으로 작업 상태를 변경하고, 해당 순번이 원본의 최신 등록 순번이며 tombstone보다 최신일 때만 활성 generation을
+  교체한다. 작업 성공과 활성화는 하나의 새 트랜잭션으로 커밋된다.
+- 새 UPSERT가 처리 중이거나 실패하면 기존 활성 generation을 유지한다. 오래된 UPSERT 완료는 작업 자체가 성공하더라도 활성화되지 않고, 늦은 DELETE 완료는 이후 활성 generation을
+  제거하지 않는다.
+- 활성 generation 조회를 제공해 외부 검색 후보가 현재 검색 가능한 generation인지 확인할 수 있다. 실제 Processor·scheduler와 Spring AI·Qdrant 검색 연결은 후속
+  범위다.
+- 신규 37개를 포함한 RAG 216개와 전체 528개 테스트가 성공했고 실패·오류·건너뜀은 0이다.
+
 ### RAG 작업 실행 기반 — 구현·검증 완료 (2026-09-08)
 
 - V8은 작업에 `attempt_id`, `lease_expires_at`, `available_at`, `failure_code`와 RUNNING lease CHECK·조회 인덱스를 추가한다. 기존 JPA 등록
@@ -28,7 +44,7 @@
 - 소진 작업 한 건을 정리한 호출은 빈 결과를 반환할 수 있다. 따라서 worker의 `NO_JOB`은 전체 큐가 완전히 비었다는 보장이 아니며 호출자는 다음 poll을 계속해야 한다.
 - worker는 `NOT_SUPPORTED`로 외부 처리 중 트랜잭션을 유지하지 않는다. 실제 Processor와 scheduler는 없으며 자동 소비하지 않는다. 긴 작업의 lease 갱신은 Processor
   계약이고 자동 heartbeat는 아니다.
-- 처리 예외는 고정 실패 코드로 저장하고 완료 저장 DB 오류는 전파한다. 같은 원본의 서로 다른 작업과 만료된 외부 요청의 중복 실행은 가능하므로 generation·tombstone은 후속 필수 범위다.
+- 처리 예외는 고정 실패 코드로 저장하고 완료 저장 DB 오류는 전파한다. 같은 원본의 중복 실행은 가능하지만 generation·tombstone으로 오래된 결과의 검색 노출을 차단한다.
 - 실행 서비스 실패 코드 정규식의 불필요한 닫는 대괄호를 수정했고 정상·100자 경계·잘못된 문자·길이 초과 테스트로 검증했다.
 - 신규 실행 기반 단위·MySQL 통합 테스트 51개를 포함한 전체 491개가 성공했으며 실패·오류·건너뜀은 0이다.
 

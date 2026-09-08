@@ -2,6 +2,9 @@ package com.interviewai.rag.service;
 
 import com.interviewai.rag.repository.RagIndexJobExecutionRepository;
 import com.interviewai.rag.repository.RagIndexJobRepository;
+import com.interviewai.rag.repository.RagIndexSourceRepository;
+import com.interviewai.rag.document.RagSourceKey;
+import com.interviewai.rag.document.RagSourceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,12 +25,13 @@ class RagIndexJobExecutionServiceTest {
 
     @Mock private RagIndexJobExecutionRepository executionRepository;
     @Mock private RagIndexJobRepository jobRepository;
+    @Mock private RagIndexSourceRepository sourceRepository;
     private RagIndexJobExecutionService service;
     private final UUID attemptId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        service = new RagIndexJobExecutionService(executionRepository, jobRepository, 60, 30);
+        service = new RagIndexJobExecutionService(executionRepository, jobRepository, sourceRepository, 60, 30);
     }
 
     @ParameterizedTest
@@ -64,7 +68,7 @@ class RagIndexJobExecutionServiceTest {
     @CsvSource({"0,30", "-1,30", "86401,30", "60,0", "60,-1", "60,86401"})
     void rejectsInvalidDurations(int lease, int delay) {
         assertThatIllegalArgumentException().isThrownBy(() ->
-                new RagIndexJobExecutionService(executionRepository, jobRepository, lease, delay));
+                new RagIndexJobExecutionService(executionRepository, jobRepository, sourceRepository, lease, delay));
     }
 
     @Test
@@ -76,5 +80,13 @@ class RagIndexJobExecutionServiceTest {
         assertThatNullPointerException().isThrownBy(() -> service.succeed(1, null));
         assertThatNullPointerException().isThrownBy(() -> service.fail(1, null, "ERROR"));
         verifyNoInteractions(executionRepository);
+    }
+
+    @Test
+    void rejectsNullGenerationLookupArgumentsBeforeQuerying() {
+        var key = new RagSourceKey(RagSourceType.COMPANY, 1L);
+        assertThatNullPointerException().isThrownBy(() -> service.isActiveGeneration(null, attemptId));
+        assertThatNullPointerException().isThrownBy(() -> service.isActiveGeneration(key, null));
+        verifyNoInteractions(sourceRepository);
     }
 }
