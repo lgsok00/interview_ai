@@ -1,38 +1,45 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-09-08
+최종 갱신일: 2026-09-09
 
 개발을 재개할 때 먼저 읽는 기준 문서다. 현재 상태와 다음 작업을 요약하고, 상세 내용과 과거 기록은 아래 문서에서 관리한다.
 
 ## 현재 상태
 
-| 영역                   | 상태                                                                          |
-|----------------------|-----------------------------------------------------------------------------|
-| 인증·회원 관리             | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴           |
-| 자기소개서                | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                             |
-| 이력서                  | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                                    |
-| 기업·채용공고              | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                          |
-| RAG 기반 모델            | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기                    |
-| RAG 순번·등록 직렬화 기반     | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                                     |
-| RAG 작업 등록 영속화        | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백            |
-| RAG CRUD 연결          | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료                        |
-| RAG 작업 실행 기반         | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                     |
-| RAG generation·삭제 차단 | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화               |
-| RAG 외부 색인            | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결 |
-| RAG 외부 검색·실연동        | 검증 대기: 활성 generation·접근 제어 검색과 실제 OpenAI·Qdrant 네트워크 색인                     |
-| 운영 실행 기반             | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                   |
-| 면접·평가·성장 분석 및 실제 배포  | 후속 범위                                                                       |
+| 영역                             | 상태                                                                                       |
+|----------------------------------|--------------------------------------------------------------------------------------------|
+| 인증·회원 관리                   | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴     |
+| 자기소개서                       | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                            |
+| 이력서                           | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                               |
+| 기업·채용공고                    | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                   |
+| RAG 기반 모델                    | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기    |
+| RAG 순번·등록 직렬화 기반        | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                               |
+| RAG 작업 등록 영속화             | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백 |
+| RAG CRUD 연결                    | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료           |
+| RAG 작업 실행 기반               | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                 |
+| RAG generation·삭제 차단         | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화         |
+| RAG 외부 색인                    | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결    |
+| RAG 외부 검색                    | 구현·RAG 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5       |
+| RAG 실제 외부 연동               | 검증 대기: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·DELETE·검색 smoke test             |
+| 운영 실행 기반                   | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                    |
+| 면접·평가·성장 분석 및 실제 배포 | 후속 범위                                                                                  |
 
 ## 다음 작업
 
-1. 로컬 Qdrant와 OpenAI embedding을 사용해 실제 UPSERT·DELETE 색인 smoke test를 수행한다.
-2. 검색 후보에 활성 generation 확인과 기존 원본 접근 제어를 연결하고 Top-K 5 검색을 구성한다.
+1. 로컬 Qdrant와 OpenAI embedding을 사용해 실제 UPSERT·DELETE·검색 smoke test를 수행한다.
+2. 전체 `./gradlew test`로 검색 변경을 포함한 프로젝트 전체 회귀를 검증한다.
 3. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
 
+- 실행일: 2026-09-09
+- 검색 서비스·접근 제어·컨트롤러 선택 실행 — BUILD SUCCESSFUL (16초).
+- RAG 전체 선택 실행: `./gradlew test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (47초). XML 23개에서 250개 성공, 실패·오류·건너뜀
+  0을 확인했다.
+- 검색은 Qdrant metadata 범위, 활성 generation, 현재 원본 존재·소유권, 최대 5개 반환을 검증했다. 실제 OpenAI·Qdrant 네트워크 호출과 프로젝트 전체 회귀는 아직 수행하지
+  않았다.
 - 실행일: 2026-09-08
 - 신규 설정·chunker·Processor·scheduler 20개 선택 실행 — BUILD SUCCESSFUL (14초), 실패·오류·건너뜀 0.
 - lease 고정값 충돌을 수정한 단건 재실행 — BUILD SUCCESSFUL (27초).
@@ -76,23 +83,23 @@
 
 ## 상세 문서
 
-| 문서                                   | 확인할 내용                             |
-|--------------------------------------|------------------------------------|
-| [구현 상세](status/IMPLEMENTATION.md)    | 실행 환경, 인증·사용자·자기소개서·이력서 API, DB 구조 |
-| [기업·채용공고](status/CATALOG.md)         | API, 도메인 정책과 설계 결정, 단계별 과거 기록      |
-| [자동 테스트 목록](status/TEST_COVERAGE.md) | 테스트별 검증 범위                         |
-| [테스트 실행 기록](status/TEST_RESULTS.md)  | 실행 날짜·명령·성공·실패와 RAG 최신 검증 범위       |
-| [개발 로드맵](status/ROADMAP.md)          | 전체 구현 순서와 후속 기능                    |
-| [주요 결정과 확인 사항](status/DECISIONS.md)  | API·인증·운영 정책과 남은 확인 사항             |
-| [변경 이력](status/HISTORY.md)           | 과거 변경사항과 분리 전 재개 메모                |
+| 문서                                         | 확인할 내용                                           |
+|----------------------------------------------|-------------------------------------------------------|
+| [구현 상세](status/IMPLEMENTATION.md)        | 실행 환경, 인증·사용자·자기소개서·이력서 API, DB 구조 |
+| [기업·채용공고](status/CATALOG.md)           | API, 도메인 정책과 설계 결정, 단계별 과거 기록        |
+| [자동 테스트 목록](status/TEST_COVERAGE.md)  | 테스트별 검증 범위                                    |
+| [테스트 실행 기록](status/TEST_RESULTS.md)   | 실행 날짜·명령·성공·실패와 RAG 최신 검증 범위         |
+| [개발 로드맵](status/ROADMAP.md)             | 전체 구현 순서와 후속 기능                            |
+| [주요 결정과 확인 사항](status/DECISIONS.md) | API·인증·운영 정책과 남은 확인 사항                   |
+| [변경 이력](status/HISTORY.md)               | 과거 변경사항과 분리 전 재개 메모                     |
 
 ## 실행 환경과 Git 기준점
 
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `e3c2a9b feat: RAG 활성 generation과 DELETE tombstone 추가`
-- Processor·scheduler·Spring AI·Qdrant 색인 구성과 신규 테스트·관련 문서는 전체 회귀 검증 완료 후 작업 트리에서 커밋 대기다.
+- 이번 확인한 HEAD: `afc61d4 feat: Qdrant smoke Test 관련 중간 커밋`
+- 검색 보완 코드·테스트·관련 문서는 RAG 선택 검증 완료 후 작업 트리에서 커밋 대기다. `.gitignore`와 로컬 MySQL 포트 변경도 함께 남아 있다.
 
 ## 문서 갱신 규칙
 

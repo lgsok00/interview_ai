@@ -1,6 +1,7 @@
 package com.interviewai.rag.service;
 
 import com.interviewai.global.security.AdminAuthorizationService;
+import com.interviewai.global.validation.CatalogInput;
 import com.interviewai.rag.document.RagSourceKey;
 import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.rag.search.RagSearchResult;
@@ -32,23 +33,26 @@ public class RagSearchService {
 
     private final AdminAuthorizationService authorizationService;
     private final RagIndexJobExecutionService executionService;
+    private final RagSourceAccessService sourceAccessService;
     private final VectorStore vectorStore;
 
 
     public RagSearchService(
             AdminAuthorizationService authorizationService,
             RagIndexJobExecutionService executionService,
+            RagSourceAccessService sourceAccessService,
             VectorStore vectorStore
     ) {
         this.authorizationService = authorizationService;
         this.executionService = executionService;
+        this.sourceAccessService = sourceAccessService;
         this.vectorStore = vectorStore;
     }
 
 
     public List<RagSearchResult> search(String subject, String query) {
         User user = authorizationService.requireUser(subject);
-        String normalizedQuery = requireQuery(query);
+        String normalizedQuery = Objects.requireNonNull(CatalogInput.text(query, "query", 100, true));
 
         FilterExpressionBuilder builder = new FilterExpressionBuilder();
 
@@ -69,9 +73,14 @@ public class RagSearchService {
 
         List<Document> candidates = vectorStore.similaritySearch(request);
 
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+
         return candidates.stream()
                 .map(this::toCandidate)
                 .filter(this::isActiveGeneration)
+                .filter(candidate -> sourceAccessService.canAccess(user, candidate.sourceKey()))
                 .limit(RESULT_LIMIT)
                 .map(SearchCandidate::toResult)
                 .toList();
@@ -100,27 +109,7 @@ public class RagSearchService {
 
 
     private boolean isActiveGeneration(SearchCandidate candidate) {
-        return executionService.isActiveGeneration(
-                new RagSourceKey(candidate.sourceType(), candidate.sourceId()),
-                candidate.generationId()
-        );
-    }
-
-
-    private String requireQuery(String query) {
-        Objects.requireNonNull(query, "검색어는 필수입니다.");
-
-        String normalized = query.strip();
-
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("검색어는 비어 있을 수 없습니다.");
-        }
-
-        if (normalized.length() > 100) {
-            throw new IllegalArgumentException("검색어는 1000자 이하여야 합니다.");
-        }
-
-        return normalized;
+        return executionService.isActiveGeneration(candidate.sourceKey(), candidate.generationId());
     }
 
 
@@ -169,6 +158,11 @@ public class RagSearchService {
                     generationId,
                     chunkIndex
             );
+        }
+
+
+        private RagSourceKey sourceKey() {
+            return new RagSourceKey(sourceType, sourceId);
         }
     }
 }

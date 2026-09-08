@@ -13,9 +13,11 @@ import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.jobposting.entity.JobPosting;
 import com.interviewai.jobposting.exception.JobPostingNotFoundException;
 import com.interviewai.jobposting.repository.JobPostingRepository;
+import com.interviewai.rag.document.RagSourceKey;
 import com.interviewai.rag.document.RagSourceResolution;
 import com.interviewai.rag.document.RagSourceSnapshot;
 import com.interviewai.rag.document.RagSourceSnapshotFactory;
+import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.exception.ResumeNotFoundException;
 import com.interviewai.resume.repository.ResumeRepository;
@@ -64,6 +66,52 @@ class RagSourceAccessServiceTest {
     void setUp() {
         service = new RagSourceAccessService(
                 authorizationService,
+                companyRepository,
+                jobPostingRepository,
+                coverLetterRepository,
+                versionRepository,
+                resumeRepository,
+                snapshotFactory
+        );
+    }
+
+
+    @Test
+    @DisplayName("공용 원본은 존재하는 기업과 채용공고에만 접근할 수 있다")
+    void checksSharedSourceAccess() {
+        when(companyRepository.findById(10L)).thenReturn(Optional.of(company));
+        when(jobPostingRepository.findDetail(20L)).thenReturn(Optional.empty());
+
+        assertThat(service.canAccess(user, new RagSourceKey(RagSourceType.COMPANY, 10L))).isTrue();
+        assertThat(service.canAccess(user, new RagSourceKey(RagSourceType.JOB_POSTING, 20L))).isFalse();
+
+        verify(companyRepository).findById(10L);
+        verify(jobPostingRepository).findDetail(20L);
+    }
+
+
+    @Test
+    @DisplayName("개인 원본은 현재 사용자 소유인 자기소개서와 이력서에만 접근할 수 있다")
+    void checksPrivateSourceAccess() {
+        when(user.getId()).thenReturn(USER_ID);
+        when(coverLetterRepository.findByIdAndUser_Id(30L, USER_ID)).thenReturn(Optional.of(coverLetter));
+        when(resumeRepository.findByIdAndUser_Id(40L, USER_ID)).thenReturn(Optional.empty());
+
+        assertThat(service.canAccess(user, new RagSourceKey(RagSourceType.COVER_LETTER, 30L))).isTrue();
+        assertThat(service.canAccess(user, new RagSourceKey(RagSourceType.RESUME, 40L))).isFalse();
+
+        verify(coverLetterRepository).findByIdAndUser_Id(30L, USER_ID);
+        verify(resumeRepository).findByIdAndUser_Id(40L, USER_ID);
+    }
+
+
+    @Test
+    @DisplayName("사용자 또는 원본 키가 없으면 Repository 조회 없이 접근을 거부한다")
+    void rejectsMissingAccessContext() {
+        assertThat(service.canAccess(null, new RagSourceKey(RagSourceType.COMPANY, 10L))).isFalse();
+        assertThat(service.canAccess(user, null)).isFalse();
+
+        verifyNoInteractions(
                 companyRepository,
                 jobPostingRepository,
                 coverLetterRepository,

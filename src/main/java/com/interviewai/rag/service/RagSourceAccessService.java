@@ -14,6 +14,7 @@ import com.interviewai.global.validation.CatalogInput;
 import com.interviewai.jobposting.entity.JobPosting;
 import com.interviewai.jobposting.exception.JobPostingNotFoundException;
 import com.interviewai.jobposting.repository.JobPostingRepository;
+import com.interviewai.rag.document.RagSourceKey;
 import com.interviewai.rag.document.RagSourceResolution;
 import com.interviewai.rag.document.RagSourceSnapshot;
 import com.interviewai.rag.document.RagSourceSnapshotFactory;
@@ -53,6 +54,22 @@ public class RagSourceAccessService {
         this.versionRepository = versionRepository;
         this.resumeRepository = resumeRepository;
         this.snapshotFactory = snapshotFactory;
+    }
+
+
+    public boolean canAccess(User user, RagSourceKey sourceKey) {
+        if (user == null || sourceKey == null) {
+            return false;
+        }
+
+        return switch (sourceKey.sourceType()) {
+            case COMPANY -> companyRepository.findById(sourceKey.sourceId()).isPresent();
+            case JOB_POSTING -> jobPostingRepository.findDetail(sourceKey.sourceId()).isPresent();
+            case COVER_LETTER -> coverLetterRepository
+                    .findByIdAndUser_Id(sourceKey.sourceId(), user.getId())
+                    .isPresent();
+            case RESUME -> resumeRepository.findByIdAndUser_Id(sourceKey.sourceId(), user.getId()).isPresent();
+        };
     }
 
 

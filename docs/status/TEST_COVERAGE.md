@@ -6,6 +6,14 @@
 
 ### 작성된 자동 테스트
 
+#### RAG Qdrant 검색 — RAG 회귀 검증 완료 (2026-09-09)
+
+- `RagSearchServiceTest` 7개: 검색어 trim·100자 경계·validation, 인증 범위 metadata filter와 후보 50개, 활성 generation·현재 원본 접근 제어, 순서
+  유지·최대 5개, 인증 실패와 손상 metadata를 검증한다.
+- `RagSearchControllerTest` 4개: 인증 검색 JSON, 공통 validation 오류, query 누락 400, JWT 누락 401을 검증한다.
+- `RagSourceAccessServiceTest`에 3개를 추가해 기업·채용공고 존재 여부, 자기소개서·이력서 사용자 소유권, 사용자·원본 키 누락 시 Repository 미호출을 검증한다.
+- RAG 전체 선택 실행의 XML 23개에서 250개 성공, 실패·오류·건너뜀 0을 확인했다. 실제 OpenAI·Qdrant 네트워크 호출은 포함하지 않는다.
+
 #### RAG Spring AI·Qdrant 외부 색인 — 전체 회귀 검증 완료 (2026-09-08)
 
 - `RagIndexingPropertiesTest` 4개: 정상 설정, fixed/initial delay와 작업·chunk·overlap·batch 경계를 검증한다.

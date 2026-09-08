@@ -2,6 +2,14 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-09 — RAG Qdrant 검색 구현 보완과 RAG 회귀 검증
+
+- 인증 사용자의 공용 문서와 본인 개인 문서로 Qdrant metadata 후보를 제한하고 검색어 1~100자 validation과 후보 50개 조회를 적용했다.
+- DB 활성 generation과 tombstone을 확인하고 현재 기업·채용공고 존재 여부 및 자기소개서·이력서 소유권을 다시 검사한 뒤 순서를 유지해 최대 5개를 반환한다.
+- Codex가 검색 서비스 7개·컨트롤러 4개를 추가하고 기존 접근 제어 테스트를 3개 보강했다.
+- 사용자 선택 실행은 16초, RAG 전체 선택 실행은 47초에 성공했다. 최신 XML 23개에서 RAG 250개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 확인한 HEAD는 `afc61d4`이며 검색 보완 코드·테스트·문서는 커밋 대기다. 실제 OpenAI·Qdrant 네트워크 smoke test와 프로젝트 전체 회귀는 후속 검증 범위다.
+
 ## 2026-09-08 — RAG Spring AI·Qdrant 외부 색인 Processor·scheduler 구현과 전체 회귀 검증
 
 - Spring AI 2.0.1, OpenAI embedding, Qdrant VectorStore와 로컬 Qdrant Compose 구성을 추가했다. 외부 기능은 환경변수로 명시적으로 활성화한다.

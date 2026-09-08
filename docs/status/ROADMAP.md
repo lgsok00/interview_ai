@@ -43,8 +43,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - V9·활성 generation·DELETE tombstone 구현·검증 완료: DELETE 등록 즉시 무효화, 최신 UPSERT만 활성화, 늦은 완료·재선점 결과의 검색 노출 차단. RAG 216개·전체
       528개 성공 (2026-09-08).
     - 700 token chunk·100 token overlap, batch embedding·Qdrant UPSERT, 순번 제한 DELETE 구현 완료
-    - 다음으로 실제 OpenAI·Qdrant 색인 smoke test와 활성 generation·원본 접근 제어를 포함한 metadata filtering·Top-K 5 검색을 구성한다.
-    - 사용자 문서가 다른 사용자 검색 결과에 포함되지 않도록 `userId` 필터와 통합 테스트 적용
+    - 인증 범위 metadata filtering, 활성 generation, 현재 원본 존재·소유권과 Top-K 5 Qdrant 검색 구현·RAG 선택 검증 완료: RAG 250개 성공 (2026-09-09)
+    - 다음으로 실제 OpenAI·Qdrant UPSERT·DELETE·검색 smoke test와 프로젝트 전체 회귀를 수행한다.
 7. AI 질문 생성과 면접 세션
     - 기업·채용공고·대표 자기소개서·대표 이력서를 선택해 면접 세션 생성
     - RAG context 기반 기술·인성·꼬리 질문 생성 및 질문 순서·상태 저장

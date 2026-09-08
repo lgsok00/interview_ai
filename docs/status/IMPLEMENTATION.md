@@ -16,6 +16,16 @@
 
 ## 현재 구현된 기능
 
+### RAG Qdrant 검색 — 구현·RAG 회귀 검증 완료 (2026-09-09)
+
+- `GET /api/rag/search?query=`는 JWT subject의 실제 사용자를 확인하고 앞뒤 공백을 제거한 1~100자 검색어로 Qdrant 후보 50개를 조회한다.
+- Qdrant 조회 단계에서 인증 사용자 공용 문서 또는 현재 사용자 소유 개인 문서로 metadata를 제한한다.
+- 후보는 DB의 활성 generation과 tombstone 조건을 통과해야 하며, 반환 직전에 기업·채용공고 존재 여부와 자기소개서·이력서 소유권을 실제 원본 Repository로 다시 확인한다.
+- Qdrant 유사도 순서를 유지하면서 접근 가능한 활성 결과를 최대 5개 반환한다. 검색 기능은 `rag.search.enabled`로 조건부 활성화하며 설정 metadata용 전용 properties 구성을
+  둔다.
+- 신규 검색 서비스 7개·컨트롤러 4개와 접근 제어 3개를 추가했다. RAG 선택 실행의 XML 23개에서 250개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 실제 OpenAI embedding·Qdrant 네트워크 검색과 검색 변경을 포함한 프로젝트 전체 회귀 실행은 아직 검증하지 않았다.
+
 ### RAG Spring AI·Qdrant 외부 색인 — 구현·전체 회귀 검증 완료 (2026-09-08)
 
 - Spring AI 2.0.1의 OpenAI embedding과 Qdrant VectorStore 의존성을 추가하고, 기본 비활성화 상태에서 환경변수로 embedding model·vector store·색인
@@ -28,7 +38,7 @@
 - 조건부 `RagIndexJobScheduler`는 한 번에 설정된 최대 작업 수까지 소비하고 빈 큐, 처리 실패, lease 상실과 기반 오류를 구분한다. 기본 lease는 외부 호출 시간을 고려해 300초다.
 - Docker Compose에 Qdrant 1.19.1과 영속 volume, HTTP 6333·gRPC 6334 포트를 추가했다.
 - 설정·chunk·Processor·scheduler 20개와 기존 MySQL RAG 회귀를 포함한 RAG 236개, 프로젝트 전체 548개가 성공했다. 실패·오류·건너뜀은 0이며 실제 OpenAI·Qdrant
-  네트워크 색인과 검색 서비스는 후속 검증 범위다.
+  네트워크 색인은 후속 검증 범위다. 검색 서비스는 2026-09-09 후속 단계에서 구현·RAG 선택 검증을 완료했다.
 
 ### RAG 활성 generation·DELETE tombstone — 구현·검증 완료 (2026-09-08)
 
@@ -42,8 +52,8 @@
   교체한다. 작업 성공과 활성화는 하나의 새 트랜잭션으로 커밋된다.
 - 새 UPSERT가 처리 중이거나 실패하면 기존 활성 generation을 유지한다. 오래된 UPSERT 완료는 작업 자체가 성공하더라도 활성화되지 않고, 늦은 DELETE 완료는 이후 활성 generation을
   제거하지 않는다.
-- 활성 generation 조회를 제공해 외부 검색 후보가 현재 검색 가능한 generation인지 확인할 수 있다. Processor·scheduler와 Qdrant 색인은 후속 단계에서 연결됐으며 검색 연결은
-  남아 있다.
+- 활성 generation 조회를 제공해 외부 검색 후보가 현재 검색 가능한 generation인지 확인한다. Processor·scheduler·Qdrant 색인과 검색 연결까지 완료했으며 실제 네트워크
+  smoke test는 남아 있다.
 - 신규 37개를 포함한 RAG 216개와 전체 528개 테스트가 성공했고 실패·오류·건너뜀은 0이다.
 
 ### RAG 작업 실행 기반 — 구현·검증 완료 (2026-09-08)
