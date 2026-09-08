@@ -13,8 +13,8 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 - RAG 순번은 DB 등록 직렬화 순서이며 원본 revision의 최신 순서를 보장하지 않는다. 순번 서비스와 등록 서비스 모두 `MANDATORY`로 호출자의 쓰기 트랜잭션에 참여하며 작업 저장과 함께
   커밋·롤백한다.
 - V7 작업은 `(source_type, source_id, source_sequence)` unique와 원본 관리 행 FK를 사용한다. 실제 원본 테이블에는 FK가 없어 원본 없는 DELETE 등록이 가능하다.
-- 영속 작업 ID는 Long이며 기존 메모리 `RagIndexJob`의 UUID·향후 실행 시도 ID와 구분한다. 현재 저장 범위는 UPSERT 스냅샷·pipeline version 또는 DELETE 키와 초기
-  PENDING·시도 횟수·생성/수정 시각이다. 실행 상태 전이 저장과 메모리 실행 모델 연결은 미구현이다.
+- 영속 작업 ID는 Long이며 기존 메모리 `RagIndexJob`의 UUID·실행 시도 UUID와 구분한다. V7 등록 범위는 UPSERT 스냅샷·pipeline version 또는 DELETE 키와 초기
+  PENDING·시도 횟수·생성/수정 시각이다. V8 실행 상태 전이는 별도 JDBC Repository가 관리하며 메모리 실행 모델로 복원하지 않는다.
 - 등록 시 전달받은 불변 스냅샷을 LONGTEXT로 보존하고 기존 UTC clock의 시각을 마이크로초로 저장한다.
 - 기업·채용공고 CRUD는 원본 생성 시 ID 확정 후, 수정 시 비관적 잠금 상태의 변경 직후, 삭제 시 원본 삭제 전에 같은 트랜잭션으로 작업을 등록한다. 파이프라인은 `rag-v1`, 최대 실행 횟수는
   3이다.
@@ -23,7 +23,10 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 - 자기소개서는 생성·수정·복원 시 현재 버전 UPSERT, 삭제 시 비관적 잠금 후 DELETE를 등록한다. 이력서는 생성·제목 수정·파일 교체 시 추출 상태에 따라 UPSERT 또는 DELETE를 등록하고, 삭제
   시 비관적 잠금 후 DELETE를 등록한다. 모두 원본 변경과 같은 쓰기 트랜잭션에 참여한다.
 - 대표 문서 설정·해제는 원본 스냅샷 내용이 바뀌지 않아 RAG 작업을 등록하지 않는다. 회원 탈퇴 cascade로 제거되는 개인 문서의 DELETE 등록은 별도 후속 보강 대상이다.
-- worker 선점·lease 및 늦은 외부 쓰기 처리는 후속 설계·검증 대상이다.
+- worker 선점·lease는 V8·JDBC 실행 Repository·독립 트랜잭션 서비스·단건 worker로 구현·검증했다. 실행 서비스 실패 코드 정규식도 수정하고 경계 테스트로 검증했다.
+- 실행 전용 컬럼은 JDBC Repository가 관리하며 기존 JPA 엔티티에 매핑하지 않는다. JDBC 변경도 `lock_version`을 증가시킨다. lease와 재시도 시각은 DB UTC 기준으로 판단한다.
+- 실행은 중복될 수 있다. 현재 attempt·lease 조건은 DB 상태 변경만 보호하며, 동일 원본의 순서 역전과 늦은 외부 쓰기는 generation·tombstone 단계에서 제어해야 한다. 실제
+  Processor·scheduler는 아직 연결하지 않는다.
 
 - 로컬 애플리케이션 실행에는 `MYSQL_PASSWORD`가 필요하다.
 - Docker Compose 실행에는 `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` 설정이 필요하다.

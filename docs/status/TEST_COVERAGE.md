@@ -6,6 +6,18 @@
 
 ### 작성된 자동 테스트
 
+#### RAG 실행 기반 — 검증 완료 (2026-09-08)
+
+- `RagIndexJobExecutionServiceTest`: 정상 실패 코드·100자 경계, null·빈 값·잘못된 문자·길이 초과, lease·재시도 설정과 작업 ID·attempt 입력 검증. 실패 코드
+  정규식 오타를 잡는 회귀 테스트를 포함한다.
+- `RagIndexJobWorkerTest`: 빈 큐·null 처리기, 처리 순서·lease 연장 콜백, 늦은 완료·실패, 예외의 고정 코드 변환, 인터럽트 플래그 복원, DB 오류 전파, 치명적 Error의
+  lease 복구 위임.
+- `RagIndexJobExecutionServiceIntegrationTest`: 실제 MySQL에서 V8 CHECK, UPSERT 스냅샷·DELETE 복원, 성공·버전 증가, 잘못된 attempt·만료
+  lease 거부, lease 연장·재선점, 재시도 지연·소진, 미래 대기 작업 건너뛰기, 트랜잭션 필수·롤백, 동시 선점·SKIP LOCKED, worker의 트랜잭션 밖 처리와 독립 커밋, 실제 실패 저장
+  경로.
+- 시간 경계는 DB UTC 시각으로 lease·available_at을 조정해 검사하며 sleep으로 만료를 기다리지 않는다. 동시성 검증은 barrier·latch와 제한 시간으로 조정한다.
+- 위 3개 클래스 51개는 사용자 선택 실행과 전체 실행에서 모두 성공했다. 전체 XML 55개에서 491개 성공, 실패·오류·건너뜀 0을 확인했다.
+
 `RagIndexJobEntityTest` 6개와 `RagIndexJobRegistrationServiceIntegrationTest` 40개가 2026-09-07 전체 실행에서 성공했다.
 
 #### 기업·채용공고 RAG 등록 연결

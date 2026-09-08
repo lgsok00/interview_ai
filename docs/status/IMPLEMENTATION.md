@@ -16,6 +16,22 @@
 
 ## 현재 구현된 기능
 
+### RAG 작업 실행 기반 — 구현·검증 완료 (2026-09-08)
+
+- V8은 작업에 `attempt_id`, `lease_expires_at`, `available_at`, `failure_code`와 RUNNING lease CHECK·조회 인덱스를 추가한다. 기존 JPA 등록
+  코드의 초기 PENDING 저장을 유지한다.
+- 실행 전용 JDBC Repository는 `MANDATORY`, 실행 서비스는 `REQUIRES_NEW`·`READ_COMMITTED`를 사용한다. 선점은 `FOR UPDATE SKIP LOCKED`이며 변경마다
+  JPA의 `lock_version`도 증가시킨다.
+- lease·재시도 판단은 DB UTC 시각 기준이고, `updated_at`은 기존 값보다 후퇴하지 않는다. 기본 lease 60초, 실패 재시도 지연 30초이며 둘 다 1~86400초 설정 범위다.
+- 매 선점마다 UUID attempt를 새로 발급하고 횟수를 증가시킨다. 완료·실패·연장은 현재 attempt와 유효 lease를 조건으로 갱신한다. 만료된 작업은 재선점하거나 시도 소진 시 FAILED로
+  정리한다.
+- 소진 작업 한 건을 정리한 호출은 빈 결과를 반환할 수 있다. 따라서 worker의 `NO_JOB`은 전체 큐가 완전히 비었다는 보장이 아니며 호출자는 다음 poll을 계속해야 한다.
+- worker는 `NOT_SUPPORTED`로 외부 처리 중 트랜잭션을 유지하지 않는다. 실제 Processor와 scheduler는 없으며 자동 소비하지 않는다. 긴 작업의 lease 갱신은 Processor
+  계약이고 자동 heartbeat는 아니다.
+- 처리 예외는 고정 실패 코드로 저장하고 완료 저장 DB 오류는 전파한다. 같은 원본의 서로 다른 작업과 만료된 외부 요청의 중복 실행은 가능하므로 generation·tombstone은 후속 필수 범위다.
+- 실행 서비스 실패 코드 정규식의 불필요한 닫는 대괄호를 수정했고 정상·100자 경계·잘못된 문자·길이 초과 테스트로 검증했다.
+- 신규 실행 기반 단위·MySQL 통합 테스트 51개를 포함한 전체 491개가 성공했으며 실패·오류·건너뜀은 0이다.
+
 ### 자기소개서·이력서 RAG 작업 등록 연결 (2026-09-08)
 
 - 자기소개서 생성·수정·과거 버전 복원은 ID와 현재 버전 확정 후 같은 쓰기 트랜잭션에서 UPSERT 작업을 등록한다.

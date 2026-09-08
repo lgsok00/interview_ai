@@ -2,7 +2,18 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 440개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 491개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+
+### RAG DB 작업 실행 기반 검증 (2026-09-08)
+
+- 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 11초), 사용자 출력 확인.
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (2분 43초). XML 55개에서 전체 491개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다.
+- 전체 결과의 RAG 테스트는 14개 클래스 179개다. 신규 `RagIndexJobExecutionServiceTest` 22개, `RagIndexJobWorkerTest` 10개,
+  `RagIndexJobExecutionServiceIntegrationTest` 19개로 합계 51개가 포함됐다.
+- 실제 MySQL 통합 테스트가 건너뜀 없이 실행되어 V8 CHECK, DB 선점·SKIP LOCKED, 동시 worker 중복 방지, lease 연장·만료 재선점, 이전 attempt 차단, 재시도 지연·소진,
+  롤백과 독립 커밋을 확인했다.
+- worker의 정상 완료, 처리 예외·인터럽트, lease 상실, DB 오류 전파와 실패 코드 정규식 정상·경계·실패 입력을 확인했다.
+- Codex는 테스트를 직접 실행하지 않았으며 사용자 실행 결과와 XML을 대조했다. OpenJDK class-data sharing 경고는 테스트 성공에 영향을 주지 않았다.
 
 ### 자기소개서·이력서 RAG 등록 연결 검증 (2026-09-08)
 

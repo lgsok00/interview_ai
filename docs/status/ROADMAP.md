@@ -39,7 +39,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
       (2026-09-07)
     - 기업·채용공고 CRUD 연결 완료: 같은 트랜잭션의 UPSERT·DELETE 등록과 비관적 읽기 잠금 기반 삭제/생성 직렬화. 전체 435개 성공 (2026-09-08)
     - 자기소개서·이력서 CRUD 연결 완료: 현재 자기소개서 버전과 이력서 추출 상태에 따른 UPSERT·DELETE 등록, 잠금 기반 삭제와 파일 정리 순서 검증. 전체 440개 성공 (2026-09-08)
-    - 다음 단계: 실행 상태 전이 저장·worker 선점·lease·활성 generation·삭제 tombstone. 현재 행 잠금은 등록 기반이며 worker 동시 실행 제어는 미구현
+    - 실행 상태 저장·worker 선점·lease·재시도 기반 구현·검증 완료 (2026-09-08). 신규 51개를 포함한 전체 491개 성공, 실패·오류·건너뜀 0.
+    - 이후 활성 generation·삭제 tombstone으로 순서 역전과 늦은 외부 쓰기를 제어하고 실제 Processor·scheduler를 연결한다.
     - 전처리, 700 token chunk와 100 token overlap, embedding, metadata filtering, Top-K 5 검색
     - 사용자 문서가 다른 사용자 검색 결과에 포함되지 않도록 `userId` 필터와 통합 테스트 적용
 7. AI 질문 생성과 면접 세션
