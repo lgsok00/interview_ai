@@ -6,6 +6,17 @@
 
 ### 작성된 자동 테스트
 
+#### RAG Spring AI·Qdrant 외부 색인 — 전체 회귀 검증 완료 (2026-09-08)
+
+- `RagIndexingPropertiesTest` 4개: 정상 설정, fixed/initial delay와 작업·chunk·overlap·batch 경계를 검증한다.
+- `RagTokenChunkerTest` 4개: token overlap, 짧은 본문 정규화·불변 결과, null·공백 본문과 최대 chunk 초과를 검증한다.
+- `QdrantRagIndexProcessorTest` 7개: 결정적 point ID, batch 쓰기, 공용·개인 metadata, 쓰기 전 lease 상실, Qdrant 오류, DELETE 순번 상한과 삭제 후
+  lease 상실을 검증한다.
+- `RagIndexJobSchedulerTest` 5개: `@Scheduled` 설정, 빈 큐까지 소비, 실행당 한도, lease·처리 실패 진행과 기반 오류 중단을 검증한다.
+- 기본 lease 300초와 무관하게 기존 만료 시각을 연장하지 않는지 검증하도록 MySQL 통합 테스트의 미래 lease 설정을 기존 값 기준으로 변경했다.
+- 신규 20개와 기존 RAG 회귀를 포함해 RAG XML 21개에서 236개, 전체 XML 62개에서 548개 성공을 확인했다. 실패·오류·건너뜀은 0이며 실제 OpenAI API·Qdrant 컨테이너 네트워크
+  호출은 포함하지 않는다.
+
 #### RAG 활성 generation·DELETE tombstone — 검증 완료 (2026-09-08)
 
 - `RagIndexSourceTest` 10개: 기존 순번·overflow와 함께 활성 generation 최초 게시·교체·유지, DELETE 무효화, tombstone 이전 순번 거부, 잘못된 입력의 상태 보존과

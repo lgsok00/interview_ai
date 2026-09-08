@@ -2,6 +2,18 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-08 — RAG Spring AI·Qdrant 외부 색인 Processor·scheduler 구현과 전체 회귀 검증
+
+- Spring AI 2.0.1, OpenAI embedding, Qdrant VectorStore와 로컬 Qdrant Compose 구성을 추가했다. 외부 기능은 환경변수로 명시적으로 활성화한다.
+- CL100K_BASE 700 token·100 token overlap chunker와 batch UPSERT Processor를 구현하고 attempt generation·결정적 point ID·접근 범위
+  metadata를 저장한다.
+- DELETE는 원본 키와 해당 DELETE 순번 이하만 제거하며 외부 batch·DELETE 전후 lease를 갱신한다. 조건부 scheduler는 실행당 처리 한도와 빈 큐·오류 종료 정책을 적용한다.
+- Codex가 설정·chunker·Processor·scheduler 단위 테스트 20개를 추가했다. 기본 lease 300초와 충돌한 기존 통합 테스트의 고정 미래 시각을 저장 만료 시각 기준으로 수정했다.
+- 사용자 신규 선택 실행은 14초, 수정 단건은 27초, 최종 RAG 선택 실행은 1분 28초에 성공했다. XML 21개에서 RAG 236개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 사용자 전체 실행은 3분 26초에 성공했다. XML 62개에서 전체 548개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 확인한 HEAD는 `e3c2a9b`이며 구현·테스트·문서는 작업 트리에서 커밋 대기다. 다음 작업은 실제 OpenAI·Qdrant 색인 smoke test와 활성 generation·접근 제어 기반 Top-K 5
+  검색이다.
+
 ## 2026-09-08 — RAG 활성 generation·DELETE tombstone 구현과 검증
 
 - V9으로 원본 관리 행에 활성 generation·활성 순번·tombstone 순번을 추가하고 기존 DELETE 작업의 최신 순번을 이관했다.

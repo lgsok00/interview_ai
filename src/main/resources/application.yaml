@@ -37,6 +37,24 @@ spring:
               - read:user
               - user:email
 
+  ai:
+    model:
+      embedding: ${SPRING_AI_MODEL_EMBEDDING:none}
+    vectorstore:
+      qdrant:
+        host: ${QDRANT_HOST:localhost}
+        port: ${QDRANT_GRPC_PORT:6334}
+        api-key: ${QDRANT_API_KEY:}
+        collection-name: ${QDRANT_COLLECTION:interview_ai_documents}
+        content-field-name: content
+        use-tls: ${QDRANT_USE_TLS:false}
+        initialize-schema: ${QDRANT_INITIALIZE_SCHEMA:false}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      embedding:
+        model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+        metadata-mode: NONE
+
   flyway:
     enabled: true
 
@@ -66,3 +84,18 @@ resume:
   file:
     max-size: 10MB
     storage-root: ${RESUME_STORAGE_ROOT:./data/resumes}
+
+rag:
+  worker:
+    lease-seconds: ${RAG_WORKER_LEASE_SECONDS:300}
+    retry-delay-seconds: ${RAG_WORKER_RETRY_DELAY_SECONDS:30}
+
+  indexing:
+    enabled: ${RAG_INDEXING_ENABLED:false}
+    fixed-delay: ${RAG_INDEXING_FIXED_DELAY:1s}
+    initial-delay: ${RAG_INDEXING_INITIAL_DELAY:5s}
+    max-jobs-per-run: ${RAG_INDEXING_MAX_JOBS_PER_RUN:20}
+    chunk-size: 700
+    chunk-overlap: 100
+    max-chunks: 10000
+    write-batch-size: ${RAG_INDEXING_WRITE_BATCH_SIZE:20}

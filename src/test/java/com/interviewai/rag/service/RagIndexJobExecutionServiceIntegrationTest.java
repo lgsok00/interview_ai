@@ -136,7 +136,7 @@ class RagIndexJobExecutionServiceIntegrationTest extends MySqlIntegrationTest {
         ClaimedJob job = service.claimNext().orElseThrow();
         jdbc.update("""
                 UPDATE rag_index_jobs
-                SET lease_expires_at = TIMESTAMPADD(SECOND, 300, UTC_TIMESTAMP(6))
+                SET lease_expires_at = TIMESTAMPADD(SECOND, 300, lease_expires_at)
                 WHERE id = ?
                 """, id);
         LocalDateTime before = lease(id);

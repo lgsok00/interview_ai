@@ -6,32 +6,39 @@
 
 ## 현재 상태
 
-| 영역                   | 상태                                                                |
-|----------------------|-------------------------------------------------------------------|
-| 인증·회원 관리             | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴 |
-| 자기소개서                | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                   |
-| 이력서                  | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                          |
-| 기업·채용공고              | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                |
-| RAG 기반 모델            | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기          |
-| RAG 순번·등록 직렬화 기반     | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                           |
-| RAG 작업 등록 영속화        | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백  |
-| RAG CRUD 연결          | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료              |
-| RAG 작업 실행 기반         | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단           |
-| RAG generation·삭제 차단 | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화     |
-| RAG 외부 연결            | 미구현: scheduler·실제 처리기, Spring AI·Qdrant                           |
-| 운영 실행 기반             | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료         |
-| 면접·평가·성장 분석 및 실제 배포  | 후속 범위                                                             |
+| 영역                   | 상태                                                                          |
+|----------------------|-----------------------------------------------------------------------------|
+| 인증·회원 관리             | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴           |
+| 자기소개서                | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                             |
+| 이력서                  | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                                    |
+| 기업·채용공고              | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                          |
+| RAG 기반 모델            | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기                    |
+| RAG 순번·등록 직렬화 기반     | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                                     |
+| RAG 작업 등록 영속화        | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백            |
+| RAG CRUD 연결          | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료                        |
+| RAG 작업 실행 기반         | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                     |
+| RAG generation·삭제 차단 | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화               |
+| RAG 외부 색인            | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결 |
+| RAG 외부 검색·실연동        | 검증 대기: 활성 generation·접근 제어 검색과 실제 OpenAI·Qdrant 네트워크 색인                     |
+| 운영 실행 기반             | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                   |
+| 면접·평가·성장 분석 및 실제 배포  | 후속 범위                                                                       |
 
 ## 다음 작업
 
-1. 실제 Processor·scheduler를 구성하고 Spring AI·Qdrant 색인·검색으로 진행한다.
-2. 검색 후보에 활성 generation 확인과 기존 원본 접근 제어를 연결한다.
+1. 로컬 Qdrant와 OpenAI embedding을 사용해 실제 UPSERT·DELETE 색인 smoke test를 수행한다.
+2. 검색 후보에 활성 generation 확인과 기존 원본 접근 제어를 연결하고 Top-K 5 검색을 구성한다.
 3. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
 
+- 실행일: 2026-09-08
+- 신규 설정·chunker·Processor·scheduler 20개 선택 실행 — BUILD SUCCESSFUL (14초), 실패·오류·건너뜀 0.
+- lease 고정값 충돌을 수정한 단건 재실행 — BUILD SUCCESSFUL (27초).
+- 최신 RAG 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 28초).
+- 최신 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 26초). XML 62개에서 전체 548개 성공, 실패·오류·건너뜀 0을 확인했다.
+- RAG XML 21개에서 236개 성공했다. 실제 OpenAI·Qdrant 네트워크 호출은 아직 검증하지 않았다.
 - 실행일: 2026-09-08
 - 최신 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 29초).
 - 최신 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 15초). XML 58개에서 전체 528개 성공, 실패·오류·건너뜀 0 확인.
@@ -84,8 +91,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `f315e5d feat: RAG DB 작업 선점과 lease 실행 기반 추가`
-- generation·tombstone 애플리케이션 코드와 V9, 신규·수정 테스트 및 관련 문서는 검증 완료됐으며 작업 트리에서 커밋 대기다.
+- 이번 확인한 HEAD: `e3c2a9b feat: RAG 활성 generation과 DELETE tombstone 추가`
+- Processor·scheduler·Spring AI·Qdrant 색인 구성과 신규 테스트·관련 문서는 전체 회귀 검증 완료 후 작업 트리에서 커밋 대기다.
 
 ## 문서 갱신 규칙
 

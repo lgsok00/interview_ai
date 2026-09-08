@@ -2,7 +2,22 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 528개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 검증은 2026-09-08의 548개 성공이며, 이전 기록의 검증 대기·실패·건너뜀 표시는 당시 상태다.
+
+### RAG Spring AI·Qdrant 외부 색인 선택 검증 (2026-09-08)
+
+- 사용자 신규 선택 실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.config.RagIndexingPropertiesTest" --tests "com.interviewai.rag.service.RagTokenChunkerTest" --tests "com.interviewai.rag.service.QdrantRagIndexProcessorTest" --tests "com.interviewai.rag.scheduler.RagIndexJobSchedulerTest"` —
+  BUILD SUCCESSFUL (14초).
+- 최초 RAG 전체 선택 실행은 236개 중 기존
+  `RagIndexJobExecutionServiceIntegrationTest.renewsLeaseWithoutShorteningItOrConsumingAttempt` 1개가 실패했다. 기본 lease가
+  300초로 변경돼 테스트의 `현재+300초`와 renew 값이 경합한 테스트 고정값 문제였다.
+- 미래 lease를 현재 저장된 만료 시각에서 300초 더하는 방식으로 수정한 단건 재실행 — BUILD SUCCESSFUL (27초).
+- 최종 사용자 RAG 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 28초).
+- 최신 XML 21개에서 236개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다. 설정 경계, 700/100 token chunk, Qdrant 문서·metadata·batch, 순번 제한 DELETE,
+  lease 상실, scheduler와 기존 MySQL RAG 회귀가 포함된다.
+- 최종 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 26초). 최신 XML 62개에서 전체 548개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. 실제 OpenAI embedding·Qdrant 네트워크 색인은 아직 실행하지 않았다.
 
 ### RAG 활성 generation·DELETE tombstone 검증 (2026-09-08)
 

@@ -30,7 +30,7 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - 관리자 등록·수정·삭제 구현 완료
     - 관련 102개 포함 전체 307개 테스트 성공, 실패·오류·건너뜀 0 확인
 6. RAG 기반 구축
-    - Spring AI와 Qdrant 연결
+    - Spring AI 2.0.1·OpenAI embedding·Qdrant 외부 색인 Processor와 조건부 scheduler 구현 및 RAG 선택 검증 완료
     - 기업·채용공고·자기소개서·이력서의 문서 유형·공개 범위·원본 키·스냅샷 불변 모델 구현 및 선택 테스트 완료
     - 문서 유형별 변환기, 현재 버전·추출 완료 조건과 사용자별 접근 제어 계약 구현 및 선택 테스트 완료
     - Qdrant metadata와 메모리 내 색인 상태·작업 수명주기 모델 구현 및 전체 회귀 검증 완료
@@ -42,8 +42,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - 실행 상태 저장·worker 선점·lease·재시도 기반 구현·검증 완료 (2026-09-08). 신규 51개를 포함한 전체 491개 성공, 실패·오류·건너뜀 0.
     - V9·활성 generation·DELETE tombstone 구현·검증 완료: DELETE 등록 즉시 무효화, 최신 UPSERT만 활성화, 늦은 완료·재선점 결과의 검색 노출 차단. RAG 216개·전체
       528개 성공 (2026-09-08).
-    - 다음으로 실제 Processor·scheduler를 연결하고 활성 generation 확인을 포함한 Spring AI·Qdrant 색인·검색을 구성한다.
-    - 전처리, 700 token chunk와 100 token overlap, embedding, metadata filtering, Top-K 5 검색
+    - 700 token chunk·100 token overlap, batch embedding·Qdrant UPSERT, 순번 제한 DELETE 구현 완료
+    - 다음으로 실제 OpenAI·Qdrant 색인 smoke test와 활성 generation·원본 접근 제어를 포함한 metadata filtering·Top-K 5 검색을 구성한다.
     - 사용자 문서가 다른 사용자 검색 결과에 포함되지 않도록 `userId` 필터와 통합 테스트 적용
 7. AI 질문 생성과 면접 세션
     - 기업·채용공고·대표 자기소개서·대표 이력서를 선택해 면접 세션 생성

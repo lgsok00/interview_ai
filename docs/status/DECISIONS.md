@@ -31,7 +31,10 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
   유지한다.
 - DELETE Processor의 외부 정리는 해당 DELETE 순번 이하만 대상으로 해야 한다. 늦은 DELETE 완료가 이후 UPSERT generation을 제거하지 않도록 원본 키 전체 삭제는 사용하지
   않는다.
-- 외부 검색 후보는 활성 generation 조회를 통과한 결과만 사용한다. 실제 Processor·scheduler와 Spring AI·Qdrant 연결은 아직 구현하지 않았다.
+- 외부 색인은 Spring AI 2.0.1·OpenAI embedding·Qdrant를 사용한다. CL100K_BASE 기준 700 token·100 token overlap, batch 전후 lease 연장,
+  조건부 scheduler와 실행당 작업 한도를 적용한다.
+- 외부 검색 후보는 활성 generation 조회를 통과한 결과만 사용한다. Processor·scheduler와 Qdrant 색인은 구현·선택 검증됐으며 실제 네트워크 smoke test와 검색 연결은 남아
+  있다.
 
 - 로컬 애플리케이션 실행에는 `MYSQL_PASSWORD`가 필요하다.
 - Docker Compose 실행에는 `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` 설정이 필요하다.
@@ -61,6 +64,7 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
   `GlobalExceptionHandler`와 `ErrorResponse` 형식을 유지한다.
 - Notion 회원가입 명세의 `name`은 실제 구현의 `nickname`과 다르다.
 - Notion ERD의 User에는 실제 스키마의 `provider_id`와 `refresh_tokens`가 빠져 있고 비밀번호 컬럼명도 실제 `password_hash`와 다르다.
-- 기업·채용공고 API와 DB 관리자 권한 검사는 구현·검증을 완료했다. Spring AI, Qdrant, OpenAI embedding, 면접·평가·성장 모듈은 아직 구현되지 않았다.
+- 기업·채용공고 API와 DB 관리자 권한 검사는 구현·검증을 완료했다. Spring AI·Qdrant·OpenAI embedding의 외부 색인 코드는 구현·선택 검증됐고 실제 연동과 검색, 면접·평가·성장
+  모듈은 아직 완료되지 않았다.
 - 자기소개서 PDF 업로드와 텍스트 추출은 확정된 이력서 파일 정책을 공통화하는 후속 범위로 유지한다.
 - RAG 설계의 `companyId AND jobPostingId AND userId` 조건은 기업 공용 문서와 사용자 전용 문서의 metadata가 다르므로 문서 유형별 필터 조합으로 구체화해야 한다.
