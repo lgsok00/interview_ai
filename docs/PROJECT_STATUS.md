@@ -19,7 +19,7 @@
 | RAG 작업 실행 기반               | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                 |
 | RAG generation·삭제 차단         | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화         |
 | RAG 외부 색인                    | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결    |
-| RAG 외부 검색                    | 구현·RAG 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5       |
+| RAG 외부 검색                    | 구현·전체 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5      |
 | RAG 실제 외부 연동               | 검증 대기: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·DELETE·검색 smoke test             |
 | 운영 실행 기반                   | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                    |
 | 면접·평가·성장 분석 및 실제 배포 | 후속 범위                                                                                  |
@@ -27,18 +27,21 @@
 ## 다음 작업
 
 1. 로컬 Qdrant와 OpenAI embedding을 사용해 실제 UPSERT·DELETE·검색 smoke test를 수행한다.
-2. 전체 `./gradlew test`로 검색 변경을 포함한 프로젝트 전체 회귀를 검증한다.
-3. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
+2. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
 
 - 실행일: 2026-09-09
+- 환경변수를 제거한 단건 프로필 재실행 — BUILD SUCCESSFUL (8초), 4개 성공.
+- 최신 사용자 전체 실행: `./gradlew test` — BUILD SUCCESSFUL (1분 38초). XML 64개에서 전체 562개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 최초 전체 실행과 프로필 단건 재실패는 `.zshrc`의 `SPRING_PROFILES_ACTIVE=local`, `REFRESH_TOKEN_CLEANUP_ENABLED=true`가 prod 기본값을 덮어쓴 실행
+  환경 문제였다. 두 환경변수를 제거하고 Gradle Daemon을 재시작해 해결했다.
 - 검색 서비스·접근 제어·컨트롤러 선택 실행 — BUILD SUCCESSFUL (16초).
 - RAG 전체 선택 실행: `./gradlew test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (47초). XML 23개에서 250개 성공, 실패·오류·건너뜀
   0을 확인했다.
-- 검색은 Qdrant metadata 범위, 활성 generation, 현재 원본 존재·소유권, 최대 5개 반환을 검증했다. 실제 OpenAI·Qdrant 네트워크 호출과 프로젝트 전체 회귀는 아직 수행하지
+- 검색은 Qdrant metadata 범위, 활성 generation, 현재 원본 존재·소유권, 최대 5개 반환과 프로젝트 전체 회귀를 검증했다. 실제 OpenAI·Qdrant 네트워크 호출은 아직 수행하지
   않았다.
 - 실행일: 2026-09-08
 - 신규 설정·chunker·Processor·scheduler 20개 선택 실행 — BUILD SUCCESSFUL (14초), 실패·오류·건너뜀 0.
@@ -98,8 +101,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `afc61d4 feat: Qdrant smoke Test 관련 중간 커밋`
-- 검색 보완 코드·테스트·관련 문서는 RAG 선택 검증 완료 후 작업 트리에서 커밋 대기다. `.gitignore`와 로컬 MySQL 포트 변경도 함께 남아 있다.
+- 이번 확인한 HEAD: `054ba3c feat: RAG Qdrant 검색 접근 제어 보강`
+- 검색 구현·테스트·문서는 커밋되어 `origin/main`과 일치하며, 전체 562개 회귀 검증 후 문서 갱신만 작업 트리에 남아 있다.
 
 ## 문서 갱신 규칙
 

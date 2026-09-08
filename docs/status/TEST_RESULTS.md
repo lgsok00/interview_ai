@@ -2,8 +2,8 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-08의 548개 성공이고 최신 RAG 선택 검증은 2026-09-09의 250개 성공이다. 이전 기록의 검증
-대기·실패·건너뜀 표시는 당시 상태다.
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-09의 562개 성공이고 최신 RAG 선택 검증은 같은 날의 250개 성공이다. 이전 기록의 검증 대기·실패·건너뜀
+표시는 당시 상태다.
 
 ### RAG Qdrant 검색 검증 (2026-09-09)
 
@@ -14,7 +14,12 @@
 - 최신 XML 23개에서 RAG 250개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다. 검색 서비스 7개, 검색 컨트롤러 4개, 접근 제어 서비스 12개를 포함한다.
 - 인증 범위 metadata filter, 활성 generation, 현재 원본 존재·소유권, 후보 50개 중 순서를 유지한 최대 5개 반환, 검색어 정상·경계·실패, JWT와 손상 metadata 경로를
   검증했다.
-- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. 실제 OpenAI embedding·Qdrant 네트워크 호출과 프로젝트 전체 회귀 테스트는 이번 실행 범위에 포함되지 않았다.
+- 최초 전체 실행은 562개 중 `RefreshTokenCleanupSchedulerConfigurationTest`의 prod 기본 비활성화 1개가 실패했다. `.zshrc`의
+  `SPRING_PROFILES_ACTIVE=local`과 `REFRESH_TOKEN_CLEANUP_ENABLED=true`가 테스트의 prod 기본값을 덮어쓴 환경 문제였으며 검색 구현 회귀는 아니었다.
+- 두 환경변수를 제거하고 Gradle Daemon을 재시작한 뒤 프로필 단건 4개가 BUILD SUCCESSFUL (8초)이었고, 최종 `./gradlew test`도 BUILD SUCCESSFUL (1분 38초)
+  이었다.
+- 최종 XML 64개에서 전체 562개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다. OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
+- 실제 OpenAI embedding·Qdrant 네트워크 호출은 이번 실행 범위에 포함되지 않았다.
 - Codex는 테스트를 직접 실행하지 않았으며 사용자 출력과 최신 XML을 대조했다.
 
 ### RAG Spring AI·Qdrant 외부 색인 선택 검증 (2026-09-08)
