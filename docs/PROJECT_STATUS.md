@@ -40,7 +40,8 @@
 - 사용자 단위 실행: `QdrantRagIndexProcessorTest`, `RagSearchServiceTest` — BUILD SUCCESSFUL (10초), 14개 성공.
 - 사용자 RAG 전체 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 11초). XML 23개에서 250개 성공,
   실패·오류·건너뜀 0을 확인했다.
-- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. 프로젝트 전체 회귀 테스트는 이번 변경 후 아직 실행하지 않았다.
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 18초). XML 64개에서 전체 562개 성공, 실패·오류·건너뜀 0을 확인했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
 - 실행일: 2026-09-09
 - 환경변수를 제거한 단건 프로필 재실행 — BUILD SUCCESSFUL (8초), 4개 성공.
 - 최신 사용자 전체 실행: `./gradlew test` — BUILD SUCCESSFUL (1분 38초). XML 64개에서 전체 562개 성공, 실패·오류·건너뜀 0을 확인했다.
@@ -109,9 +110,9 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `054ba3c feat: RAG Qdrant 검색 접근 제어 보강`
-- `054ba3c` 이후 Qdrant metadata 타입 정합성 구현·테스트와 문서 변경은 작업 트리에서 커밋 대기다. 최신 전체 프로젝트 회귀 기준은 562개 성공이며 이번 타입 수정 후 전체 실행은 대기
-  중이다.
+- 이번 확인한 HEAD: `fab7a19 fix: Qdrant RAG 메타데이터 타입 정합성 보완`
+- Qdrant metadata 타입 정합성 구현·테스트·문서는 커밋되어 `origin/main`과 일치한다. RAG 선택 250개와 프로젝트 전체 562개 회귀 및 실제 OpenAI·Qdrant smoke 검증을
+  완료했다.
 
 ## 문서 갱신 규칙
 

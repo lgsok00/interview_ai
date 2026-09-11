@@ -14,8 +14,8 @@
 - `RagSourceAccessServiceTest`에 3개를 추가해 기업·채용공고 존재 여부, 자기소개서·이력서 사용자 소유권, 사용자·원본 키 누락 시 Repository 미호출을 검증한다.
 - `RagSearchServiceTest`는 실제 Qdrant payload와 같은 문자열 `sourceId` 변환과 문자열 `ownerUserId` 필터를 검증한다.
 - `QdrantRagIndexProcessorTest`는 문자열 식별자·정확한 순번 문자열·숫자 `sourceSequenceOrder` 저장 및 같은 타입의 DELETE 필터를 검증한다.
-- 2026-09-11 사용자 단위 14개와 RAG 전체 XML 23개·250개가 성공했고 실패·오류·건너뜀은 0이다. 실제 OpenAI embedding·Qdrant UPSERT·개인 검색·DELETE smoke
-  test도 성공했다. 이번 변경 후 프로젝트 전체 회귀 실행은 대기 중이다.
+- 2026-09-11 사용자 단위 14개, RAG 전체 XML 23개·250개, 프로젝트 전체 XML 64개·562개가 성공했고 실패·오류·건너뜀은 0이다. 실제 OpenAI embedding·Qdrant
+  UPSERT·개인 검색·DELETE smoke test도 성공했다.
 
 #### RAG Spring AI·Qdrant 외부 색인 — 전체 회귀 검증 완료 (2026-09-08)
 
