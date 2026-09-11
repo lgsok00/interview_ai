@@ -33,4 +33,13 @@ public interface ResumeRepository extends JpaRepository<Resume, Long> {
             WHERE resume.user.id = :userId
             """)
     List<String> findStorageKeysByUserId(@Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT resume
+            FROM Resume resume
+            WHERE resume.user.id = :userId
+            ORDER BY resume.id
+            """)
+    List<Resume> findAllOwnedForUpdate(@Param("userId") Long userId);
 }

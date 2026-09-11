@@ -16,6 +16,7 @@
 - `QdrantRagIndexProcessorTest`는 문자열 식별자·정확한 순번 문자열·숫자 `sourceSequenceOrder` 저장 및 같은 타입의 DELETE 필터를 검증한다.
 - 2026-09-11 사용자 단위 14개, RAG 전체 XML 23개·250개, 프로젝트 전체 XML 64개·562개가 성공했고 실패·오류·건너뜀은 0이다. 실제 OpenAI embedding·Qdrant
   UPSERT·개인 검색·DELETE smoke test도 성공했다.
+- 2026-09-11 회원 탈퇴 개인 문서 RAG 정리 보강 후 `UserServiceTest` 18개와 프로젝트 전체 XML 64개·564개가 성공했고 실패·오류·건너뜀은 0이다.
 
 #### RAG Spring AI·Qdrant 외부 색인 — 전체 회귀 검증 완료 (2026-09-08)
 
@@ -197,7 +198,7 @@
 공통 Testcontainers 기반인 `MySqlIntegrationTest`가 작성되어 있으며, MySQL 연결 정보는 Spring Boot `@ServiceConnection`으로 주입한다. 여러 통합 테스트
 클래스 실행 시 종료된 컨테이너의 datasource가 재사용되지 않도록 각 클래스 종료 후 Spring Context를 폐기한다.
 
-`UserServiceTest`에 다음 16개 시나리오가 작성되어 있다.
+`UserServiceTest`에 다음 18개 시나리오가 작성되어 있다.
 
 - JWT subject에 해당하는 사용자 조회 성공
 - JWT subject에 해당하는 사용자가 없을 때 실패
@@ -212,7 +213,9 @@
 - OAuth2 사용자의 비밀번호 변경 거부
 - 비밀번호를 변경할 사용자가 없을 때 실패
 - 비밀번호 변경 요청의 JWT subject가 숫자가 아닐 때 실패
-- JWT subject에 해당하는 사용자 삭제 성공
+- 회원과 개인 문서 잠금 후 복수 자기소개서·이력서 RAG DELETE 등록, 파일 정리 예약과 사용자 삭제 순서
+- 개인 문서가 없는 사용자의 멱등한 RAG 정리와 사용자 삭제
+- RAG DELETE 등록 실패 시 후속 등록·파일 정리·사용자 삭제 중단
 - 탈퇴할 사용자가 없을 때 실패
 - 탈퇴 요청의 JWT subject가 숫자가 아닐 때 실패
 

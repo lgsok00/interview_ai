@@ -2,9 +2,20 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증과 RAG 선택 검증은 2026-09-11이며 각각 562개와 250개 성공이다. 이전 기록의 검증
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증과 RAG 선택 검증은 2026-09-11이며 각각 564개와 250개 성공이다. 이전 기록의 검증
 대기·실패·건너뜀
 표시는 당시 상태다.
+
+### 회원 탈퇴 개인 문서 RAG 정리 검증 (2026-09-11)
+
+- 최초 `UserServiceTest` 실행은 Mockito strict stubbing이 먼저 호출된 자기소개서 DELETE를 허용하지 않아 18개 중 1개가 실패했다. 애플리케이션 결함이 아닌 테스트 mock
+  설정 문제였다.
+- 하나의 답변 stub이 자기소개서 호출을 통과시키고 대상 이력서 DELETE에서만 실패하도록 수정했다.
+- 사용자 선택 재실행: `.\gradlew.bat test --tests "com.interviewai.user.service.UserServiceTest"` — BUILD SUCCESSFUL. XML에서 18개
+  성공, 실패·오류·건너뜀 0을 확인했다.
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 23초). XML 64개에서 전체 564개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 복수 개인 문서 DELETE 등록 순서, 문서 0건, 중간 등록 실패 시 파일·회원 미삭제, 기존 사용자 조회·수정·비밀번호 변경 회귀를 검증했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. Codex는 테스트를 직접 실행하지 않고 사용자 출력과 XML을 확인했다.
 
 ### RAG 실제 OpenAI·Qdrant smoke 및 metadata 타입 수정 검증 (2026-09-11)
 

@@ -26,4 +26,13 @@ public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> 
               AND coverLetter.user.id = :userId
             """)
     Optional<CoverLetter> findOwnedForUpdate(@Param("coverLetterId") Long coverLetterId, @Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT coverLetter
+            FROM CoverLetter coverLetter
+            WHERE coverLetter.user.id = :userId
+            ORDER BY coverLetter.id
+            """)
+    List<CoverLetter> findAllOwnedForUpdate(@Param("userId") Long userId);
 }

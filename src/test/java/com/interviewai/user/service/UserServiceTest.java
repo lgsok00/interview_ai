@@ -2,6 +2,11 @@ package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.service.RefreshTokenService;
+import com.interviewai.coverletter.entity.CoverLetter;
+import com.interviewai.coverletter.repository.CoverLetterRepository;
+import com.interviewai.rag.document.RagSourceType;
+import com.interviewai.rag.service.RagSourceChangeRegistrationService;
+import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.repository.ResumeRepository;
 import com.interviewai.resume.storage.ResumeFileTransactionCleanup;
 import com.interviewai.user.dto.ChangePasswordRequest;
@@ -10,22 +15,23 @@ import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
-import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.exception.InvalidCurrentPasswordException;
 import com.interviewai.user.exception.PasswordChangeNotSupportedException;
 import com.interviewai.user.exception.SamePasswordException;
+import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,13 +58,31 @@ class UserServiceTest {
     private RefreshTokenService refreshTokenService;
 
     @Mock
+    private CoverLetterRepository coverLetterRepository;
+
+    @Mock
     private ResumeRepository resumeRepository;
+
+    @Mock
+    private RagSourceChangeRegistrationService ragRegistrationService;
 
     @Mock
     private ResumeFileTransactionCleanup resumeFileCleanup;
 
     @Mock
     private User user;
+
+    @Mock
+    private CoverLetter firstCoverLetter;
+
+    @Mock
+    private CoverLetter secondCoverLetter;
+
+    @Mock
+    private Resume firstResume;
+
+    @Mock
+    private Resume secondResume;
 
     private UserService userService;
 
@@ -69,7 +93,9 @@ class UserServiceTest {
                 userRepository,
                 passwordEncoder,
                 refreshTokenService,
+                coverLetterRepository,
                 resumeRepository,
+                ragRegistrationService,
                 resumeFileCleanup
         );
     }
@@ -310,33 +336,109 @@ class UserServiceTest {
     class DeleteCurrentUser {
 
         @Test
-        @DisplayName("JWT subject에 해당하는 사용자를 삭제한다")
-        void deletesCurrentUser() {
-            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-            when(resumeRepository.findStorageKeysByUserId(USER_ID))
-                    .thenReturn(List.of("1/first.pdf", "1/second.pdf"));
+        @DisplayName("개인 문서의 RAG DELETE를 등록하고 회원과 이력서 파일을 삭제한다")
+        void registersDocumentDeletesAndDeletesCurrentUser() {
+            when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
+            when(coverLetterRepository.findAllOwnedForUpdate(USER_ID))
+                    .thenReturn(List.of(firstCoverLetter, secondCoverLetter));
+            when(resumeRepository.findAllOwnedForUpdate(USER_ID))
+                    .thenReturn(List.of(firstResume, secondResume));
+            when(firstCoverLetter.getId()).thenReturn(11L);
+            when(secondCoverLetter.getId()).thenReturn(12L);
+            when(firstResume.getId()).thenReturn(21L);
+            when(secondResume.getId()).thenReturn(22L);
+            when(firstResume.getStorageKey()).thenReturn("1/first.pdf");
+            when(secondResume.getStorageKey()).thenReturn("1/second.pdf");
 
             userService.deleteCurrentUser(USER_ID.toString());
 
-            verify(userRepository).findById(USER_ID);
-            verify(resumeFileCleanup).deleteAfterCommit("1/first.pdf");
-            verify(resumeFileCleanup).deleteAfterCommit("1/second.pdf");
-            verify(userRepository).delete(user);
+            InOrder order = inOrder(
+                    userRepository,
+                    coverLetterRepository,
+                    resumeRepository,
+                    ragRegistrationService,
+                    resumeFileCleanup
+            );
+            order.verify(userRepository).findByIdForUpdate(USER_ID);
+            order.verify(coverLetterRepository).findAllOwnedForUpdate(USER_ID);
+            order.verify(resumeRepository).findAllOwnedForUpdate(USER_ID);
+            order.verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, 11L);
+            order.verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, 12L);
+            order.verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 21L);
+            order.verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 22L);
+            order.verify(resumeFileCleanup).deleteAfterCommit("1/first.pdf");
+            order.verify(resumeFileCleanup).deleteAfterCommit("1/second.pdf");
+            order.verify(userRepository).delete(user);
             verifyNoInteractions(passwordEncoder, refreshTokenService);
+        }
+
+
+        @Test
+        @DisplayName("개인 문서가 없어도 회원을 삭제한다")
+        void deletesCurrentUserWithoutDocuments() {
+            when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
+            when(coverLetterRepository.findAllOwnedForUpdate(USER_ID)).thenReturn(List.of());
+            when(resumeRepository.findAllOwnedForUpdate(USER_ID)).thenReturn(List.of());
+
+            userService.deleteCurrentUser(USER_ID.toString());
+
+            verify(userRepository).findByIdForUpdate(USER_ID);
+            verify(coverLetterRepository).findAllOwnedForUpdate(USER_ID);
+            verify(resumeRepository).findAllOwnedForUpdate(USER_ID);
+            verify(userRepository).delete(user);
+            verifyNoInteractions(ragRegistrationService, resumeFileCleanup);
+        }
+
+
+        @Test
+        @DisplayName("RAG DELETE 등록에 실패하면 회원과 이력서 파일을 삭제하지 않는다")
+        void preservesUserAndFilesWhenRagDeleteRegistrationFails() {
+            when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
+            when(coverLetterRepository.findAllOwnedForUpdate(USER_ID))
+                    .thenReturn(List.of(firstCoverLetter));
+            when(resumeRepository.findAllOwnedForUpdate(USER_ID))
+                    .thenReturn(List.of(firstResume));
+            when(firstCoverLetter.getId()).thenReturn(11L);
+            when(firstResume.getId()).thenReturn(21L);
+            doAnswer(invocation -> {
+                if (invocation.getArgument(0) == RagSourceType.RESUME
+                        && invocation.<Long>getArgument(1).equals(21L)) {
+                    throw new IllegalStateException("RAG registration failed");
+                }
+
+                return null;
+            }).when(ragRegistrationService).registerDelete(any(RagSourceType.class), anyLong());
+
+            assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID.toString()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("RAG registration failed");
+
+            verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, 11L);
+            verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 21L);
+            verifyNoInteractions(resumeFileCleanup);
+            verify(userRepository, never()).delete(any());
         }
 
 
         @Test
         @DisplayName("JWT subject에 해당하는 사용자가 없으면 탈퇴에 실패한다")
         void rejectsUnknownUser() {
-            when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+            when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID.toString()))
                     .isInstanceOf(UserNotFoundException.class);
 
-            verify(userRepository).findById(USER_ID);
+            verify(userRepository).findByIdForUpdate(USER_ID);
             verify(userRepository, never()).delete(any());
-            verifyNoInteractions(passwordEncoder, refreshTokenService, user);
+            verifyNoInteractions(
+                    passwordEncoder,
+                    refreshTokenService,
+                    coverLetterRepository,
+                    resumeRepository,
+                    ragRegistrationService,
+                    resumeFileCleanup,
+                    user
+            );
         }
 
 
@@ -346,7 +448,16 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.deleteCurrentUser("invalid-user-id"))
                     .isInstanceOf(InvalidAccessTokenException.class);
 
-            verifyNoInteractions(userRepository, passwordEncoder, refreshTokenService, user);
+            verifyNoInteractions(
+                    userRepository,
+                    passwordEncoder,
+                    refreshTokenService,
+                    coverLetterRepository,
+                    resumeRepository,
+                    ragRegistrationService,
+                    resumeFileCleanup,
+                    user
+            );
         }
     }
 }
