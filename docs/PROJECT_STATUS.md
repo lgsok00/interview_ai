@@ -1,38 +1,46 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-09-09
+최종 갱신일: 2026-09-11
 
 개발을 재개할 때 먼저 읽는 기준 문서다. 현재 상태와 다음 작업을 요약하고, 상세 내용과 과거 기록은 아래 문서에서 관리한다.
 
 ## 현재 상태
 
-| 영역                             | 상태                                                                                       |
-|----------------------------------|--------------------------------------------------------------------------------------------|
-| 인증·회원 관리                   | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴     |
-| 자기소개서                       | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                            |
-| 이력서                           | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                               |
-| 기업·채용공고                    | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                   |
-| RAG 기반 모델                    | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기    |
-| RAG 순번·등록 직렬화 기반        | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                               |
-| RAG 작업 등록 영속화             | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백 |
-| RAG CRUD 연결                    | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료           |
-| RAG 작업 실행 기반               | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                 |
-| RAG generation·삭제 차단         | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화         |
-| RAG 외부 색인                    | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결    |
-| RAG 외부 검색                    | 구현·전체 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5      |
-| RAG 실제 외부 연동               | 검증 대기: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·DELETE·검색 smoke test             |
-| 운영 실행 기반                   | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                    |
-| 면접·평가·성장 분석 및 실제 배포 | 후속 범위                                                                                  |
+| 영역                   | 상태                                                                          |
+|----------------------|-----------------------------------------------------------------------------|
+| 인증·회원 관리             | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴           |
+| 자기소개서                | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                             |
+| 이력서                  | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                                    |
+| 기업·채용공고              | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                          |
+| RAG 기반 모델            | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기                    |
+| RAG 순번·등록 직렬화 기반     | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                                     |
+| RAG 작업 등록 영속화        | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백            |
+| RAG CRUD 연결          | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료                        |
+| RAG 작업 실행 기반         | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                     |
+| RAG generation·삭제 차단 | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화               |
+| RAG 외부 색인            | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결 |
+| RAG 외부 검색            | 구현·전체 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5              |
+| RAG 실제 외부 연동         | 검증 완료: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·개인 검색·DELETE smoke test       |
+| 운영 실행 기반             | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                   |
+| 면접·평가·성장 분석 및 실제 배포  | 후속 범위                                                                       |
 
 ## 다음 작업
 
-1. 로컬 Qdrant와 OpenAI embedding을 사용해 실제 UPSERT·DELETE·검색 smoke test를 수행한다.
-2. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
+1. 회원 탈퇴 cascade로 제거되는 개인 문서의 RAG DELETE 등록 정책을 별도 보강한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
 
+- 실행일: 2026-09-11
+- 실제 OpenAI embedding·로컬 Qdrant smoke test에서 UPSERT, 개인 자기소개서 검색, DELETE point 제거, 삭제 원본 미노출이 모두 성공했다. smoke 전용 사용자·DB
+  원본·Qdrant point는 정리했다.
+- 최초 smoke test에서 Spring AI가 `Long` metadata를 문자열로 저장해 숫자 필터와 불일치하는 문제를 발견했다. 식별자 metadata·필터를 문자열로 통일하고 DELETE 순번 범위용
+  숫자 `sourceSequenceOrder`를 분리했다.
+- 사용자 단위 실행: `QdrantRagIndexProcessorTest`, `RagSearchServiceTest` — BUILD SUCCESSFUL (10초), 14개 성공.
+- 사용자 RAG 전체 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 11초). XML 23개에서 250개 성공,
+  실패·오류·건너뜀 0을 확인했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. 프로젝트 전체 회귀 테스트는 이번 변경 후 아직 실행하지 않았다.
 - 실행일: 2026-09-09
 - 환경변수를 제거한 단건 프로필 재실행 — BUILD SUCCESSFUL (8초), 4개 성공.
 - 최신 사용자 전체 실행: `./gradlew test` — BUILD SUCCESSFUL (1분 38초). XML 64개에서 전체 562개 성공, 실패·오류·건너뜀 0을 확인했다.
@@ -86,15 +94,15 @@
 
 ## 상세 문서
 
-| 문서                                         | 확인할 내용                                           |
-|----------------------------------------------|-------------------------------------------------------|
-| [구현 상세](status/IMPLEMENTATION.md)        | 실행 환경, 인증·사용자·자기소개서·이력서 API, DB 구조 |
-| [기업·채용공고](status/CATALOG.md)           | API, 도메인 정책과 설계 결정, 단계별 과거 기록        |
-| [자동 테스트 목록](status/TEST_COVERAGE.md)  | 테스트별 검증 범위                                    |
-| [테스트 실행 기록](status/TEST_RESULTS.md)   | 실행 날짜·명령·성공·실패와 RAG 최신 검증 범위         |
-| [개발 로드맵](status/ROADMAP.md)             | 전체 구현 순서와 후속 기능                            |
-| [주요 결정과 확인 사항](status/DECISIONS.md) | API·인증·운영 정책과 남은 확인 사항                   |
-| [변경 이력](status/HISTORY.md)               | 과거 변경사항과 분리 전 재개 메모                     |
+| 문서                                   | 확인할 내용                             |
+|--------------------------------------|------------------------------------|
+| [구현 상세](status/IMPLEMENTATION.md)    | 실행 환경, 인증·사용자·자기소개서·이력서 API, DB 구조 |
+| [기업·채용공고](status/CATALOG.md)         | API, 도메인 정책과 설계 결정, 단계별 과거 기록      |
+| [자동 테스트 목록](status/TEST_COVERAGE.md) | 테스트별 검증 범위                         |
+| [테스트 실행 기록](status/TEST_RESULTS.md)  | 실행 날짜·명령·성공·실패와 RAG 최신 검증 범위       |
+| [개발 로드맵](status/ROADMAP.md)          | 전체 구현 순서와 후속 기능                    |
+| [주요 결정과 확인 사항](status/DECISIONS.md)  | API·인증·운영 정책과 남은 확인 사항             |
+| [변경 이력](status/HISTORY.md)           | 과거 변경사항과 분리 전 재개 메모                |
 
 ## 실행 환경과 Git 기준점
 
@@ -102,7 +110,8 @@
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
 - 이번 확인한 HEAD: `054ba3c feat: RAG Qdrant 검색 접근 제어 보강`
-- 검색 구현·테스트·문서는 커밋되어 `origin/main`과 일치하며, 전체 562개 회귀 검증 후 문서 갱신만 작업 트리에 남아 있다.
+- `054ba3c` 이후 Qdrant metadata 타입 정합성 구현·테스트와 문서 변경은 작업 트리에서 커밋 대기다. 최신 전체 프로젝트 회귀 기준은 562개 성공이며 이번 타입 수정 후 전체 실행은 대기
+  중이다.
 
 ## 문서 갱신 규칙
 

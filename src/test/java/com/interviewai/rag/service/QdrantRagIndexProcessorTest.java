@@ -29,9 +29,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class QdrantRagIndexProcessorTest {
 
-    @Mock private VectorStore vectorStore;
-    @Mock private RagTokenChunker chunker;
-    @Mock private BooleanSupplier renewLease;
+    @Mock
+    private VectorStore vectorStore;
+    @Mock
+    private RagTokenChunker chunker;
+    @Mock
+    private BooleanSupplier renewLease;
 
     private QdrantRagIndexProcessor processor;
 
@@ -65,13 +68,14 @@ class QdrantRagIndexProcessorTest {
             assertThat(document.getMetadata())
                     .containsEntry("schemaVersion", 1)
                     .containsEntry("sourceType", "JOB_POSTING")
-                    .containsEntry("sourceId", 20L)
-                    .containsEntry("sourceSequence", 7L)
+                    .containsEntry("sourceId", "20")
+                    .containsEntry("sourceSequence", "7")
+                    .containsEntry("sourceSequenceOrder", 7.0)
                     .containsEntry("visibility", "AUTHENTICATED_SHARED")
                     .containsEntry("generationId", job.generationId().toString())
                     .containsEntry("pipelineVersion", "rag-v1")
-                    .containsEntry("companyId", 10L)
-                    .containsEntry("jobPostingId", 20L)
+                    .containsEntry("companyId", "10")
+                    .containsEntry("jobPostingId", "20")
                     .containsEntry("chunkIndex", index)
                     .containsEntry("chunkCount", 3)
                     .doesNotContainKey("ownerUserId");
@@ -91,7 +95,7 @@ class QdrantRagIndexProcessorTest {
         verify(vectorStore).add(captor.capture());
         assertThat(captor.getValue().getFirst().getMetadata())
                 .containsEntry("visibility", "PRIVATE")
-                .containsEntry("ownerUserId", 7L)
+                .containsEntry("ownerUserId", "7")
                 .doesNotContainKeys("companyId", "jobPostingId");
     }
 
@@ -135,9 +139,9 @@ class QdrantRagIndexProcessorTest {
         Filter.Expression expected = builder.and(
                 builder.and(
                         builder.eq("sourceType", "COVER_LETTER"),
-                        builder.eq("sourceId", 30L)
+                        builder.eq("sourceId", "30")
                 ),
-                builder.lte("sourceSequence", 7L)
+                builder.lte("sourceSequenceOrder", 7.0)
         ).build();
         assertThat(captor.getValue()).isEqualTo(expected);
         verify(vectorStore, never()).delete(anyList());

@@ -16,7 +16,7 @@
 
 ## 현재 구현된 기능
 
-### RAG Qdrant 검색 — 구현·전체 회귀 검증 완료 (2026-09-09)
+### RAG Qdrant 검색 — 실제 외부 연동 검증 완료 (2026-09-11)
 
 - `GET /api/rag/search?query=`는 JWT subject의 실제 사용자를 확인하고 앞뒤 공백을 제거한 1~100자 검색어로 Qdrant 후보 50개를 조회한다.
 - Qdrant 조회 단계에서 인증 사용자 공용 문서 또는 현재 사용자 소유 개인 문서로 metadata를 제한한다.
@@ -24,7 +24,8 @@
 - Qdrant 유사도 순서를 유지하면서 접근 가능한 활성 결과를 최대 5개 반환한다. 검색 기능은 `rag.search.enabled`로 조건부 활성화하며 설정 metadata용 전용 properties 구성을
   둔다.
 - 신규 검색 서비스 7개·컨트롤러 4개와 접근 제어 3개를 추가했다. RAG 선택 실행에서 250개, 프로젝트 전체 실행의 XML 64개에서 562개 성공했으며 실패·오류·건너뜀은 0이다.
-- 실제 OpenAI embedding·Qdrant 네트워크 검색은 아직 검증하지 않았다.
+- 실제 Qdrant가 Java `Long` metadata를 문자열 payload로 저장하는 동작에 맞춰 `ownerUserId` 검색 필터와 식별자 metadata를 문자열로 통일했다. 2026-09-11 실제
+  OpenAI embedding·Qdrant 개인 문서 검색 smoke test를 완료했다.
 
 ### RAG Spring AI·Qdrant 외부 색인 — 구현·전체 회귀 검증 완료 (2026-09-08)
 
@@ -33,12 +34,13 @@
 - `RagTokenChunker`는 CL100K_BASE tokenizer로 700 token chunk와 100 token overlap을 생성하며 빈 본문과 최대 chunk 초과를 거부한다.
 - `QdrantRagIndexProcessor`는 선점 attempt의 결정적 point ID와 source sequence·generation·공개 범위·소유자/기업 metadata를 사용해 batch
   UPSERT한다.
+- Qdrant 식별자 metadata는 문자열로 저장하고, 정확한 순번 문자열과 DELETE 범위 비교용 숫자 `sourceSequenceOrder`를 함께 저장한다.
 - DELETE는 원본 키 전체를 지우지 않고 `sourceType`, `sourceId`, `sourceSequence <= DELETE 순번` Qdrant filter로 이후 generation을 보호한다.
 - 각 외부 batch와 DELETE 전후에 lease를 연장하며 소유권 상실·인터럽트·Qdrant 오류를 기존 worker 실패 처리로 전달한다.
 - 조건부 `RagIndexJobScheduler`는 한 번에 설정된 최대 작업 수까지 소비하고 빈 큐, 처리 실패, lease 상실과 기반 오류를 구분한다. 기본 lease는 외부 호출 시간을 고려해 300초다.
 - Docker Compose에 Qdrant 1.19.1과 영속 volume, HTTP 6333·gRPC 6334 포트를 추가했다.
 - 설정·chunk·Processor·scheduler 20개와 기존 MySQL RAG 회귀를 포함한 RAG 236개, 프로젝트 전체 548개가 성공했다. 실패·오류·건너뜀은 0이며 실제 OpenAI·Qdrant
-  네트워크 색인은 후속 검증 범위다. 검색 서비스는 2026-09-09 후속 단계에서 구현·RAG 선택 검증을 완료했다.
+  네트워크 호출은 포함하지 않았다. 검색 서비스는 2026-09-09 구현됐고, 2026-09-11 실제 OpenAI·Qdrant UPSERT·검색·DELETE smoke test까지 완료했다.
 
 ### RAG 활성 generation·DELETE tombstone — 구현·검증 완료 (2026-09-08)
 

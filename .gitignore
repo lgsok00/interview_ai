@@ -38,8 +38,7 @@ out/
 
 ### Environment variables and secrets ###
 .env
-.env.*
-!.env.example
+env_windows_example.txt
 
 ### Logs and runtime files ###
 *.log

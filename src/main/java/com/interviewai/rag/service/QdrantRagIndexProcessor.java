@@ -88,9 +88,9 @@ public class QdrantRagIndexProcessor implements RagIndexJobWorker.Processor {
         var filter = builder.and(
                         builder.and(
                                 builder.eq("sourceType", job.sourceKey().sourceType().name()),
-                                builder.eq("sourceId", job.sourceKey().sourceId())
+                                builder.eq("sourceId", job.sourceKey().sourceId().toString())
                         ),
-                        builder.lte("sourceSequence", job.sourceSequence())
+                        builder.lte("sourceSequenceOrder", (double) job.sourceSequence())
                 )
                 .build();
 
@@ -108,8 +108,9 @@ public class QdrantRagIndexProcessor implements RagIndexJobWorker.Processor {
 
         metadata.put("schemaVersion", 1);
         metadata.put("sourceType", snapshot.sourceType().name());
-        metadata.put("sourceId", snapshot.sourceId());
-        metadata.put("sourceSequence", job.sourceSequence());
+        metadata.put("sourceId", snapshot.sourceId().toString());
+        metadata.put("sourceSequence", Long.toString(job.sourceSequence()));
+        metadata.put("sourceSequenceOrder", (double) job.sourceSequence());
         metadata.put("visibility", snapshot.visibility().name());
         metadata.put("sourceRevision", snapshot.sourceRevision());
         metadata.put("pipelineVersion", target.pipelineVersion());
@@ -119,15 +120,15 @@ public class QdrantRagIndexProcessor implements RagIndexJobWorker.Processor {
         metadata.put("title", snapshot.title());
 
         if (snapshot.ownerUserId() != null) {
-            metadata.put("ownerUserId", snapshot.ownerUserId());
+            metadata.put("ownerUserId", snapshot.ownerUserId().toString());
         }
 
         if (snapshot.companyId() != null) {
-            metadata.put("companyId", snapshot.companyId());
+            metadata.put("companyId", snapshot.companyId().toString());
         }
 
         if (snapshot.sourceType() == RagSourceType.JOB_POSTING) {
-            metadata.put("jobPostingId", snapshot.sourceId());
+            metadata.put("jobPostingId", snapshot.sourceId().toString());
         }
 
         return Map.copyOf(metadata);

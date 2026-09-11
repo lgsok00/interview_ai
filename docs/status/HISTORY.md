@@ -2,6 +2,16 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-11 — 실제 OpenAI·Qdrant smoke test와 metadata 타입 정합성 보완
+
+- 실제 OpenAI embedding과 로컬 Qdrant UPSERT는 성공했지만 Spring AI가 `Long` metadata를 문자열 payload로 저장해 숫자 기반 개인 검색·DELETE 필터가 일치하지
+  않는 문제를 발견했다.
+- 식별자 metadata·필터를 문자열로 통일하고 정확한 순번 문자열과 DELETE 범위용 숫자 `sourceSequenceOrder`를 분리했다. processor·search 단위 테스트를 실제 payload
+  계약에 맞게 보강했다.
+- 사용자 단위 14개는 10초, RAG 전체 250개는 1분 11초에 성공했고 실패·오류·건너뜀은 0이었다.
+- 수정 후 실제 smoke test에서 OpenAI embedding, Qdrant UPSERT, 본인 개인 문서 검색, DELETE point 제거와 삭제 원본 미노출이 모두 성공했다. 임시 데이터는 정리했다.
+- 다음 작업은 회원 탈퇴 cascade로 제거되는 자기소개서·이력서의 RAG DELETE 등록 정책 보강이다. 이번 변경 후 프로젝트 전체 회귀 실행은 대기 중이다.
+
 ## 2026-09-09 — RAG Qdrant 검색 구현 보완과 RAG 회귀 검증
 
 - 인증 사용자의 공용 문서와 본인 개인 문서로 Qdrant metadata 후보를 제한하고 검색어 1~100자 validation과 후보 50개 조회를 적용했다.

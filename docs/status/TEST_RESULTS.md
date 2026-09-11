@@ -2,8 +2,24 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-09의 562개 성공이고 최신 RAG 선택 검증은 같은 날의 250개 성공이다. 이전 기록의 검증 대기·실패·건너뜀
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-09의 562개 성공이고 최신 RAG 선택 검증은 2026-09-11의 250개 성공이다. 이전 기록의 검증
+대기·실패·건너뜀
 표시는 당시 상태다.
+
+### RAG 실제 OpenAI·Qdrant smoke 및 metadata 타입 수정 검증 (2026-09-11)
+
+- 최초 실제 연동에서 OpenAI embedding과 Qdrant UPSERT는 성공했으나 개인 검색과 DELETE가 대상을 찾지 못했다. Qdrant payload 확인 결과 Spring AI가 Java
+  `Long` 식별자·순번을 문자열로 저장하지만 필터는 숫자를 사용한 타입 불일치가 원인이었다.
+- 식별자 metadata·필터를 문자열로 통일하고 정확한 `sourceSequence` 문자열과 범위 비교용 숫자 `sourceSequenceOrder`를 분리했다. 관련 processor·search 테스트
+  기대값도 실제 payload 계약에 맞췄다.
+- 사용자 단위 실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.QdrantRagIndexProcessorTest" --tests "com.interviewai.rag.service.RagSearchServiceTest"` —
+  BUILD SUCCESSFUL (10초). XML에서 14개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 사용자 RAG 전체 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*"` — BUILD SUCCESSFUL (1분 11초). XML 23개에서 250개 성공,
+  실패·오류·건너뜀 0을 확인했다.
+- 수정 후 실제 smoke test에서 OpenAI embedding, Qdrant UPSERT, 본인 자기소개서 검색, DELETE point 제거와 삭제 원본 미노출이 모두 성공했다. 임시
+  사용자·원본·Qdrant point는 정리했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. 이번 수정 후 프로젝트 전체 회귀 실행은 대기 중이다.
 
 ### RAG Qdrant 검색 검증 (2026-09-09)
 

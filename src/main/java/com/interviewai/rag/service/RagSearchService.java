@@ -60,7 +60,7 @@ public class RagSearchService {
                         builder.eq("visibility", "AUTHENTICATED_SHARED"),
                         builder.and(
                                 builder.eq("visibility", "PRIVATE"),
-                                builder.eq("ownerUserId", user.getId())
+                                builder.eq("ownerUserId", user.getId().toString())
                         )
                 )
                 .build();

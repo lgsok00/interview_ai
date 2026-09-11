@@ -6,13 +6,16 @@
 
 ### 작성된 자동 테스트
 
-#### RAG Qdrant 검색 — 전체 회귀 검증 완료 (2026-09-09)
+#### RAG Qdrant 검색·metadata 타입 정합성 — RAG 회귀·실제 연동 검증 완료 (2026-09-11)
 
 - `RagSearchServiceTest` 7개: 검색어 trim·100자 경계·validation, 인증 범위 metadata filter와 후보 50개, 활성 generation·현재 원본 접근 제어, 순서
   유지·최대 5개, 인증 실패와 손상 metadata를 검증한다.
 - `RagSearchControllerTest` 4개: 인증 검색 JSON, 공통 validation 오류, query 누락 400, JWT 누락 401을 검증한다.
 - `RagSourceAccessServiceTest`에 3개를 추가해 기업·채용공고 존재 여부, 자기소개서·이력서 사용자 소유권, 사용자·원본 키 누락 시 Repository 미호출을 검증한다.
-- RAG 전체 선택 실행의 XML 23개에서 250개, 프로젝트 전체 실행의 XML 64개에서 562개 성공했으며 실패·오류·건너뜀은 0이다. 실제 OpenAI·Qdrant 네트워크 호출은 포함하지 않는다.
+- `RagSearchServiceTest`는 실제 Qdrant payload와 같은 문자열 `sourceId` 변환과 문자열 `ownerUserId` 필터를 검증한다.
+- `QdrantRagIndexProcessorTest`는 문자열 식별자·정확한 순번 문자열·숫자 `sourceSequenceOrder` 저장 및 같은 타입의 DELETE 필터를 검증한다.
+- 2026-09-11 사용자 단위 14개와 RAG 전체 XML 23개·250개가 성공했고 실패·오류·건너뜀은 0이다. 실제 OpenAI embedding·Qdrant UPSERT·개인 검색·DELETE smoke
+  test도 성공했다. 이번 변경 후 프로젝트 전체 회귀 실행은 대기 중이다.
 
 #### RAG Spring AI·Qdrant 외부 색인 — 전체 회귀 검증 완료 (2026-09-08)
 
@@ -22,8 +25,7 @@
   lease 상실을 검증한다.
 - `RagIndexJobSchedulerTest` 5개: `@Scheduled` 설정, 빈 큐까지 소비, 실행당 한도, lease·처리 실패 진행과 기반 오류 중단을 검증한다.
 - 기본 lease 300초와 무관하게 기존 만료 시각을 연장하지 않는지 검증하도록 MySQL 통합 테스트의 미래 lease 설정을 기존 값 기준으로 변경했다.
-- 신규 20개와 기존 RAG 회귀를 포함해 RAG XML 21개에서 236개, 전체 XML 62개에서 548개 성공을 확인했다. 실패·오류·건너뜀은 0이며 실제 OpenAI API·Qdrant 컨테이너 네트워크
-  호출은 포함하지 않는다.
+- 신규 20개와 기존 RAG 회귀를 포함해 당시 RAG XML 21개에서 236개, 전체 XML 62개에서 548개 성공을 확인했다. 실제 네트워크 호출은 이후 2026-09-11 smoke test에서 검증했다.
 
 #### RAG 활성 generation·DELETE tombstone — 검증 완료 (2026-09-08)
 

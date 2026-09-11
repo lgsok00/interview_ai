@@ -45,7 +45,9 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - 700 token chunk·100 token overlap, batch embedding·Qdrant UPSERT, 순번 제한 DELETE 구현 완료
     - 인증 범위 metadata filtering, 활성 generation, 현재 원본 존재·소유권과 Top-K 5 Qdrant 검색 구현·전체 회귀 검증 완료: RAG 250개·전체 562개 성공
       (2026-09-09)
-    - 다음으로 실제 OpenAI·Qdrant UPSERT·DELETE·검색 smoke test를 수행한다.
+    - 실제 OpenAI embedding·로컬 Qdrant UPSERT·개인 검색·DELETE smoke test 완료 (2026-09-11). 실제 payload 타입에 맞춰 문자열 식별자와 숫자 순번 범위
+      metadata를 분리했다.
+    - 다음으로 회원 탈퇴 cascade 대상 개인 문서의 RAG DELETE 등록 정책을 보강한다.
 7. AI 질문 생성과 면접 세션
     - 기업·채용공고·대표 자기소개서·대표 이력서를 선택해 면접 세션 생성
     - RAG context 기반 기술·인성·꼬리 질문 생성 및 질문 순서·상태 저장

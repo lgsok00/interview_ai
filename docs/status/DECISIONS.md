@@ -31,10 +31,12 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
   유지한다.
 - DELETE Processor의 외부 정리는 해당 DELETE 순번 이하만 대상으로 해야 한다. 늦은 DELETE 완료가 이후 UPSERT generation을 제거하지 않도록 원본 키 전체 삭제는 사용하지
   않는다.
+- Spring AI Qdrant가 Java `Long` metadata를 문자열 payload로 저장하므로 `sourceId`, `ownerUserId`, `companyId`, `jobPostingId`와 관련
+  동등 비교 필터는 문자열로 통일한다. `sourceSequence`는 정확한 문자열 값을 보존하고 범위 DELETE에는 숫자 `sourceSequenceOrder`를 사용한다.
 - 외부 색인은 Spring AI 2.0.1·OpenAI embedding·Qdrant를 사용한다. CL100K_BASE 기준 700 token·100 token overlap, batch 전후 lease 연장,
   조건부 scheduler와 실행당 작업 한도를 적용한다.
 - 외부 검색은 Qdrant에서 인증 사용자 공용 또는 현재 사용자 소유 metadata로 후보 50개를 제한하고, DB 활성 generation과 실제 원본 존재·소유권을 다시 확인한 뒤 순서를 유지해 최대 5개를
-  반환한다. 구현과 RAG 선택 검증은 완료했으며 실제 OpenAI·Qdrant 네트워크 smoke test는 남아 있다.
+  반환한다. 구현·RAG 선택 검증과 실제 OpenAI·Qdrant 네트워크 smoke test를 완료했다.
 
 - 로컬 애플리케이션 실행에는 `MYSQL_PASSWORD`가 필요하다.
 - Docker Compose 실행에는 `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` 설정이 필요하다.

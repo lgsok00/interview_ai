@@ -25,11 +25,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RagSearchServiceTest {
@@ -37,11 +33,16 @@ class RagSearchServiceTest {
     private static final String SUBJECT = "7";
     private static final Long USER_ID = 7L;
 
-    @Mock private AdminAuthorizationService authorizationService;
-    @Mock private RagIndexJobExecutionService executionService;
-    @Mock private RagSourceAccessService sourceAccessService;
-    @Mock private VectorStore vectorStore;
-    @Mock private User user;
+    @Mock
+    private AdminAuthorizationService authorizationService;
+    @Mock
+    private RagIndexJobExecutionService executionService;
+    @Mock
+    private RagSourceAccessService sourceAccessService;
+    @Mock
+    private VectorStore vectorStore;
+    @Mock
+    private User user;
 
     private RagSearchService service;
 
@@ -78,7 +79,7 @@ class RagSearchServiceTest {
                 builder.eq("visibility", "AUTHENTICATED_SHARED"),
                 builder.and(
                         builder.eq("visibility", "PRIVATE"),
-                        builder.eq("ownerUserId", USER_ID)
+                        builder.eq("ownerUserId", USER_ID.toString())
                 )
         ).build();
         assertThat(request.getFilterExpression()).isEqualTo(expectedFilter);
@@ -249,7 +250,7 @@ class RagSearchServiceTest {
                 .text(title + " 내용")
                 .metadata(Map.of(
                         "sourceType", sourceType.name(),
-                        "sourceId", sourceId,
+                        "sourceId", Long.toString(sourceId),
                         "generationId", generationId.toString(),
                         "chunkIndex", chunkIndex,
                         "title", title
