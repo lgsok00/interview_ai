@@ -6,6 +6,12 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 
 ## 알려진 확인 사항
 
+- 면접 세션은 채용공고를 필수 입력으로 사용하고 대표 자기소개서·대표 이력서는 선택 입력으로 사용한다. API의 실제 선택·미설정 처리 계약은 세션 생성 단계에서 확정한다.
+- 면접 생성 당시의 기업명·공고 제목/직무/본문과 선택 개인 문서 제목/본문을 세션 스냅샷으로 저장한다. 원본 수정·삭제 이후에도 과거 면접을 재현하기 위해 원본 ID에는 FK를 두지 않는다.
+- 세션은 사용자 삭제 시, 질문은 세션 삭제 시 cascade 삭제한다. 세션별 질문 순서는 1 이상이며 unique로 보장한다.
+- 세션 상태는 `GENERATING → READY → IN_PROGRESS → COMPLETED`를 정상 경로로 사용한다. 생성 중 실패는 `FAILED`와 실패 코드를 저장하고 재시도 시 `GENERATING`
+  으로 복귀한다.
+- 질문 유형은 기술·인성·꼬리 질문, 생성 출처는 AI·fallback을 구분하고 생성에 사용한 RAG context는 선택적 스냅샷으로 보존한다.
 - RAG 원본 관리 코드는 기존 `rag.entity`·`rag.repository`·`rag.service` 구조를 따른다. Repository는 생성·잠금 연산만 노출하도록 Spring Data
   `Repository`를 상속한다.
 - 원본 관리 행은 `(source_type, source_id)` unique로 식별하고 원본 테이블 외래 키를 두지 않는다. 원본 삭제 후에도 DELETE tombstone과 순번 기준으로 유지한다.

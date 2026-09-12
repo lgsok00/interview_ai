@@ -6,6 +6,14 @@
 
 ### 작성된 자동 테스트
 
+#### 면접 세션·질문 영속 기반 — 검증 완료 (2026-09-12)
+
+- `InterviewSessionTest` 11개: 선택 문서 유무에 따른 스냅샷 생성, 전체 정상 상태 전이, 생성 실패·재시도, 잘못된 상태 전이, 원본 ID와 필수·선택 스냅샷 경계를 검증한다.
+- `InterviewQuestionTest` 8개: AI 질문과 RAG context, fallback의 빈 context 정규화, 질문 순서·본문·연관·enum·생성 시각 필수 조건을 검증한다.
+- `InterviewRepositoryIntegrationTest` 6개: V10 적용, 원본 FK 없는 스냅샷 저장, 세션별 질문 순서, 중복 순서 unique, 세션·사용자 삭제 cascade를 실제
+  MySQL에서 검증한다.
+- 사용자 면접 선택 실행과 전체 회귀 실행이 성공했다. 최신 XML은 면접 3개 클래스·25개, 전체 67개 클래스·589개이며 실패·오류·건너뜀은 0이다.
+
 #### RAG Qdrant 검색·metadata 타입 정합성 — RAG 회귀·실제 연동 검증 완료 (2026-09-11)
 
 - `RagSearchServiceTest` 7개: 검색어 trim·100자 경계·validation, 인증 범위 metadata filter와 후보 50개, 활성 generation·현재 원본 접근 제어, 순서

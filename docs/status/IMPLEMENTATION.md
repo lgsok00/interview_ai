@@ -16,6 +16,17 @@
 
 ## 현재 구현된 기능
 
+### 면접 세션·질문 영속 기반 — 구현·검증 완료 (2026-09-12)
+
+- V10은 `interview_sessions`, `interview_questions`를 추가한다. 세션은 사용자 FK를 사용해 회원 탈퇴 시 삭제되고 질문은 세션 삭제 시 함께 cascade 삭제된다.
+- 채용공고는 필수이며 대표 자기소개서·대표 이력서는 선택이다. 기업·공고·개인 문서의 ID와 생성 시점 제목·본문을 세션에 저장해 원본 수정·삭제 이후에도 당시 면접 입력을 보존한다.
+- 공용·개인 원본 ID에는 FK를 두지 않는다. 원본 수명주기와 면접 이력을 분리하면서 ID는 추적용으로 유지한다.
+- 세션은 `GENERATING`, `READY`, `IN_PROGRESS`, `COMPLETED`, `FAILED` 상태와 허용된 전이, 생성 실패 코드와 재시도를 제공한다.
+- 질문은 세션별 1 이상의 순번을 unique로 보장하고 `TECHNICAL`, `BEHAVIORAL`, `FOLLOW_UP` 유형, `AI`, `FALLBACK` 생성 출처와 선택적인 RAG context
+  스냅샷을 저장한다.
+- 엔티티 단위 19개와 MySQL 통합 6개가 성공했다. 전체 XML 67개에서 589개 성공, 실패·오류·건너뜀은 0이다.
+- 현재 범위는 Flyway·엔티티·Repository다. 세션 생성 API, 대표 문서 선택·스냅샷 조립, 범위 제한 RAG 검색과 Chat Model 질문 생성은 다음 단계다.
+
 ### RAG Qdrant 검색 — 실제 외부 연동 검증 완료 (2026-09-11)
 
 - `GET /api/rag/search?query=`는 JWT subject의 실제 사용자를 확인하고 앞뒤 공백을 제거한 1~100자 검색어로 Qdrant 후보 50개를 조회한다.
