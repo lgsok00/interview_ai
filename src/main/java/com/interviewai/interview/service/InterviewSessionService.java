@@ -50,6 +50,7 @@ public class InterviewSessionService {
                 jobPosting.id(),
                 idOf(coverLetter),
                 idOf(resume),
+                jobPosting.companyId(),
                 jobPosting.companyName(),
                 jobPosting.title(),
                 jobPosting.jobRole(),

@@ -16,6 +16,18 @@
 
 ## 현재 구현된 기능
 
+### 면접 세션 전용 내부 RAG 검색 — 구현·검증 완료 (2026-09-14)
+
+- V11은 기존 공고에서 기업 ID를 backfill한 뒤 `interview_sessions.company_id`를 `NOT NULL`로 저장한다. 원본 수명주기와 면접 이력을 분리하기 위해 기업 FK는 두지
+  않는다.
+- 세션 생성 시 기업 ID를 생성 시점 원본 ID로 함께 보존한다. 대표 개인 문서가 없으면 해당 원본 ID와 검색 범위를 생략한다.
+- `RagSearchScope`는 영속 사용자와 비어 있지 않은 정확한 원본 키 집합을 불변 복사하며, `InterviewRagSearchService`가 세션의 기업·공고·선택 자기소개서·선택 이력서로 범위를
+  조립한다.
+- 내부 검색은 정확한 `(sourceType, sourceId)` 문자열 metadata 조건으로 후보 50개를 요청한다. 반환 후보도 허용 집합, 활성 generation, 현재 원본 존재·개인 문서 소유권
+  순서로 다시 검사해 최대 5개를 반환한다.
+- 검색 결과 없음은 정상적인 빈 목록이며 Vector Store 장애와 손상 metadata는 질문 생성 계층이 재시도·fallback 여부를 결정할 수 있도록 전파한다. 외부 검색 API는 변경하지 않았다.
+- 사용자 RAG·면접 선택 실행과 전체 회귀 실행이 성공했다. 전체 XML 72개에서 618개, RAG·면접 XML 31개에서 304개가 성공했으며 실패·오류·건너뜀은 0이다.
+
 ### 면접 세션 생성 API와 영속 기반 — 구현·검증 완료 (2026-09-12)
 
 - V10은 `interview_sessions`, `interview_questions`를 추가한다. 세션은 사용자 FK를 사용해 회원 탈퇴 시 삭제되고 질문은 세션 삭제 시 함께 cascade 삭제된다.
@@ -29,7 +41,7 @@
 - 질문은 세션별 1 이상의 순번을 unique로 보장하고 `TECHNICAL`, `BEHAVIORAL`, `FOLLOW_UP` 유형, `AI`, `FALLBACK` 생성 출처와 선택적인 RAG context
   스냅샷을 저장한다.
 - 엔티티 단위 19개, MySQL 통합 6개, 생성 API·서비스·스냅샷 조립 14개가 성공했다. 면접 XML 6개에서 39개, 전체 XML 70개에서 603개 성공했으며 실패·오류·건너뜀은 0이다.
-- 다음 단계는 세션에 저장된 원본 ID로 범위를 제한하는 내부 RAG 검색 계약과 Chat Model 질문 생성 연결이다.
+- 다음 단계는 내부 RAG context를 사용하는 Chat Model 질문 생성과 fallback·재시도·중복 생성 방지 정책 연결이다.
 
 ### RAG Qdrant 검색 — 실제 외부 연동 검증 완료 (2026-09-11)
 

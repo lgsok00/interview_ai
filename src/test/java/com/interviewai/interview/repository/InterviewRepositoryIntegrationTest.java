@@ -38,18 +38,18 @@ class InterviewRepositoryIntegrationTest extends MySqlIntegrationTest {
 
 
     @Test
-    @DisplayName("Flyway V10 면접 세션 migration이 적용된다")
+    @DisplayName("Flyway V10과 V11 면접 세션 migration이 적용된다")
     void appliesInterviewMigration() {
         Integer count = jdbcTemplate.queryForObject(
                 """
                         SELECT COUNT(*)
                         FROM flyway_schema_history
-                        WHERE version = '10' AND success = TRUE
+                        WHERE version IN ('10', '11') AND success = TRUE
                         """,
                 Integer.class
         );
 
-        assertThat(count).isEqualTo(1);
+        assertThat(count).isEqualTo(2);
     }
 
 
@@ -63,6 +63,7 @@ class InterviewRepositoryIntegrationTest extends MySqlIntegrationTest {
         InterviewSession found = sessionRepository.findById(session.getId()).orElseThrow();
 
         assertThat(found.getJobPostingId()).isEqualTo(999L);
+        assertThat(found.getCompanyId()).isEqualTo(996L);
         assertThat(found.getCoverLetterId()).isEqualTo(998L);
         assertThat(found.getResumeId()).isEqualTo(997L);
         assertThat(found.getCompanyName()).isEqualTo("스냅샷 회사");
@@ -147,6 +148,7 @@ class InterviewRepositoryIntegrationTest extends MySqlIntegrationTest {
                 999L,
                 998L,
                 997L,
+                996L,
                 "스냅샷 회사",
                 "백엔드 개발자",
                 "Backend",

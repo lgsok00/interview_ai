@@ -5,6 +5,7 @@ import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.rag.document.RagSourceKey;
 import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.rag.search.RagSearchResult;
+import com.interviewai.rag.search.RagSearchScope;
 import com.interviewai.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +22,7 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -229,6 +231,119 @@ class RagSearchServiceTest {
                 .hasMessageContaining("sourceId");
 
         verifyNoInteractions(executionService, sourceAccessService);
+    }
+
+
+    @Test
+    @DisplayName("내부 검색은 검색어를 정규화하고 정확한 원본 키 metadata 필터를 사용한다")
+    void searchesWithinExactSourceScope() {
+        when(user.getId()).thenReturn(USER_ID);
+        RagSearchScope scope = new RagSearchScope(
+                user,
+                Set.of(new RagSourceKey(RagSourceType.JOB_POSTING, 10L))
+        );
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of());
+
+        assertThat(service.searchWithin(scope, "  Spring 백엔드  ")).isEmpty();
+
+        ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+        verify(vectorStore).similaritySearch(captor.capture());
+        SearchRequest request = captor.getValue();
+        assertThat(request.getQuery()).isEqualTo("Spring 백엔드");
+        assertThat(request.getTopK()).isEqualTo(50);
+
+        var builder = new FilterExpressionBuilder();
+        var expectedFilter = builder.and(
+                builder.eq("sourceType", RagSourceType.JOB_POSTING.name()),
+                builder.eq("sourceId", "10")
+        ).build();
+        assertThat(request.getFilterExpression()).isEqualTo(expectedFilter);
+        verifyNoInteractions(authorizationService, executionService, sourceAccessService);
+    }
+
+
+    @Test
+    @DisplayName("내부 검색은 Vector Store가 반환한 범위 밖 문서를 애플리케이션 계층에서도 제외한다")
+    void excludesCandidatesOutsideExactScope() {
+        when(user.getId()).thenReturn(USER_ID);
+        RagSourceKey allowedKey = new RagSourceKey(RagSourceType.JOB_POSTING, 10L);
+        RagSearchScope scope = new RagSearchScope(user, Set.of(allowedKey));
+        UUID outsideGeneration = UUID.randomUUID();
+        UUID allowedGeneration = UUID.randomUUID();
+        Document outside = document(RagSourceType.COMPANY, 99L, outsideGeneration, 0, "다른 기업", 0.95);
+        Document allowed = document(RagSourceType.JOB_POSTING, 10L, allowedGeneration, 1, "선택 공고", 0.90);
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(outside, allowed));
+        when(executionService.isActiveGeneration(allowedKey, allowedGeneration)).thenReturn(true);
+        when(sourceAccessService.canAccess(user, allowedKey)).thenReturn(true);
+
+        assertThat(service.searchWithin(scope, "백엔드"))
+                .extracting(RagSearchResult::sourceType, RagSearchResult::sourceId)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(RagSourceType.JOB_POSTING, 10L));
+
+        verify(executionService, never()).isActiveGeneration(
+                new RagSourceKey(RagSourceType.COMPANY, 99L), outsideGeneration
+        );
+        verify(sourceAccessService, never()).canAccess(
+                user, new RagSourceKey(RagSourceType.COMPANY, 99L)
+        );
+    }
+
+
+    @Test
+    @DisplayName("내부 검색도 비활성 generation과 현재 접근할 수 없는 원본을 제외한다")
+    void filtersInactiveAndInaccessibleCandidatesWithinScope() {
+        when(user.getId()).thenReturn(USER_ID);
+        RagSourceKey inactiveKey = new RagSourceKey(RagSourceType.COMPANY, 10L);
+        RagSourceKey inaccessibleKey = new RagSourceKey(RagSourceType.RESUME, 20L);
+        RagSearchScope scope = new RagSearchScope(user, Set.of(inactiveKey, inaccessibleKey));
+        UUID inactiveGeneration = UUID.randomUUID();
+        UUID inaccessibleGeneration = UUID.randomUUID();
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenReturn(List.of(
+                document(RagSourceType.COMPANY, 10L, inactiveGeneration, 0, "기업", 0.9),
+                document(RagSourceType.RESUME, 20L, inaccessibleGeneration, 0, "이력서", 0.8)
+        ));
+        when(executionService.isActiveGeneration(inactiveKey, inactiveGeneration)).thenReturn(false);
+        when(executionService.isActiveGeneration(inaccessibleKey, inaccessibleGeneration)).thenReturn(true);
+        when(sourceAccessService.canAccess(user, inaccessibleKey)).thenReturn(false);
+
+        assertThat(service.searchWithin(scope, "질문")).isEmpty();
+
+        verify(sourceAccessService, never()).canAccess(user, inactiveKey);
+    }
+
+
+    @Test
+    @DisplayName("내부 검색의 잘못된 검색어는 Vector Store 호출 전에 거부한다")
+    void rejectsInvalidScopedQueryBeforeVectorSearch() {
+        when(user.getId()).thenReturn(USER_ID);
+        RagSearchScope scope = new RagSearchScope(
+                user,
+                Set.of(new RagSourceKey(RagSourceType.COMPANY, 10L))
+        );
+
+        assertThatThrownBy(() -> service.searchWithin(scope, " "))
+                .isInstanceOf(CatalogException.class);
+        assertThatThrownBy(() -> service.searchWithin(scope, "가".repeat(101)))
+                .isInstanceOf(CatalogException.class);
+
+        verifyNoInteractions(vectorStore, executionService, sourceAccessService, authorizationService);
+    }
+
+
+    @Test
+    @DisplayName("내부 검색의 Vector Store 장애는 빈 결과로 숨기지 않는다")
+    void propagatesVectorStoreFailureFromScopedSearch() {
+        when(user.getId()).thenReturn(USER_ID);
+        RagSearchScope scope = new RagSearchScope(
+                user,
+                Set.of(new RagSourceKey(RagSourceType.COMPANY, 10L))
+        );
+        RuntimeException failure = new RuntimeException("vector store failure");
+        when(vectorStore.similaritySearch(any(SearchRequest.class))).thenThrow(failure);
+
+        assertThatThrownBy(() -> service.searchWithin(scope, "질문")).isSameAs(failure);
+
+        verifyNoInteractions(executionService, sourceAccessService, authorizationService);
     }
 
 

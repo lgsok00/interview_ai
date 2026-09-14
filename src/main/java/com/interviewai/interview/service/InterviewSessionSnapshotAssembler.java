@@ -69,6 +69,7 @@ public class InterviewSessionSnapshotAssembler {
     private InterviewSourceSnapshot.JobPostingSnapshot toJobPostingSnapshot(JobPosting jobPosting) {
         return new InterviewSourceSnapshot.JobPostingSnapshot(
                 jobPosting.getId(),
+                jobPosting.getCompany().getId(),
                 jobPosting.getCompany().getName(),
                 jobPosting.getTitle(),
                 jobPosting.getJobRole(),

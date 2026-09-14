@@ -81,7 +81,7 @@ class InterviewSessionSnapshotAssemblerTest {
         InterviewSourceSnapshot snapshot = assembler.assemble(USER_ID, JOB_POSTING_ID);
 
         assertThat(snapshot.jobPosting()).isEqualTo(new InterviewSourceSnapshot.JobPostingSnapshot(
-                JOB_POSTING_ID, "인터뷰AI", "백엔드 개발자", "Backend", "채용공고 본문"
+                JOB_POSTING_ID, 11L, "인터뷰AI", "백엔드 개발자", "Backend", "채용공고 본문"
         ));
         assertThat(snapshot.coverLetter()).isEqualTo(new InterviewSourceSnapshot.PersonalDocumentSnapshot(
                 20L, "현재 자기소개서", "현재 자기소개서 본문"
@@ -180,6 +180,7 @@ class InterviewSessionSnapshotAssemblerTest {
         when(jobPostingRepository.findDetail(JOB_POSTING_ID)).thenReturn(Optional.of(jobPosting));
         when(jobPosting.getId()).thenReturn(JOB_POSTING_ID);
         when(jobPosting.getCompany()).thenReturn(company);
+        when(company.getId()).thenReturn(11L);
         when(company.getName()).thenReturn("인터뷰AI");
         when(jobPosting.getTitle()).thenReturn("백엔드 개발자");
         when(jobPosting.getJobRole()).thenReturn("Backend");

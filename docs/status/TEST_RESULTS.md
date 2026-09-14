@@ -2,8 +2,18 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-12이며 603개 성공이고, 최신 RAG 선택 검증은 2026-09-11이며 250개 성공이다. 이전 기록의 검증
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-14이며 618개 성공이고, 최신 RAG·면접 선택 검증은 2026-09-14이며 304개 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 면접 세션 전용 내부 RAG 검색 검증 (2026-09-14)
+
+- V11 `company_id` backfill·필수 저장, 세션의 정확한 기업·공고·선택 개인 문서 범위, 불변 scope, exact-key metadata filter와 애플리케이션 재차 차단을 구현했다.
+- 활성 generation, 현재 원본 존재·소유권, 개인 문서 생략, 검색어 validation, 빈 결과, 범위 밖 후보, Vector Store 장애 전파를 테스트했다.
+- 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.rag.*" --tests "com.interviewai.interview.*"` — BUILD
+  SUCCESSFUL (1분 34초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 38초).
+- 전체 실행 결과의 XML 72개에서 618개 성공, 실패 0, 오류 0, 건너뜀 0을 확인했다. RAG·면접 XML 31개는 304개 성공이다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. Codex는 테스트를 직접 실행하지 않고 사용자 출력과 XML을 확인했다.
 
 ### 면접 세션 생성 API와 대표 문서 스냅샷 조립 검증 (2026-09-12)
 

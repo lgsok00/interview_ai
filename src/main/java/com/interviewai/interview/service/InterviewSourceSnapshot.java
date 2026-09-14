@@ -8,6 +8,7 @@ public record InterviewSourceSnapshot(
 
     public record JobPostingSnapshot(
             Long id,
+            Long companyId,
             String companyName,
             String title,
             String jobRole,

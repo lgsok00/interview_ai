@@ -11,9 +11,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.LocalDateTime;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.*;
 
 class InterviewQuestionTest {
 
@@ -110,7 +108,7 @@ class InterviewQuestionTest {
     private InterviewSession session() {
         User user = User.createLocalUser("user@example.com", "{bcrypt}encoded", "사용자");
         return InterviewSession.create(
-                user, 1L, null, null,
+                user, 1L, null, null, 2L,
                 "회사", "백엔드 개발자", "Backend", "공고 본문",
                 null, null, null, null, NOW
         );

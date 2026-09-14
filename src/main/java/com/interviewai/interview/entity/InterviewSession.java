@@ -2,7 +2,17 @@ package com.interviewai.interview.entity;
 
 import com.interviewai.interview.enums.InterviewSessionStatus;
 import com.interviewai.user.entity.User;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -36,6 +46,9 @@ public class InterviewSession {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     private InterviewSessionStatus status;
+
+    @Column(name = "company_id", nullable = false, updatable = false)
+    private Long companyId;
 
     @Column(name = "company_name", nullable = false, length = 100, updatable = false)
     private String companyName;
@@ -81,6 +94,7 @@ public class InterviewSession {
             Long jobPostingId,
             Long coverLetterId,
             Long resumeId,
+            Long companyId,
             String companyName,
             String jobPostingTitle,
             String jobRole,
@@ -92,9 +106,10 @@ public class InterviewSession {
             LocalDateTime now
     ) {
         this.user = Objects.requireNonNull(user, "user는 필수입니다.");
-        this.jobPostingId = requirePositive(jobPostingId);
+        this.jobPostingId = requirePositive(jobPostingId, "jobPostingId");
         this.coverLetterId = optionalPositive(coverLetterId, "coverLetterId");
         this.resumeId = optionalPositive(resumeId, "resumeId");
+        this.companyId = requirePositive(companyId, "companyId");
         this.companyName = requireText(companyName, "companyName");
         this.jobPostingTitle = requireText(jobPostingTitle, "jobPostingTitle");
         this.jobRole = requireText(jobRole, "jobRole");
@@ -117,6 +132,7 @@ public class InterviewSession {
             Long jobPostingId,
             Long coverLetterId,
             Long resumeId,
+            Long companyId,
             String companyName,
             String jobPostingTitle,
             String jobRole,
@@ -132,6 +148,7 @@ public class InterviewSession {
                 jobPostingId,
                 coverLetterId,
                 resumeId,
+                companyId,
                 companyName,
                 jobPostingTitle,
                 jobRole,
@@ -144,59 +161,15 @@ public class InterviewSession {
         );
     }
 
-
-    public void markReady(LocalDateTime now) {
-        requireStatus(InterviewSessionStatus.GENERATING);
-
-        this.status = InterviewSessionStatus.READY;
-        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
-    }
-
-
-    public void start(LocalDateTime now) {
-        requireStatus(InterviewSessionStatus.READY);
-
-        this.status = InterviewSessionStatus.IN_PROGRESS;
-        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
-    }
-
-
-    public void complete(LocalDateTime now) {
-        requireStatus(InterviewSessionStatus.IN_PROGRESS);
-
-        this.status = InterviewSessionStatus.COMPLETED;
-        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
-    }
-
-
-    public void fail(String failureCode, LocalDateTime now) {
-        requireStatus(InterviewSessionStatus.GENERATING);
-
-        this.failureCode = requireText(failureCode, "failureCode");
-        this.status = InterviewSessionStatus.FAILED;
-        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
-    }
-
-
-    public void retry(LocalDateTime now) {
-        requireStatus(InterviewSessionStatus.FAILED);
-
-        this.failureCode = null;
-        this.status = InterviewSessionStatus.GENERATING;
-        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
-    }
-
-
-    private static Long requirePositive(Long value) {
-        Objects.requireNonNull(value, "jobPostingId는 필수입니다.");
+    private static Long requirePositive(Long value, String field) {
+        Objects.requireNonNull(value, field + "는 필수입니다.");
 
         if (value <= 0) {
-            throw new IllegalArgumentException("jobPostingId는 1 이상이어야 합니다.");
+            throw new IllegalArgumentException(field + "는 1 이상이어야 합니다.");
         }
 
         return value;
     }
-
 
     private static String requireText(String value, String field) {
         Objects.requireNonNull(value, field + "는 필수입니다.");
@@ -208,14 +181,6 @@ public class InterviewSession {
         return value;
     }
 
-
-    private void requireStatus(InterviewSessionStatus expected) {
-        if (status != expected) {
-            throw new IllegalStateException("면접 세션 상태가 올바르지 않습니다. expected=" + expected + ", actual=" + status);
-        }
-    }
-
-
     private static Long optionalPositive(Long value, String field) {
         if (value != null && value <= 0) {
             throw new IllegalArgumentException(field + "는 1 이상이어야 합니다.");
@@ -223,7 +188,6 @@ public class InterviewSession {
 
         return value;
     }
-
 
     private static void validateOptionalSnapshot(Long sourceId, String title, String content, String sourceName) {
         boolean allMissing = sourceId == null && title == null && content == null;
@@ -233,6 +197,49 @@ public class InterviewSession {
 
         if (!allMissing && !allPresent) {
             throw new IllegalArgumentException(sourceName + " 스냅샷은 ID, 제목, 본문이 모두 있거나 모두 없어야 합니다.");
+        }
+    }
+
+    public void markReady(LocalDateTime now) {
+        requireStatus(InterviewSessionStatus.GENERATING);
+
+        this.status = InterviewSessionStatus.READY;
+        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+    }
+
+    public void start(LocalDateTime now) {
+        requireStatus(InterviewSessionStatus.READY);
+
+        this.status = InterviewSessionStatus.IN_PROGRESS;
+        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+    }
+
+    public void complete(LocalDateTime now) {
+        requireStatus(InterviewSessionStatus.IN_PROGRESS);
+
+        this.status = InterviewSessionStatus.COMPLETED;
+        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+    }
+
+    public void fail(String failureCode, LocalDateTime now) {
+        requireStatus(InterviewSessionStatus.GENERATING);
+
+        this.failureCode = requireText(failureCode, "failureCode");
+        this.status = InterviewSessionStatus.FAILED;
+        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+    }
+
+    public void retry(LocalDateTime now) {
+        requireStatus(InterviewSessionStatus.FAILED);
+
+        this.failureCode = null;
+        this.status = InterviewSessionStatus.GENERATING;
+        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+    }
+
+    private void requireStatus(InterviewSessionStatus expected) {
+        if (status != expected) {
+            throw new IllegalStateException("면접 세션 상태가 올바르지 않습니다. expected=" + expected + ", actual=" + status);
         }
     }
 }

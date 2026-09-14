@@ -76,6 +76,7 @@ class InterviewSessionServiceTest {
         assertThat(saved.getUser()).isSameAs(user);
         assertThat(saved.getStatus()).isEqualTo(InterviewSessionStatus.GENERATING);
         assertThat(saved.getJobPostingId()).isEqualTo(10L);
+        assertThat(saved.getCompanyId()).isEqualTo(11L);
         assertThat(saved.getCompanyName()).isEqualTo("인터뷰AI");
         assertThat(saved.getCoverLetterId()).isEqualTo(20L);
         assertThat(saved.getCoverLetterContent()).isEqualTo("자기소개서 본문");
@@ -128,7 +129,7 @@ class InterviewSessionServiceTest {
     private InterviewSourceSnapshot snapshot(boolean withDocuments) {
         return new InterviewSourceSnapshot(
                 new InterviewSourceSnapshot.JobPostingSnapshot(
-                        10L, "인터뷰AI", "백엔드 개발자", "Backend", "채용공고 본문"
+                        10L, 11L, "인터뷰AI", "백엔드 개발자", "Backend", "채용공고 본문"
                 ),
                 withDocuments
                         ? new InterviewSourceSnapshot.PersonalDocumentSnapshot(

@@ -10,10 +10,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.LocalDateTime;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.*;
 
 class InterviewSessionTest {
 
@@ -27,6 +24,7 @@ class InterviewSessionTest {
         InterviewSession session = createSession(2L, 3L);
 
         assertThat(session.getStatus()).isEqualTo(InterviewSessionStatus.GENERATING);
+        assertThat(session.getCompanyId()).isEqualTo(4L);
         assertThat(session.getJobPostingId()).isEqualTo(1L);
         assertThat(session.getCoverLetterId()).isEqualTo(2L);
         assertThat(session.getCoverLetterTitle()).isEqualTo("대표 자기소개서");
@@ -108,17 +106,40 @@ class InterviewSessionTest {
     }
 
 
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1})
+    @DisplayName("0 이하 기업 ID를 거부한다")
+    void rejectsNonPositiveCompanyId(long companyId) {
+        assertThatIllegalArgumentException().isThrownBy(() -> InterviewSession.create(
+                user(), 1L, null, null, companyId,
+                "회사", "백엔드 개발자", "Backend", "공고 본문",
+                null, null, null, null, NOW
+        ));
+    }
+
+
+    @Test
+    @DisplayName("기업 ID 누락을 거부한다")
+    void rejectsMissingCompanyId() {
+        assertThatNullPointerException().isThrownBy(() -> InterviewSession.create(
+                user(), 1L, null, null, null,
+                "회사", "백엔드 개발자", "Backend", "공고 본문",
+                null, null, null, null, NOW
+        ));
+    }
+
+
     @Test
     @DisplayName("선택 문서 ID와 스냅샷의 일부만 있으면 거부한다")
     void rejectsIncompleteOptionalSnapshot() {
         assertThatIllegalArgumentException().isThrownBy(() -> InterviewSession.create(
-                user(), 1L, 2L, null,
+                user(), 1L, 2L, null, 4L,
                 "회사", "백엔드 개발자", "Backend", "공고 본문",
                 null, "자기소개서 본문", null, null, NOW
         ));
 
         assertThatIllegalArgumentException().isThrownBy(() -> InterviewSession.create(
-                user(), 1L, null, 3L,
+                user(), 1L, null, 3L, 4L,
                 "회사", "백엔드 개발자", "Backend", "공고 본문",
                 null, null, "대표 이력서", " ", NOW
         ));
@@ -145,6 +166,7 @@ class InterviewSessionTest {
                 1L,
                 coverLetterId,
                 resumeId,
+                4L,
                 "회사",
                 "백엔드 개발자",
                 "Backend",
@@ -160,7 +182,7 @@ class InterviewSessionTest {
 
     private void createSessionWithJobContent(String content) {
         InterviewSession.create(
-                user(), 1L, null, null,
+                user(), 1L, null, null, 4L,
                 "회사", "백엔드 개발자", "Backend", content,
                 null, null, null, null, NOW
         );

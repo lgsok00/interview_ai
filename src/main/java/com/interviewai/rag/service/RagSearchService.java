@@ -5,10 +5,12 @@ import com.interviewai.global.validation.CatalogInput;
 import com.interviewai.rag.document.RagSourceKey;
 import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.rag.search.RagSearchResult;
+import com.interviewai.rag.search.RagSearchScope;
 import com.interviewai.user.entity.User;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -87,6 +89,34 @@ public class RagSearchService {
     }
 
 
+    public List<RagSearchResult> searchWithin(RagSearchScope scope, String query) {
+        Objects.requireNonNull(scope, "scope는 필수입니다.");
+
+        String normalizedQuery = Objects.requireNonNull(CatalogInput.text(query, "query", 100, true));
+
+        SearchRequest request = SearchRequest.builder()
+                .query(normalizedQuery)
+                .topK(CANDIDATE_LIMIT)
+                .filterExpression(buildSourceScopeFilter(scope))
+                .build();
+
+        List<Document> candidates = vectorStore.similaritySearch(request);
+
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+
+        return candidates.stream()
+                .map(this::toCandidate)
+                .filter(candidate -> scope.allows(candidate.sourceKey()))
+                .filter(this::isActiveGeneration)
+                .filter(candidate -> sourceAccessService.canAccess(scope.user(), candidate.sourceKey()))
+                .limit(RESULT_LIMIT)
+                .map(SearchCandidate::toResult)
+                .toList();
+    }
+
+
     private SearchCandidate toCandidate(Document document) {
         Map<String, Object> metadata = document.getMetadata();
 
@@ -135,6 +165,23 @@ public class RagSearchService {
         } catch (NumberFormatException exception) {
             throw new IllegalStateException("RAG 검색 metadata 숫자 형식이 올바르지 않습니다: " + key, exception);
         }
+    }
+
+
+    private Filter.Expression buildSourceScopeFilter(RagSearchScope scope) {
+        FilterExpressionBuilder builder = new FilterExpressionBuilder();
+        FilterExpressionBuilder.Op combined = null;
+
+        for (RagSourceKey sourceKey : scope.allowedSourceKeys()) {
+            FilterExpressionBuilder.Op sourceFilter = builder.and(
+                    builder.eq("sourceType", sourceKey.sourceType().name()),
+                    builder.eq("sourceId", sourceKey.sourceId().toString())
+            );
+
+            combined = combined == null ? sourceFilter : builder.or(combined, sourceFilter);
+        }
+
+        return Objects.requireNonNull(combined, "검색 원본 범위 필터는필수입니다.").build();
     }
 
 
