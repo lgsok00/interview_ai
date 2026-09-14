@@ -39,6 +39,7 @@ spring:
 
   ai:
     model:
+      chat: none
       embedding: ${SPRING_AI_MODEL_EMBEDDING:none}
     vectorstore:
       qdrant:
@@ -102,3 +103,11 @@ rag:
 
   search:
     enabled: ${RAG_SEARCH_ENABLED:false}
+
+interview:
+  generation:
+    enabled: ${INTERVIEW_GENERATION_ENABLED:false}
+    mode: ${INTERVIEW_GENERATION_MODE:FALLBACK_ONLY}
+    model: ${INTERVIEW_CHAT_MODEL:}
+    fixed-delay: ${INTERVIEW_GENERATION_FIXED_DELAY:1s}
+    initial-delay: ${INTERVIEW_GENERATION_INITIAL_DELAY:5s}

@@ -5,6 +5,7 @@ import com.interviewai.interview.dto.CreateInterviewSessionRequest;
 import com.interviewai.interview.dto.InterviewSessionResponse;
 import com.interviewai.interview.entity.InterviewSession;
 import com.interviewai.interview.enums.InterviewSessionStatus;
+import com.interviewai.interview.generation.InterviewGenerationExecutionService;
 import com.interviewai.interview.repository.InterviewSessionRepository;
 import com.interviewai.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,8 @@ class InterviewSessionServiceTest {
     AdminAuthorizationService authorizationService;
     @Mock
     User user;
+    @Mock
+    InterviewGenerationExecutionService generationExecutionService;
 
     private InterviewSessionService service;
 
@@ -49,6 +52,7 @@ class InterviewSessionServiceTest {
                 interviewSessionRepository,
                 snapshotAssembler,
                 authorizationService,
+                generationExecutionService,
                 clock
         );
     }
@@ -84,6 +88,7 @@ class InterviewSessionServiceTest {
         assertThat(saved.getResumeContent()).isEqualTo("이력서 본문");
         assertThat(saved.getCreatedAt()).isEqualTo(NOW);
         assertThat(response.id()).isEqualTo(100L);
+        verify(generationExecutionService).register(100L);
         assertThat(response.createdAt()).isEqualTo(NOW.atOffset(ZoneOffset.UTC));
     }
 
@@ -95,7 +100,11 @@ class InterviewSessionServiceTest {
         when(user.getId()).thenReturn(USER_ID);
         when(snapshotAssembler.assemble(USER_ID, 10L)).thenReturn(snapshot(false));
         when(interviewSessionRepository.save(any(InterviewSession.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    InterviewSession session = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(session, "id", 101L);
+                    return session;
+                });
 
         InterviewSessionResponse response = service.create(
                 USER_ID.toString(), new CreateInterviewSessionRequest(10L)
@@ -107,6 +116,7 @@ class InterviewSessionServiceTest {
         assertThat(response.resumeId()).isNull();
         assertThat(response.resumeTitle()).isNull();
         assertThat(response.resumeContent()).isNull();
+        verify(generationExecutionService).register(101L);
     }
 
 
@@ -123,6 +133,31 @@ class InterviewSessionServiceTest {
         )).isSameAs(failure);
 
         verifyNoInteractions(interviewSessionRepository);
+        verifyNoInteractions(generationExecutionService);
+    }
+
+    @Test
+    void propagatesRegistrationFailure() {
+        when(authorizationService.requireUser("1")).thenReturn(user);
+        when(user.getId()).thenReturn(USER_ID);
+        when(snapshotAssembler.assemble(USER_ID, 10L)).thenReturn(snapshot(false));
+        when(interviewSessionRepository.save(any())).thenAnswer(invocation -> {
+            InterviewSession session = invocation.getArgument(0);
+            ReflectionTestUtils.setField(session, "id", 102L);
+            return session;
+        });
+        RuntimeException failure = new RuntimeException("registration failed");
+        doThrow(failure).when(generationExecutionService).register(102L);
+        assertThatThrownBy(() -> service.create("1", new CreateInterviewSessionRequest(10L)))
+                .isSameAs(failure);
+    }
+
+    @Test
+    void retriesOnlyForAuthenticatedUser() {
+        when(authorizationService.requireUser("1")).thenReturn(user);
+        when(user.getId()).thenReturn(USER_ID);
+        service.retryGeneration("1", 100L);
+        verify(generationExecutionService).retry(USER_ID, 100L);
     }
 
 

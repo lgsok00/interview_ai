@@ -4,6 +4,7 @@ import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.interview.dto.CreateInterviewSessionRequest;
 import com.interviewai.interview.dto.InterviewSessionResponse;
 import com.interviewai.interview.entity.InterviewSession;
+import com.interviewai.interview.generation.InterviewGenerationExecutionService;
 import com.interviewai.interview.repository.InterviewSessionRepository;
 import com.interviewai.user.entity.User;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ public class InterviewSessionService {
     private final InterviewSessionRepository interviewSessionRepository;
     private final InterviewSessionSnapshotAssembler snapshotAssembler;
     private final AdminAuthorizationService authorizationService;
+    private final InterviewGenerationExecutionService generationExecutionService;
     private final Clock catalogClock;
 
 
@@ -26,11 +28,13 @@ public class InterviewSessionService {
             InterviewSessionRepository interviewSessionRepository,
             InterviewSessionSnapshotAssembler snapshotAssembler,
             AdminAuthorizationService authorizationService,
+            InterviewGenerationExecutionService generationExecutionService,
             Clock catalogClock
     ) {
         this.interviewSessionRepository = interviewSessionRepository;
         this.snapshotAssembler = snapshotAssembler;
         this.authorizationService = authorizationService;
+        this.generationExecutionService = generationExecutionService;
         this.catalogClock = catalogClock;
     }
 
@@ -62,7 +66,16 @@ public class InterviewSessionService {
                 LocalDateTime.now(catalogClock)
         );
 
-        return InterviewSessionResponse.from(interviewSessionRepository.save(session));
+        InterviewSession savedSession = interviewSessionRepository.save(session);
+        generationExecutionService.register(savedSession.getId());
+
+        return InterviewSessionResponse.from(savedSession);
+    }
+
+
+    public void retryGeneration(String subject, long sessionId) {
+        User user = authorizationService.requireUser(subject);
+        generationExecutionService.retry(user.getId(), sessionId);
     }
 
 

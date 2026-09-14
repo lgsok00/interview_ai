@@ -6,6 +6,22 @@
 
 ### 작성된 자동 테스트
 
+#### 초기 질문 생성·fallback·재시도·중복 저장 방지 — 자동 검증 완료 (2026-09-14)
+
+- `InterviewChatQuestionGeneratorTest` 13개: 단일 호출·모델/timeout/재시도 옵션·실제 전송 context·입력 제한·잘못된 JSON·중복·추가 필드·빈 결과·provider
+  오류 전파.
+- `InterviewGenerationPolicyTest` 9개: 3+2 유형·불변 fallback·길이 경계·Unicode/공백/대소문자 중복·잘못된 개수/유형·출처/context 계약.
+- `InterviewGenerationWorkerTest` 17개: 작업 없음·fallback 전용·lease 복구·빈 검색·lease 상실·AI 완료·재시도 소진·HTTP/gRPC/network/quota
+  오류·DB 전파·interrupt·설정/버전 실패.
+- `InterviewGenerationInputServiceTest` 3개: 없는 세션·RAG 미설정 오류 코드·100자 검색어와 선택 스냅샷.
+- `InterviewGenerationDeadlineTest` 2개: 반환/예외 전파·timeout 취소·취소 무시 호출의 동시 실행 제한.
+- `InterviewGenerationConfigurationTest` 6개: 기본값·model 검증·API key/RAG 필수·scheduler opt-in·호스트 설정 격리와 명시적 테스트 override.
+- `InterviewGenerationExecutionServiceIntegrationTest` 13개: V12/제약·등록 트랜잭션·세션/작업 롤백·설정 보존·원자적 완료·오래된 attempt·재예약/lease
+  소진·수동 재시도 한도/소유권·부분 INSERT 롤백·cascade·기존 질문 보존·동시 선점/완료/재시도.
+- 기존 `InterviewSessionServiceTest`는 5개로 보강했다. 신규 generation 7개 클래스·63개, 면접 14개 클래스·111개, 전체 79개 클래스·683개 성공이며 실패·오류·건너뜀
+  0이다.
+- Chat/RAG 외부 응답은 mock, 영속·동시성은 MySQL/Testcontainers 검증이다. 실제 Chat API 호출 및 V12 기존 데이터 backfill 전용 업그레이드 검증은 포함하지 않는다.
+
 #### 면접 세션 전용 내부 RAG 검색 — 검증 완료 (2026-09-14)
 
 - `InterviewRagSearchServiceTest` 4개: 네 세션 원본의 정확한 scope, 선택 개인 문서 생략, 빈 결과·장애 전파와 null 세션 선행 거부를 검증한다.

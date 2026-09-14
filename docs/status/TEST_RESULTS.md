@@ -2,8 +2,26 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-14이며 618개 성공이고, 최신 RAG·면접 선택 검증은 2026-09-14이며 304개 성공이다. 이전 기록의 검증
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-14이며 683개 성공이다. 최신 전체 실행의 면접 테스트는 111개 성공이고, 이전 RAG·면접 선택 검증은 304개
+성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 초기 질문 생성·fallback·재시도·중복 저장 방지 검증 (2026-09-14)
+
+- 최초 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.interview.*"` — BUILD FAILED (50초). 당시 XML 110개 실행 중 108개
+  성공·2개 실패·오류/건너뜀 0을 확인했다.
+- 실패는 `InterviewGenerationConfigurationTest`의 기본값 및 scheduler opt-in 검사였다. 외부 설정으로 AI 모드와 scheduler 활성화가 유입됐다.
+  ApplicationContextRunner에서 환경변수·JVM 속성 property source를 제거하고 명시적 테스트 설정은 유지하도록 보정했다.
+- 사용자 설정 단건 재실행:
+  `.\gradlew.bat test --tests "com.interviewai.interview.generation.InterviewGenerationConfigurationTest"` — BUILD
+  SUCCESSFUL (7초), 사용자 출력 확인.
+- 사용자 전체 재실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 14초). 최신 XML 79개에서 683개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 최신 전체 XML의 설정 테스트는 6개 성공, generation은 7개 클래스·63개 성공, 면접은 14개 클래스·111개 성공이다. 단건 실행 XML은 전체 실행으로 갱신됐으므로 최신 XML 수치는 전체 실행
+  근거다.
+- MySQL 작업 선점·동시 완료·수동 재시도·lease 만료·중복 저장 차단·부분 저장 롤백을 포함한다. 실제 Chat/RAG 네트워크 연동은 이번 검증에 포함하지 않았고 Chat 연동 smoke test는 남아
+  있다.
+- 현재 Chat 응답 경계 테스트는 빈 `ChatResponse` 결과를 검증한다. null 응답 자체의 방어/테스트로 확대 해석하지 않는다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. Codex는 테스트를 직접 실행하지 않고 사용자 출력·실제 코드·XML을 확인했다.
 
 ### 면접 세션 전용 내부 RAG 검색 검증 (2026-09-14)
 

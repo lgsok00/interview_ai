@@ -16,6 +16,25 @@
 
 ## 현재 구현된 기능
 
+### 초기 질문 생성·fallback·실행 정책 — 구현·자동 검증 완료 (2026-09-14)
+
+- V12 `interview_generation_jobs`는 세션 ID를 PK/cascade FK로 사용한다. 세션 생성과 작업 등록은 같은 트랜잭션이며 모드·모델·`interview-v1`·attempt·수동
+  재시도 횟수·lease·실패/fallback 사유를 저장한다.
+- migration은 질문 없는 기존 `GENERATING` 세션을 `FALLBACK_ONLY` 작업으로 이관한다. 기존 데이터 backfill의 별도 업그레이드 시나리오 테스트는 아직 없다.
+- JDBC 실행 서비스가 세션 → 작업 순서로 잠그고 DB UTC 기준으로 선점한다. 120초 lease와 UUID attempt를 사용하며, 질문 5개·작업 성공·세션 READY를 원자적으로 저장한다. 늦은
+  응답·중복 완료는 저장하지 않는다.
+- 초기 질문은 기술 3개·인성 2개다. JSON 구조·순서·유형·20~1,000 code point·정규화 중복을 검사한다. 문서별 입력 token 제한과 전체 12,000 token 검사, 최대 5개 RAG
+  자료를 사용하고 실제 전송 입력 JSON을 질문 context로 보존한다.
+- Chat 전용 모델은 SDK 재시도 0·45초 timeout·출력 최대 3,000 token·store=false로 구성한다. RAG 대기 15초·Chat 대기 45초 deadline과 동시 외부 호출 4개
+  제한을 적용한다.
+- 빈 검색은 즉시 고정 질문 fallback이다. 일시적 오류와 잘못된 출력은 최대 3회 실행하며 5초/20초 + 0~2초 jitter로 재예약한다. 소진 또는 마지막 lease 만료는 fallback으로
+  복구한다.
+- 인증·quota·설정·내부 오류는 FAILED, DB 오류는 전파/롤백한다. fallback은 READY이며 질문 출처와 작업의 fallback 사유로 구분한다. 수동 재시도는 소유자·FAILED·기존 질문 없음
+  조건에서 최대 2회이며 HTTP endpoint는 후속 범위다.
+- `interview.generation.enabled=false`, `mode=FALLBACK_ONLY`가 기본이다. `AI`는 model·API key·RAG 활성화가 필요하다.
+  `spring.ai.model.chat=none`으로 기본 Chat 자동 구성을 끄고 전용 Bean을 사용한다.
+- 전체 683개·면접 111개 자동 테스트 성공. 실제 Chat API 네트워크 호출, 의미상 유사 질문 차단, 생성 POST 자체의 Idempotency-Key, 답변 기반 꼬리 질문은 검증/구현 범위 밖이다.
+
 ### 면접 세션 전용 내부 RAG 검색 — 구현·검증 완료 (2026-09-14)
 
 - V11은 기존 공고에서 기업 ID를 backfill한 뒤 `interview_sessions.company_id`를 `NOT NULL`로 저장한다. 원본 수명주기와 면접 이력을 분리하기 위해 기업 FK는 두지
@@ -41,7 +60,7 @@
 - 질문은 세션별 1 이상의 순번을 unique로 보장하고 `TECHNICAL`, `BEHAVIORAL`, `FOLLOW_UP` 유형, `AI`, `FALLBACK` 생성 출처와 선택적인 RAG context
   스냅샷을 저장한다.
 - 엔티티 단위 19개, MySQL 통합 6개, 생성 API·서비스·스냅샷 조립 14개가 성공했다. 면접 XML 6개에서 39개, 전체 XML 70개에서 603개 성공했으며 실패·오류·건너뜀은 0이다.
-- 다음 단계는 내부 RAG context를 사용하는 Chat Model 질문 생성과 fallback·재시도·중복 생성 방지 정책 연결이다.
+- 당시 다음 단계였던 Chat Model 질문 생성·fallback·재시도·중복 방지는 2026-09-14 구현·자동 검증을 완료했다. 최신 범위는 위 초기 질문 생성 항목을 참고한다.
 
 ### RAG Qdrant 검색 — 실제 외부 연동 검증 완료 (2026-09-11)
 
