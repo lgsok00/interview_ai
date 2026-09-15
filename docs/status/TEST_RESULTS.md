@@ -6,6 +6,26 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### 답변 AI 평가 선택 검증 및 선점 SQL 수정 (2026-09-15)
+
+- 사용자 실행 명령:
+  `.\gradlew.bat test --tests "com.interviewai.interview.entity.InterviewAnswerEvaluationTest" --tests "com.interviewai.interview.evaluation.*"`.
+- 최초 실행: BUILD FAILED (29초), 22개 중 18개 성공·4개 실패. 통합 테스트의 선점이 모두 빈 결과를 반환했다. 실제 SQL에 비교 연산자 대신 `status - 'PENDING'`이 들어간
+  오타를 확인했다.
+- 수정 후 동일 명령 재실행: BUILD SUCCESSFUL (29초). XML timestamp 2026-09-15T09:10:01Z~09:10:20Z, 4개 클래스·22개 성공, 실패·오류·건너뜀 0.
+- 엔티티 4개, generator 8개, worker 5개, MySQL 통합 5개. DB 선점·중복 요청·소유권·lease 복구·늦은 쓰기·재시도·롤백·cascade를 선택 검증했다.
+- `status = 'PENDING'` 및 worker의 처리된 실패 후 `true` 반환을 실제 코드에서 확인했다. Codex는 테스트를 실행하지 않고 사용자 출력과 XML을 대조했다.
+- 전체 회귀, HTTP·설정·scheduler 추가 검증, 실제 평가 Chat 호출은 아직 완료되지 않았다.
+
+### 답변 AI 평가 엔티티 선택 검증 (2026-09-15)
+
+- 사용자 실행: `.\gradlew.bat test --tests "com.interviewai.interview.entity.InterviewAnswerEvaluationTest"` — BUILD
+  SUCCESSFUL (14초).
+- XML timestamp `2026-09-15T08:57:36.863Z`: 4개 성공, 실패·오류·건너뜀 0.
+- 성공 저장·lease 만료 경계·이전 시도의 늦은 완료/실패 차단·자동/수동 재시도 한도·검증 실패 시 부분 변경 방지를 확인했다.
+- generator·worker·MySQL 통합 테스트를 추가했다. 실행 대기이며 worker의 처리된 실패 반환값(false → true) 수정안은 사용자 반영 대기다.
+- Codex는 테스트를 실행하지 않았다. 실제 AI 네트워크 호출과 평가 기능 전체 회귀는 미검증이다.
+
 ### 면접 답변 저장·꼬리 질문 검증 (2026-09-15)
 
 - 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.interview.*"` — BUILD SUCCESSFUL (1분 11초).

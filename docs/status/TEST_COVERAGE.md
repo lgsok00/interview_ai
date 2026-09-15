@@ -6,6 +6,16 @@
 
 ### 작성된 자동 테스트
 
+#### 답변 AI 평가 — 선택 검증 22개 성공 (2026-09-15)
+
+- `InterviewAnswerEvaluationTest` 4개: 결과 저장, lease 경계, 재선점 후 늦은 완료/실패 거부, 재시도 한도, 잘못된 결과의 부분 반영 방지. 사용자 실행 및 XML 확인 완료.
+- `AnswerEvaluationGeneratorTest` 8개: 저장된 모델·입력 스냅샷·호출 제한, 잘못된 JSON·타입·점수·추가 필드·UTF-16 길이, 비활성/미지원 버전/모델 부재. 사용자 실행 및
+  XML 확인 완료.
+- `AnswerEvaluationWorkerTest` 5개: 복구 우선·빈 큐·성공 저장·처리된 실패 후 다음 작업 진행·DB 오류 전파·interrupt 보존. 사용자 실행 및 XML 확인 완료.
+- `AnswerEvaluationIntegrationTest` 5개: V14, 중복 접수, 소유권 은닉, 결과 저장, lease 복구, 늦은 쓰기 거부, 수동 재시도 저장, 롤백, 회원 삭제 cascade, 동시
+  접수/선점. SQL 오타 수정 후 사용자 실행 및 XML 확인 완료.
+- HTTP 인증/응답, 설정 binding, scheduler 및 추가 DB 경계 시나리오는 후속 보강 대상이다.
+
 #### 면접 답변 저장·꼬리 질문 — 자동 검증 완료 (2026-09-15)
 
 - `InterviewAnswerTest` 5개: 답변 정규화·내부 공백 유지·1/10,000자·UTF-16 길이 경계·필수 값·부모 연결·추가 깊이 거부.
