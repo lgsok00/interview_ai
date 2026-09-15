@@ -16,6 +16,19 @@
 
 ## 현재 구현된 기능
 
+### 면접 조회·진행·질문 제공 API — 구현·검증 완료 (2026-09-15)
+
+- `GET /api/interview-sessions`는 인증 사용자의 세션만 생성 시각·ID 역순으로 페이징하며 큰 원본 본문을 제외한 요약 DTO를 반환한다.
+  `GET /api/interview-sessions/{sessionId}`는 생성 시점 전체 스냅샷을 반환한다.
+- `GET /api/interview-sessions/{sessionId}/questions`는 `READY`, `IN_PROGRESS`, `COMPLETED` 세션의 질문을 순번대로 반환한다. 질문 유형·생성
+  출처는 제공하되 내부 RAG `contextSnapshot`은 노출하지 않는다.
+- `POST /api/interview-sessions/{sessionId}/start`는 `READY → IN_PROGRESS`,
+  `POST /api/interview-sessions/{sessionId}/complete`는 `IN_PROGRESS → COMPLETED`만 허용하며 소유자 조건의 비관적 잠금으로 동시 요청을 직렬화한다.
+- `POST /api/interview-sessions/{sessionId}/generation/retry`는 기존 FAILED 작업의 수동 재시도를 접수하고 HTTP 202를 반환한다. 소유자·질문 없음·최대
+  2회 정책은 기존 실행 서비스가 원자적으로 검사한다.
+- 타인 세션은 `INTERVIEW_SESSION_NOT_FOUND`로 은닉하고 잘못된 상태의 질문 조회·전이는 `INTERVIEW_SESSION_CONFLICT`로 반환한다.
+- 면접 선택 실행과 전체 회귀 실행이 성공했다. 전체 XML 79개에서 704개, 면접 XML 14개에서 132개가 성공했으며 실패·오류·건너뜀은 0이다.
+
 ### 초기 질문 생성·fallback·실행 정책 — 구현·자동 검증 완료 (2026-09-14)
 
 - V12 `interview_generation_jobs`는 세션 ID를 PK/cascade FK로 사용한다. 세션 생성과 작업 등록은 같은 트랜잭션이며 모드·모델·`interview-v1`·attempt·수동
@@ -30,7 +43,7 @@
 - 빈 검색은 즉시 고정 질문 fallback이다. 일시적 오류와 잘못된 출력은 최대 3회 실행하며 5초/20초 + 0~2초 jitter로 재예약한다. 소진 또는 마지막 lease 만료는 fallback으로
   복구한다.
 - 인증·quota·설정·내부 오류는 FAILED, DB 오류는 전파/롤백한다. fallback은 READY이며 질문 출처와 작업의 fallback 사유로 구분한다. 수동 재시도는 소유자·FAILED·기존 질문 없음
-  조건에서 최대 2회이며 HTTP endpoint는 후속 범위다.
+  조건에서 최대 2회이며 2026-09-15 HTTP endpoint 연결과 검증을 완료했다.
 - `interview.generation.enabled=false`, `mode=FALLBACK_ONLY`가 기본이다. `AI`는 model·API key·RAG 활성화가 필요하다.
   `spring.ai.model.chat=none`으로 기본 Chat 자동 구성을 끄고 전용 Bean을 사용한다.
 - 전체 683개·면접 111개 자동 테스트 성공. 실제 Chat API 네트워크 호출, 의미상 유사 질문 차단, 생성 POST 자체의 Idempotency-Key, 답변 기반 꼬리 질문은 검증/구현 범위 밖이다.

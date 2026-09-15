@@ -6,6 +6,14 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 
 ## 알려진 확인 사항
 
+- 면접 세션 목록은 인증 사용자 소유 범위에서 `createdAt DESC, id DESC`로 안정적으로 정렬하고 본문 스냅샷을 제외한 요약 DTO를 반환한다. 상세 조회만 생성 당시 전체 스냅샷을 제공한다.
+- 세션 상세·질문·상태 전이에서 타인 소유 세션은 존재 여부를 숨기기 위해 HTTP 404 `INTERVIEW_SESSION_NOT_FOUND`로 처리한다.
+- 질문은 `READY`, `IN_PROGRESS`, `COMPLETED`에서 순번대로 제공한다. 유형과 AI/fallback 출처는 공개하지만 모델 입력과 검색 자료가 포함된 내부 `contextSnapshot`은
+  응답에서 제외한다.
+- 시작은 `READY → IN_PROGRESS`, 완료는 `IN_PROGRESS → COMPLETED`만 허용한다. 상태 전이는 소유자 조건의 비관적 잠금으로 직렬화하며 그 외 상태는 HTTP 409
+  `INTERVIEW_SESSION_CONFLICT`다.
+- 생성 실패 수동 재시도 endpoint는 비동기 작업 접수를 뜻하는 HTTP 202를 사용하며, 기존 소유자·FAILED·질문 없음·최대 2회 제한을 유지한다.
+
 - 초기 질문은 기술 3개·인성 2개를 한 묶음으로 저장한다. 답변 기반 FOLLOW_UP은 후속 범위다. JSON 구조와 정규화 문자열 중복을 검증하며 의미상 유사도 중복 제거는 보장하지 않는다.
 - 세션별 V12 작업의 DB 선점·120초 lease·attempt UUID 및 원자적 완료로 한 세션의 질문 묶음 중복 저장을 막는다. 외부 호출 exactly-once와 생성 POST 재전송의 멱등성은 보장하지
   않는다.

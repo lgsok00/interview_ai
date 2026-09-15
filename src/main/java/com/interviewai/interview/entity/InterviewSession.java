@@ -161,6 +161,7 @@ public class InterviewSession {
         );
     }
 
+
     private static Long requirePositive(Long value, String field) {
         Objects.requireNonNull(value, field + "는 필수입니다.");
 
@@ -170,6 +171,7 @@ public class InterviewSession {
 
         return value;
     }
+
 
     private static String requireText(String value, String field) {
         Objects.requireNonNull(value, field + "는 필수입니다.");
@@ -181,6 +183,7 @@ public class InterviewSession {
         return value;
     }
 
+
     private static Long optionalPositive(Long value, String field) {
         if (value != null && value <= 0) {
             throw new IllegalArgumentException(field + "는 1 이상이어야 합니다.");
@@ -188,6 +191,7 @@ public class InterviewSession {
 
         return value;
     }
+
 
     private static void validateOptionalSnapshot(Long sourceId, String title, String content, String sourceName) {
         boolean allMissing = sourceId == null && title == null && content == null;
@@ -200,12 +204,14 @@ public class InterviewSession {
         }
     }
 
+
     public void markReady(LocalDateTime now) {
         requireStatus(InterviewSessionStatus.GENERATING);
 
         this.status = InterviewSessionStatus.READY;
         this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
     }
+
 
     public void start(LocalDateTime now) {
         requireStatus(InterviewSessionStatus.READY);
@@ -214,12 +220,14 @@ public class InterviewSession {
         this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
     }
 
+
     public void complete(LocalDateTime now) {
         requireStatus(InterviewSessionStatus.IN_PROGRESS);
 
         this.status = InterviewSessionStatus.COMPLETED;
         this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
     }
+
 
     public void fail(String failureCode, LocalDateTime now) {
         requireStatus(InterviewSessionStatus.GENERATING);
@@ -229,6 +237,7 @@ public class InterviewSession {
         this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
     }
 
+
     public void retry(LocalDateTime now) {
         requireStatus(InterviewSessionStatus.FAILED);
 
@@ -236,6 +245,7 @@ public class InterviewSession {
         this.status = InterviewSessionStatus.GENERATING;
         this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
     }
+
 
     private void requireStatus(InterviewSessionStatus expected) {
         if (status != expected) {

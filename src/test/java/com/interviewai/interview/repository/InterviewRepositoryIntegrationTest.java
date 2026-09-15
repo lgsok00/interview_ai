@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDateTime;
@@ -92,6 +93,39 @@ class InterviewRepositoryIntegrationTest extends MySqlIntegrationTest {
 
 
     @Test
+    @DisplayName("사용자별 세션만 생성 시각과 ID의 역순으로 조회한다")
+    void findsOwnedSessionsInStableLatestOrder() {
+        User owner = saveUser("session-owner@example.com");
+        User other = saveUser("session-other@example.com");
+        InterviewSession old = sessionRepository.saveAndFlush(createSession(owner, NOW.minusHours(1)));
+        InterviewSession firstAtSameTime = sessionRepository.saveAndFlush(createSession(owner, NOW));
+        InterviewSession secondAtSameTime = sessionRepository.saveAndFlush(createSession(owner, NOW));
+        sessionRepository.saveAndFlush(createSession(other, NOW.plusHours(1)));
+        entityManager.clear();
+
+        assertThat(sessionRepository.findAllByUser_IdOrderByCreatedAtDescIdDesc(
+                owner.getId(), PageRequest.of(0, 20)
+        )).extracting(InterviewSession::getId)
+                .containsExactly(secondAtSameTime.getId(), firstAtSameTime.getId(), old.getId());
+    }
+
+
+    @Test
+    @DisplayName("세션 상세 및 쓰기 잠금 조회는 사용자 소유권을 함께 검사한다")
+    void findsOnlyOwnedSessionForReadAndUpdate() {
+        User owner = saveUser("owned-session@example.com");
+        User other = saveUser("unowned-session@example.com");
+        InterviewSession session = sessionRepository.saveAndFlush(createSession(owner));
+        entityManager.clear();
+
+        assertThat(sessionRepository.findByIdAndUser_Id(session.getId(), owner.getId())).isPresent();
+        assertThat(sessionRepository.findOwnedByIdForUpdate(session.getId(), owner.getId())).isPresent();
+        assertThat(sessionRepository.findByIdAndUser_Id(session.getId(), other.getId())).isEmpty();
+        assertThat(sessionRepository.findOwnedByIdForUpdate(session.getId(), other.getId())).isEmpty();
+    }
+
+
+    @Test
     @DisplayName("같은 세션의 중복 질문 순서를 거부한다")
     void rejectsDuplicateQuestionSequence() {
         InterviewSession session = sessionRepository.saveAndFlush(createSession(saveUser("duplicate@example.com")));
@@ -143,6 +177,11 @@ class InterviewRepositoryIntegrationTest extends MySqlIntegrationTest {
 
 
     private InterviewSession createSession(User user) {
+        return createSession(user, NOW);
+    }
+
+
+    private InterviewSession createSession(User user, LocalDateTime now) {
         return InterviewSession.create(
                 user,
                 999L,
@@ -157,7 +196,7 @@ class InterviewRepositoryIntegrationTest extends MySqlIntegrationTest {
                 "삭제 후에도 보존할 자기소개서",
                 "대표 이력서",
                 "삭제 후에도 보존할 이력서",
-                NOW
+                now
         );
     }
 

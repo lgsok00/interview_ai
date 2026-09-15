@@ -6,6 +6,15 @@
 
 ### 작성된 자동 테스트
 
+#### 면접 조회·진행·질문 제공·수동 재시도 API — 검증 완료 (2026-09-15)
+
+- `InterviewSessionControllerTest` 14개: 기존 생성 API와 함께 목록·상세·질문 JSON, 내부 context 비노출, 시작·완료, 수동 재시도 HTTP 202, 상태 충돌·소유권
+  은닉·비인증을 검증한다.
+- `InterviewSessionServiceTest` 15개: 생성·등록과 함께 소유자 목록·상세, 페이지 검증, 질문 순서·상태 제한, 비관적 잠금 기반 시작·완료와 잘못된 상태 전이를 검증한다.
+- `InterviewRepositoryIntegrationTest` 8개: 기존 스키마·질문 순서·cascade에 사용자별 세션 격리, 생성 시각·ID 역순, 소유자 조건 일반/쓰기 잠금 조회를 추가해 실제
+  MySQL에서 검증한다.
+- 사용자 면접 선택 실행은 1분 3초, 전체 회귀 실행은 3분 50초에 성공했다. 최신 XML은 면접 14개 클래스·132개, 전체 79개 클래스·704개이며 실패·오류·건너뜀은 0이다.
+
 #### 초기 질문 생성·fallback·재시도·중복 저장 방지 — 자동 검증 완료 (2026-09-14)
 
 - `InterviewChatQuestionGeneratorTest` 13개: 단일 호출·모델/timeout/재시도 옵션·실제 전송 context·입력 제한·잘못된 JSON·중복·추가 필드·빈 결과·provider

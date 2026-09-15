@@ -1,42 +1,49 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-09-14
+최종 갱신일: 2026-09-15
 
 개발을 재개할 때 먼저 읽는 기준 문서다. 현재 상태와 다음 작업을 요약하고, 상세 내용과 과거 기록은 아래 문서에서 관리한다.
 
 ## 현재 상태
 
-| 영역                    | 상태                                                                          |
-|-----------------------|-----------------------------------------------------------------------------|
-| 인증·회원 관리              | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴           |
-| 자기소개서                 | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                             |
-| 이력서                   | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                                    |
-| 기업·채용공고               | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                          |
-| RAG 기반 모델             | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기                    |
-| RAG 순번·등록 직렬화 기반      | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                                     |
-| RAG 작업 등록 영속화         | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백            |
-| RAG CRUD 연결           | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료                        |
-| RAG 작업 실행 기반          | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                     |
-| RAG generation·삭제 차단  | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화               |
-| RAG 외부 색인             | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결 |
-| RAG 외부 검색             | 구현·전체 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5              |
-| RAG 실제 외부 연동          | 검증 완료: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·개인 검색·DELETE smoke test       |
-| 회원 탈퇴 RAG 정리          | 구현·검증 완료: 개인 문서 잠금·DELETE 등록·cascade 삭제·커밋 후 이력서 파일 정리                      |
-| 운영 실행 기반              | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                   |
-| 면접 세션 생성              | 구현·검증 완료: 생성 API·대표 문서 자동 선택·현재 버전/추출 본문 스냅샷·미설정 생략                         |
-| 면접 세션 영속 기반           | 구현·검증 완료: V10·세션/질문 스냅샷·상태 전이·질문 순서·원본 비의존·cascade                          |
-| 면접 세션 내부 RAG 검색       | 구현·검증 완료: V11·정확한 세션 원본 범위·활성 generation·현재 접근 권한·Top-K 5                   |
-| 초기 질문 생성·fallback     | 구현·자동 검증 완료: V12·Chat 어댑터·5개 질문·재시도·lease·중복 저장 방지, 실제 Chat 연동 미검증          |
-| 면접 조회·진행 API·평가·성장 분석 | 후속 범위                                                                       |
+| 영역                   | 상태                                                                          |
+|----------------------|-----------------------------------------------------------------------------|
+| 인증·회원 관리             | 구현·검증 완료: JWT, Refresh Token, Google·GitHub 로그인, 회원정보·비밀번호 변경, 탈퇴           |
+| 자기소개서                | 구현·검증 완료: CRUD, 버전 이력·복원, 대표 설정                                             |
+| 이력서                  | 구현·검증 완료: PDF 저장·검증·추출, CRUD·다운로드, 대표 설정                                    |
+| 기업·채용공고              | 구현·검증 완료: 관리자 관리, 사용자 조회·검색, 관심 기업                                          |
+| RAG 기반 모델            | 구현·검증 완료: 원본 스냅샷·변환·접근 제어, metadata, 메모리 내 색인·삭제 작업 수명주기                    |
+| RAG 순번·등록 직렬화 기반     | 구현·검증 완료: V6·JPA 순번 저장·최초 생성 경합·행 잠금·롤백                                     |
+| RAG 작업 등록 영속화        | 구현·검증 완료: V7·UPSERT 스냅샷·DELETE 키·초기 PENDING 저장, 순번과 등록의 동시 커밋·롤백            |
+| RAG CRUD 연결          | 기업·채용공고·자기소개서·이력서의 UPSERT·DELETE 등록 연결 및 전체 회귀 검증 완료                        |
+| RAG 작업 실행 기반         | 구현·검증 완료: V8·DB 선점·attempt·lease·재시도·worker·늦은 상태 변경 차단                     |
+| RAG generation·삭제 차단 | 구현·검증 완료: V9·활성 generation 교체·DELETE tombstone·오래된 외부 쓰기 비활성화               |
+| RAG 외부 색인            | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결 |
+| RAG 외부 검색            | 구현·전체 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5              |
+| RAG 실제 외부 연동         | 검증 완료: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·개인 검색·DELETE smoke test       |
+| 회원 탈퇴 RAG 정리         | 구현·검증 완료: 개인 문서 잠금·DELETE 등록·cascade 삭제·커밋 후 이력서 파일 정리                      |
+| 운영 실행 기반             | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                   |
+| 면접 세션 생성             | 구현·검증 완료: 생성 API·대표 문서 자동 선택·현재 버전/추출 본문 스냅샷·미설정 생략                         |
+| 면접 세션 영속 기반          | 구현·검증 완료: V10·세션/질문 스냅샷·상태 전이·질문 순서·원본 비의존·cascade                          |
+| 면접 세션 내부 RAG 검색      | 구현·검증 완료: V11·정확한 세션 원본 범위·활성 generation·현재 접근 권한·Top-K 5                   |
+| 초기 질문 생성·fallback    | 구현·자동 검증 완료: V12·Chat 어댑터·5개 질문·재시도·lease·중복 저장 방지, 실제 Chat 연동 미검증          |
+| 면접 조회·진행 API         | 구현·검증 완료: 소유자 목록·상세·질문 제공, 시작·완료 상태 전이, 생성 실패 수동 재시도                        |
+| 면접 답변·평가·성장 분석       | 후속 범위                                                                       |
 
 ## 다음 작업
 
-1. 면접 세션 조회·시작·완료와 질문 제공 API를 구현하고 생성 실패 수동 재시도 endpoint를 연결한다.
-2. 실제 Chat Model·RAG를 통한 질문 생성 smoke test를 별도로 수행한다. 답변 기반 꼬리 질문은 답변 처리 단계에서 구현한다.
+1. 면접 답변 저장과 답변 기반 꼬리 질문 정책을 구체화하고 구현한다.
+2. 실제 Chat Model·RAG를 통한 초기 질문 생성 smoke test를 별도로 수행한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
+
+- 실행일: 2026-09-15 — 면접 조회·시작·완료·질문 제공 API와 생성 실패 수동 재시도 endpoint 전체 회귀 검증 완료.
+- 사용자 면접 선택 실행: `.\gradlew.bat test --tests "com.interviewai.interview.*"` — BUILD SUCCESSFUL (1분 3초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (3분 50초). XML 79개·704개 성공, 실패·오류·건너뜀 0. 면접 XML 14개·132개 성공.
+- 소유자별 목록·상세, 안정적인 최신순 정렬, 질문 순서·노출 범위, 비관적 잠금 상태 전이, 소유권 은닉, 상태 충돌, 비인증과 HTTP 202 수동 재시도를 검증했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
 
 - 실행일: 2026-09-14 — 초기 질문 생성·fallback·실행 정책 전체 회귀 검증 완료.
 - 설정 테스트 재실행: `.\gradlew.bat test --tests "com.interviewai.interview.generation.InterviewGenerationConfigurationTest"` —
@@ -151,9 +158,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `61623bb feat: 면접 세션 전용 RAG 검색 범위 추가`
-- 로컬 `main`과 원격 추적 참조 `origin/main`은 같은 커밋이다. 초기 질문 생성·fallback·재시도·중복 방지 구현·테스트·문서는 작업 트리에서 커밋 대기이며 전체 683개 회귀 검증을
-  완료했다.
+- 이번 확인한 HEAD: `6e94210 feat: 면접 질문 생성과 fallback 및 재시도 정책 구현`
+- 면접 조회·진행·질문 제공·수동 재시도 endpoint 구현과 테스트·문서는 작업 트리에서 커밋 대기이며 전체 704개 회귀 검증을 완료했다.
 
 ## 문서 갱신 규칙
 
