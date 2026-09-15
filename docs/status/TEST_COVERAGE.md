@@ -6,6 +6,17 @@
 
 ### 작성된 자동 테스트
 
+#### 면접 답변 저장·꼬리 질문 — 자동 검증 완료 (2026-09-15)
+
+- `InterviewAnswerTest` 5개: 답변 정규화·내부 공백 유지·1/10,000자·UTF-16 길이 경계·필수 값·부모 연결·추가 깊이 거부.
+- `InterviewFollowUpGeneratorTest` 17개: fallback 인용·Unicode 절단·원문 스냅샷, 단일 Chat 호출·입력/옵션, JSON 오류·길이 경계·부모 중복·빈
+  결과·provider 오류 전파.
+- `InterviewFollowUpServiceTest` 6개: 기존 결과 재사용·deadline 안의 생성/저장 순서·timeout 503·interrupt 복원·DB 오류 전파·소유권 실패 시 생성 차단.
+- `InterviewAnswerControllerTest` 10개: 답변 제출·정규화·길이 검증·목록 연결·꼬리 질문 응답·context 비노출·400/404/409/503 및 JWT 필수.
+- `InterviewAnswerServiceIntegrationTest` 11개: V13·DB 제약·답변/질문 저장·목록 순서·재전송·완료/소유권/깊이/답변 유무·cascade·롤백·동시 동일 답변/동일 부모/다른
+  부모 순번 할당. MySQL read view를 먼저 만든 동시 트랜잭션으로 잠금 읽기를 검증한다.
+- 사용자 선택 1분 11초·전체 4분 10초 성공. 최신 전체 XML 84개·753개, 면접 19개·181개, 신규 5개·49개 성공이며 실패·오류·건너뜀 0이다. 실제 Chat 네트워크 호출은 포함하지 않는다.
+
 #### 면접 조회·진행·질문 제공·수동 재시도 API — 검증 완료 (2026-09-15)
 
 - `InterviewSessionControllerTest` 14개: 기존 생성 API와 함께 목록·상세·질문 JSON, 내부 context 비노출, 시작·완료, 수동 재시도 HTTP 202, 상태 충돌·소유권

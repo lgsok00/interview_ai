@@ -2,7 +2,18 @@ package com.interviewai.interview.entity;
 
 import com.interviewai.interview.enums.InterviewQuestionType;
 import com.interviewai.interview.enums.QuestionGenerationSource;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -49,6 +60,9 @@ public class InterviewQuestion {
 
     @Column(name = "context_snapshot", columnDefinition = "MEDIUMTEXT", updatable = false)
     private String contextSnapshot;
+
+    @Column(name = "parent_question_id", updatable = false)
+    private Long parentQuestionId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -101,6 +115,40 @@ public class InterviewQuestion {
                 contextSnapshot,
                 now
         );
+    }
+
+
+    public static InterviewQuestion createFollowUp(
+            InterviewQuestion parent,
+            int sequenceNumber,
+            QuestionGenerationSource generationSource,
+            String content,
+            String contextSnapshot,
+            LocalDateTime now
+    ) {
+        Objects.requireNonNull(parent, "parent는 필수입니다.");
+
+        if (parent.getId() == null) {
+            throw new IllegalArgumentException("저장된 질문만 부모 질문이 될 수 있습니다.");
+        }
+
+        if (parent.getQuestionType() == InterviewQuestionType.FOLLOW_UP || parent.getParentQuestionId() != null) {
+            throw new IllegalArgumentException("꼬리 질문에는 꼬리 질문을 추가할 수 없습니다.");
+        }
+
+        InterviewQuestion question = new InterviewQuestion(
+                parent.getSession(),
+                sequenceNumber,
+                InterviewQuestionType.FOLLOW_UP,
+                generationSource,
+                content,
+                contextSnapshot,
+                now
+        );
+
+        question.parentQuestionId = parent.getId();
+
+        return question;
     }
 
 

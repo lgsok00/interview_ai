@@ -16,6 +16,24 @@
 
 ## 현재 구현된 기능
 
+### 면접 답변 저장·조회와 답변 기반 꼬리 질문 — 구현·자동 검증 완료 (2026-09-15)
+
+- V13은 질문당 하나의 `interview_answers`와 질문의 nullable `parent_question_id`를 추가한다. 답변은 질문 FK cascade, 부모 연결은 self FK
+  cascade·unique로 보호한다. 초기 질문은 부모 ID가 없다.
+- `PUT /api/interview-sessions/{sessionId}/questions/{questionId}/answer`는 앞뒤 공백 제거 후 Java String 길이 1~10,000의 답변을 제출한다.
+  새 제출은 IN_PROGRESS에서만 가능하고 수정은 허용하지 않는다. 같은 내용 재전송은 기존 결과, 다른 내용은 409 `INTERVIEW_ANSWER_CONFLICT`다.
+- `GET /api/interview-sessions/{sessionId}/answers`는 소유자의 답변을 질문 순서로 반환하며 `followUpQuestionId`로 연결을 제공한다.
+- `POST /api/interview-sessions/{sessionId}/questions/{questionId}/follow-up`는 저장된 답변으로 초기 질문당 최대 하나의 꼬리 질문을 동기 생성한다. 세
+  API의 성공 응답은 200이다. 질문 순번은 기존 최대값 다음이며 꼬리 질문에 대한 답변은 가능하지만 추가 깊이는 금지한다.
+- 입력은 직무 스냅샷·부모 질문·답변이며 추가 RAG 검색은 하지 않는다. 기존 mode/model과 전용 Chat Bean을 사용한다. FALLBACK_ONLY는 답변 일부를 인용하는 정형 질문, AI는 JSON
+  단일 질문·20~1,000 code point·부모 질문 정규화 중복 검사를 적용한다.
+- 외부 호출은 DB 트랜잭션 밖에서 실행한다. 기존 deadline의 동시 호출 제한과 45초 제한을 공유하며 SDK 재시도는 0이다. 생성 실패는 503
+  `INTERVIEW_FOLLOW_UP_UNAVAILABLE`이고 답변은 보존되어 같은 API로 재시도할 수 있다. 자동 재시도 작업은 없다.
+- 세션 잠금 뒤 답변·기존 꼬리 질문·마지막 순번도 비관적 잠금 읽기로 조회하여 MySQL 반복 읽기의 오래된 스냅샷을 피한다. 저장 시 소유권·상태·기존 질문을 재검사한다. DB 오류는 생성 실패로 변환하지
+  않는다.
+- 완료된 세션에서도 동일 요청의 기존 결과 재조회는 허용한다. 조기 완료는 유지하며 생성 도중 완료된 경우 새 질문 저장은 차단한다. 외부 AI 중복 호출 방지는 보장하지 않으며 중복 저장만 막는다.
+- 실제 입력 JSON은 내부 context로 보존하고 응답에는 노출하지 않는다. 전체 753개·면접 181개·신규 49개 자동 검증 완료이며 실제 Chat 연동은 미검증이다.
+
 ### 면접 조회·진행·질문 제공 API — 구현·검증 완료 (2026-09-15)
 
 - `GET /api/interview-sessions`는 인증 사용자의 세션만 생성 시각·ID 역순으로 페이징하며 큰 원본 본문을 제외한 요약 DTO를 반환한다.
