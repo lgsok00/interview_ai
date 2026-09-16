@@ -6,6 +6,13 @@
 
 ### 작성된 자동 테스트
 
+#### Refresh Token 정리 설정 외부 환경 격리 — 검증 완료 (2026-09-16)
+
+- `RefreshTokenCleanupSchedulerConfigurationTest` 6개 성공: 명시적 활성/비활성·prod/local 기본값에 호스트 JVM 설정 격리와 명시적 테스트 override 유지
+  2개를 추가했다.
+- 테스트 컨텍스트에서 환경변수·JVM 속성을 제거한 뒤 classpath 설정만 로드한다. 운영 설정은 변경하지 않는다.
+- 전체 XML 88개·777개 성공, 실패·오류·건너뜀 0. 기존 평가 22개도 전체 회귀에서 통과했다. 평가 HTTP·설정·scheduler의 새 테스트를 추가한 것은 아니다.
+
 #### 답변 AI 평가 — 선택 검증 22개 성공 (2026-09-15)
 
 - `InterviewAnswerEvaluationTest` 4개: 결과 저장, lease 경계, 재선점 후 늦은 완료/실패 거부, 재시도 한도, 잘못된 결과의 부분 반영 방지. 사용자 실행 및 XML 확인 완료.

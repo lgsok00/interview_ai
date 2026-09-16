@@ -2,9 +2,24 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-15이며 753개 성공이다. 최신 전체 실행의 면접 테스트는 181개 성공이고, 이전 RAG·면접 선택 검증은 304개
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-16이며 777개 성공이다. 최신 전체 실행의 면접 테스트는 203개 성공이고, 이전 RAG·면접 선택 검증은 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### Refresh Token 정리 설정 격리 및 전체 회귀 (2026-09-16)
+
+- 최초 사용자 `.\gradlew.bat test`: BUILD FAILED (4분 49초). XML 88개·775개 중 774개 성공, 실패 1개, 오류·건너뜀 0.
+  `RefreshTokenCleanupSchedulerConfigurationTest`의 prod 기본 비활성화 검사에서 Scheduler Bean이 생성됐다.
+- 기본 설정은 false이며 테스트가 외부 환경변수·JVM 속성·설정 파일을 읽을 수 있었다. 정확한 외부 유입 값은 확정하지 않았다. 테스트 컨텍스트에서 해당 property source를 제거하고
+  `spring.config.location=classpath:/`를 적용했다. 운영 설정은 변경하지 않았다.
+- 사용자 단건 재실행:
+  `.\gradlew.bat test --tests "com.interviewai.auth.scheduler.RefreshTokenCleanupSchedulerConfigurationTest"` — BUILD
+  SUCCESSFUL (11초).
+- 사용자 전체 재실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 42초). 최신 XML 88개·777개 성공, 실패·오류·건너뜀 0. 정리 설정 6개, 기존 평가 4개
+  클래스·22개 성공을 포함한다.
+- 단건 XML은 전체 실행으로 갱신됐으므로 XML 수치는 최신 전체 실행 근거다. Codex는 직접 테스트를 실행하지 않고 사용자 출력·XML·실제 변경사항을 확인했다. OpenJDK 경고는 결과에 영향을 주지
+  않았다.
+- 평가 HTTP·설정·scheduler 추가 검증 및 실제 Chat 연동은 여전히 남은 범위다.
 
 ### 답변 AI 평가 선택 검증 및 선점 SQL 수정 (2026-09-15)
 

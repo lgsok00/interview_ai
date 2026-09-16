@@ -1,6 +1,6 @@
 # Interview AI Backend 프로젝트 현황
 
-최종 갱신일: 2026-09-15
+최종 갱신일: 2026-09-16
 
 개발을 재개할 때 먼저 읽는 기준 문서다. 현재 상태와 다음 작업을 요약하고, 상세 내용과 과거 기록은 아래 문서에서 관리한다.
 
@@ -29,17 +29,28 @@
 | 초기 질문 생성·fallback    | 구현·자동 검증 완료: V12·Chat 어댑터·5개 질문·재시도·lease·중복 저장 방지, 실제 Chat 연동 미검증          |
 | 면접 조회·진행 API         | 구현·검증 완료: 소유자 목록·상세·질문 제공, 시작·완료 상태 전이, 생성 실패 수동 재시도                        |
 | 면접 답변·꼬리 질문          | 구현·자동 검증 완료: V13·답변 저장/조회·답변 기반 질문·멱등 재전송·동시성, 실제 Chat 연동 미검증               |
-| 답변 AI 평가·개선사항 저장     | 구현·선택 검증: 4개 클래스·22개 성공, HTTP·설정·scheduler 보강 및 전체 회귀 대기                    |
+| 답변 AI 평가·개선사항 저장     | 구현·기존 테스트 전체 회귀 확인: 평가 22개 성공, HTTP·설정·scheduler 추가 검증 대기                   |
 | 면접 성장 분석             | 후속 범위                                                                       |
 
 ## 다음 작업
 
-1. 답변 AI 평가의 HTTP·설정·scheduler 테스트와 추가 경계 시나리오를 보강하고 전체 회귀를 실행한다. 엔티티·generator·worker·MySQL 통합 선택 검증 22개는 성공했다.
+1. 답변 AI 평가의 HTTP·설정·scheduler 테스트와 추가 경계 시나리오를 보강한다. 기존 평가 22개를 포함한 전체 777개 회귀는 성공했으며 신규 검증 범위는 아직 남아 있다.
 2. 실제 Chat Model·RAG 초기 질문 생성과 답변 기반 꼬리 질문의 Chat 연동 smoke test를 별도로 수행한다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
+
+- 실행일: 2026-09-16 — Refresh Token 정리 설정 테스트의 외부 설정 격리 후 전체 회귀 성공.
+- 사용자 단건 실행:
+  `.\gradlew.bat test --tests "com.interviewai.auth.scheduler.RefreshTokenCleanupSchedulerConfigurationTest"` — BUILD
+  SUCCESSFUL (11초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 42초). 최신 XML 88개·777개 성공, 실패·오류·건너뜀 0. 정리 설정 6개와 기존 평가 22개를
+  포함한다.
+- 직전 전체 실행은 775개 중 prod 기본 비활성화 검사 1개 실패였다. 테스트 컨텍스트의 환경변수·JVM 속성·외부 설정 파일 유입을 격리하고 회귀 2개를 추가했다. 당시 유입된 정확한 외부 값은 확정하지
+  않았다.
+- 운영 설정은 변경하지 않았다. 실제 평가 Chat 호출과 평가 HTTP·설정·scheduler 추가 테스트는 미검증 범위로 유지한다.
+- 아래는 이전 검증 기록이다.
 
 - 실행일: 2026-09-15 — 사용자
   `.\gradlew.bat test --tests "com.interviewai.interview.entity.InterviewAnswerEvaluationTest" --tests "com.interviewai.interview.evaluation.*"`
@@ -180,8 +191,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `b8a8f85 feat: 면접 답변 저장 및 답변 기반 꼬리 질문 구현`
-- 답변 저장·조회·꼬리 질문은 커밋되었으며 전체 753개 회귀 검증을 완료했다. 답변 AI 평가 코드·추가 테스트·부분 검증 문서는 작업 트리에서 커밋 대기다.
+- 이번 확인한 HEAD: `74afd41 feat: 답변 AI 평가 및 개선사항 저장 구현`
+- 답변 AI 평가 구현은 커밋됐다. 이번 정리 Scheduler 설정 테스트 보완과 검증 문서는 작업 트리에서 커밋 대기이며 최신 전체 777개가 성공했다.
 
 ## 문서 갱신 규칙
 
