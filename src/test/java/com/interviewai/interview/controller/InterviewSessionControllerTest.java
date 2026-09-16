@@ -154,7 +154,7 @@ class InterviewSessionControllerTest {
         OffsetDateTime now = OffsetDateTime.parse("2026-09-15T01:00:00Z");
         InterviewSessionSummaryResponse summary = new InterviewSessionSummaryResponse(
                 100L, 10L, InterviewSessionStatus.READY,
-                "인터뷰AI", "백엔드 개발자", "Backend", null, now, now
+                "인터뷰AI", "백엔드 개발자", "Backend", null, now, now, null
         );
         when(interviewSessionService.getAll(SUBJECT, 0, 20))
                 .thenReturn(new InterviewSessionPageResponse(List.of(summary), 0, 20, 1, 1, true, true));
@@ -326,7 +326,8 @@ class InterviewSessionControllerTest {
                 "이력서 본문",
                 null,
                 now,
-                now
+                now,
+                status == InterviewSessionStatus.COMPLETED ? now : null
         );
     }
 }

@@ -2,9 +2,22 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-16이며 793개 성공이다. 최신 전체 실행의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은 304개
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-16이며 803개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 면접 결과·성장 분석 구현 및 전체 회귀 (2026-09-16)
+
+- 사용자 선택 실행:
+  `.\gradlew.bat test --tests "com.interviewai.interview.service.InterviewAnalysisServiceTest" --tests "com.interviewai.interview.controller.InterviewAnalysisControllerTest" --tests "com.interviewai.interview.service.InterviewSessionServiceTest" --tests "com.interviewai.interview.controller.InterviewSessionControllerTest"` —
+  BUILD SUCCESSFUL (35초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (6분 11초).
+- 최신 XML 93개·803개 성공, 실패·오류·건너뜀 0. 신규 분석 서비스 6개와 컨트롤러 4개가 모두 성공했다.
+- V15 완료 시각, 결과의 소유권·상태·평가 완성도, 미완료 평가 제외와 반올림, 기간·필터·빈 결과·입력 경계, 답변 가중 전체 평균, 세션 동일 비중 변화량, 표본 기반 강점·약점·학습
+  로드맵을 검증했다.
+- 최초 검토에서 2~3개 세션의 이전 비교 그룹이 비는 분할을 발견해 최근 그룹이 이전 세션 하나 이상을 남기도록 수정했다. Codex는 테스트를 실행하지 않고 사용자 출력·최신 XML·실제
+  변경사항을 확인했다. OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
 
 ### 실제 OpenAI Chat·RAG 면접 전체 흐름 smoke (2026-09-16)
 

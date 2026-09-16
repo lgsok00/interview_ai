@@ -10,6 +10,14 @@
 
 ### 작성된 자동 테스트
 
+#### 면접 결과·성장 분석 — 자동 검증 완료 (2026-09-16)
+
+- `InterviewAnalysisServiceTest` 6개: 완료·부분·대기 분석 상태, 미완료 평가의 점수 제외, 소유권 은닉, 미완료 세션 거부, 기본 기간·필터·가중 평균, 최근/이전 변화량,
+  강점·약점·학습 로드맵, 빈 결과와 날짜·ID 경계를 검증한다.
+- `InterviewAnalysisControllerTest` 4개: 결과 JSON, 성장 분석 날짜·직무·기업·공고 필터 바인딩, 결과 미준비 409, 잘못된 날짜 400과 JWT 필수를 검증한다.
+- 기존 `InterviewSessionServiceTest`와 `InterviewSessionControllerTest`에 완료 시각 저장·응답 및 DTO 회귀를 반영했다.
+- 사용자 선택 실행 35초·전체 실행 6분 11초 성공. 최신 XML 93개·803개 성공, 실패·오류·건너뜀 0이다.
+
 #### Refresh Token 정리 설정 외부 환경 격리 — 검증 완료 (2026-09-16)
 
 - `RefreshTokenCleanupSchedulerConfigurationTest` 6개 성공: 명시적 활성/비활성·prod/local 기본값에 호스트 JVM 설정 격리와 명시적 테스트 override 유지

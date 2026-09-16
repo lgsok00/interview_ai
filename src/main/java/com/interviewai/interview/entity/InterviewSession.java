@@ -77,6 +77,9 @@ public class InterviewSession {
     @Column(name = "failure_code", length = 50)
     private String failureCode;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -224,8 +227,11 @@ public class InterviewSession {
     public void complete(LocalDateTime now) {
         requireStatus(InterviewSessionStatus.IN_PROGRESS);
 
+        LocalDateTime completedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+
         this.status = InterviewSessionStatus.COMPLETED;
-        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+        this.completedAt = completedAt;
+        this.updatedAt = completedAt;
     }
 
 

@@ -15,7 +15,8 @@ public record InterviewSessionSummaryResponse(
         String jobRole,
         String failureCode,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        OffsetDateTime completedAt
 ) {
 
     public static InterviewSessionSummaryResponse from(InterviewSession session) {
@@ -28,7 +29,8 @@ public record InterviewSessionSummaryResponse(
                 session.getJobRole(),
                 session.getFailureCode(),
                 session.getCreatedAt().atOffset(ZoneOffset.UTC),
-                session.getUpdatedAt().atOffset(ZoneOffset.UTC)
+                session.getUpdatedAt().atOffset(ZoneOffset.UTC),
+                session.getCompletedAt() == null ? null : session.getCompletedAt().atOffset(ZoneOffset.UTC)
         );
     }
 }

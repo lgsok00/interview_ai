@@ -22,7 +22,8 @@ public record InterviewSessionResponse(
         String resumeContent,
         String failureCode,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        OffsetDateTime completedAt
 ) {
 
     public static InterviewSessionResponse from(InterviewSession session) {
@@ -42,7 +43,8 @@ public record InterviewSessionResponse(
                 session.getResumeContent(),
                 session.getFailureCode(),
                 session.getCreatedAt().atOffset(ZoneOffset.UTC),
-                session.getUpdatedAt().atOffset(ZoneOffset.UTC)
+                session.getUpdatedAt().atOffset(ZoneOffset.UTC),
+                session.getCompletedAt() == null ? null : session.getCompletedAt().atOffset(ZoneOffset.UTC)
         );
     }
 }

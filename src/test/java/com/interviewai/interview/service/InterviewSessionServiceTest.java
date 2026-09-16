@@ -296,8 +296,10 @@ class InterviewSessionServiceTest {
         InterviewSessionResponse response = service.complete("1", 100L);
 
         assertThat(session.getStatus()).isEqualTo(InterviewSessionStatus.COMPLETED);
+        assertThat(session.getCompletedAt()).isEqualTo(NOW);
         assertThat(session.getUpdatedAt()).isEqualTo(NOW);
         assertThat(response.status()).isEqualTo(InterviewSessionStatus.COMPLETED);
+        assertThat(response.completedAt()).isEqualTo(NOW.atOffset(ZoneOffset.UTC));
     }
 
 
