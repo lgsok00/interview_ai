@@ -2,9 +2,22 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-16이며 777개 성공이다. 최신 전체 실행의 면접 테스트는 203개 성공이고, 이전 RAG·면접 선택 검증은 304개
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-16이며 793개 성공이다. 최신 전체 실행의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 답변 평가 HTTP·설정·scheduler 보강 및 전체 회귀 (2026-09-16)
+
+- 사용자 선택 실행:
+  `.\gradlew.bat test --tests "com.interviewai.interview.controller.AnswerEvaluationControllerTest" --tests "com.interviewai.interview.evaluation.*"` —
+  BUILD
+  SUCCESSFUL (29초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 26초).
+- 최신 XML 91개·793개 성공, 실패·오류·건너뜀 0. 면접 26개 클래스·219개, 답변 평가 7개 클래스·38개 성공이다. 신규 컨트롤러 5개·설정 6개·scheduler
+  5개가 모두 성공했다.
+- HTTP 202/200·JWT·오류 매핑·완료 응답, 기본/명시 설정·외부 환경 격리·값 경계·조건부 scheduler, 큐 소진·실행당 한도·예외 격리·interrupt 보존을 검증했다.
+- Codex는 테스트를 실행하지 않고 사용자 출력·최신 XML·실제 변경사항을 확인했다. OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. 실제 평가 Chat
+  네트워크 호출은 미검증이다.
 
 ### Refresh Token 정리 설정 격리 및 전체 회귀 (2026-09-16)
 
