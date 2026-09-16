@@ -2,6 +2,15 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-16 — 실제 Chat·RAG 면접 전체 흐름 smoke 성공
+
+- PowerShell smoke 스크립트를 추가해 health·로그인·세션 생성·AI 초기 질문 5개·답변·AI 꼬리 질문·비동기 평가·세션 완료를 한 흐름으로 검증했다.
+- 사용자 실행 결과 세션 3, 꼬리 질문 17, 평가 2 `COMPLETED`, STAR 18·논리성 32·직무 적합성 28, 최종 세션 `COMPLETED`로 `PASS`했다.
+- 최초 평가의 `ANSWER_EVALUATION_AI_DISABLED`는 작업 생성 당시 평가 mode가 `FALLBACK_ONLY`였기 때문이며, IntelliJ 환경을 AI로 적용하고 완전 재시작한 새 작업에서
+  성공했다.
+- Windows PowerShell 5.1을 위해 UTF-8 BOM·UTF-8 JSON 본문·호환 SecureString 변환·JSON 배열 정규화를 스크립트에 적용했다. 다음 작업은 면접 결과·성장 분석 계약
+  구체화다.
+
 ## 2026-09-16 — 답변 평가 HTTP·설정·scheduler 검증 완료
 
 - 평가 접수·조회·재시도 API의 HTTP 상태·응답·JWT·오류 매핑 5개, 설정 기본값·명시값·외부 환경 격리·경계·조건부 생성 6개, scheduler 지연·큐 소진·처리 한도·예외·interrupt

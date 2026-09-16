@@ -6,6 +6,17 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### 실제 OpenAI Chat·RAG 면접 전체 흐름 smoke (2026-09-16)
+
+- 사용자 실행: `./scripts/chat-smoke.ps1 -Email "smoke@example.com" -JobPostingId 1` — `PASS`.
+- 실제 OpenAI Chat과 Qdrant RAG를 사용해 AI 초기 질문 5개(기술 3·인성 2), 답변 저장, AI 꼬리 질문, 비동기 답변 평가, 면접 완료를 순서대로 검증했다.
+- 결과는 세션 3, 꼬리 질문 17, 평가 2 `COMPLETED`, STAR 18·논리성 32·직무 적합성 28, 세션 `COMPLETED`다.
+- 최초 평가는 저장된 `FALLBACK_ONLY` 설정으로 `ANSWER_EVALUATION_AI_DISABLED`가 발생했다. IntelliJ 실행 환경의 평가 mode/model을 AI로 적용하고 프로세스를
+  완전히 재시작한 뒤 새 평가로 성공했다. 실패 작업을 성공으로 간주하지 않았다.
+- Windows PowerShell 5.1의 UTF-8·SecureString·최상위 JSON 배열 차이를 반영해 `scripts/chat-smoke.ps1`을 보강했다. Codex는 smoke를 직접 실행하지
+  않고
+  사용자 출력을 확인했다. 이번 실행에서 Gradle 자동 테스트를 다시 실행하지 않았으며 최신 자동 회귀 기준은 793개 성공이다.
+
 ### 답변 평가 HTTP·설정·scheduler 보강 및 전체 회귀 (2026-09-16)
 
 - 사용자 선택 실행:
