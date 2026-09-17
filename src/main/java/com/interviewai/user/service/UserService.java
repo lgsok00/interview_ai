@@ -103,11 +103,9 @@ public class UserService {
     @Transactional
     public void deleteCurrentUser(String subject) {
         Long userId = parseUserId(subject);
-
-        User user = userRepository.findByIdForUpdate(userId).orElseThrow(UserNotFoundException::new);
+        userRepository.findByIdForUpdate(userId).orElseThrow(UserNotFoundException::new);
 
         List<CoverLetter> coverLetters = coverLetterRepository.findAllOwnedForUpdate(userId);
-
         List<Resume> resumes = resumeRepository.findAllOwnedForUpdate(userId);
 
         coverLetters.forEach(coverLetter ->
@@ -120,7 +118,9 @@ public class UserService {
                 .map(Resume::getStorageKey)
                 .forEach(resumeFileCleanup::deleteAfterCommit);
 
-        userRepository.delete(user);
+        userRepository.flush();
+
+        userRepository.deleteAllByIdInBatch(List.of(userId));
     }
 
 

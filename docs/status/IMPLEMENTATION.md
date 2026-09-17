@@ -127,6 +127,17 @@
 - 엔티티 단위 19개, MySQL 통합 6개, 생성 API·서비스·스냅샷 조립 14개가 성공했다. 면접 XML 6개에서 39개, 전체 XML 70개에서 603개 성공했으며 실패·오류·건너뜀은 0이다.
 - 당시 다음 단계였던 Chat Model 질문 생성·fallback·재시도·중복 방지는 2026-09-14 구현·자동 검증을 완료했다. 최신 범위는 위 초기 질문 생성 항목을 참고한다.
 
+### RAG 관리자 운영 API — 구현·검증 완료 (2026-09-17)
+
+- `GET /api/admin/rag/sources`, `GET /api/admin/rag/sources/{sourceType}/{sourceId}`로 원본 관리 행을 조회한다.
+- `GET /api/admin/rag/jobs`, `GET /api/admin/rag/jobs/{jobId}`로 작업 상태·순번·시도 횟수·실패 코드와 실행 시각을 조회한다. 개인 문서
+  제목·본문·revision·저장 키·소유자·attempt 정보는 반환하지 않는다.
+- `POST /api/admin/rag/jobs/{jobId}/retry`는 FAILED 작업의 같은 순번·스냅샷을 유지하고 실행 기회를 추가해 202를 반환한다. 최신 순번이 아닌 UPSERT와 수동 재시도 2회
+  초과는 409다.
+- `POST /api/admin/rag/sources/{sourceType}/{sourceId}/reindex`는 현재 원본을 잠그고 최신 스냅샷의 새 순번 UPSERT를 등록해 202를 반환한다. 원본 미존재는
+  404, 이력서 본문 미준비는 409다.
+- V16은 `manual_retry_count`와 0~2 범위 제약을 추가한다. 관리자 RAG 80개와 전체 916개 자동 회귀가 성공했다.
+
 ### RAG Qdrant 검색 — 실제 외부 연동 검증 완료 (2026-09-11)
 
 - `GET /api/rag/search?query=`는 JWT subject의 실제 사용자를 확인하고 앞뒤 공백을 제거한 1~100자 검색어로 Qdrant 후보 50개를 조회한다.
@@ -200,6 +211,8 @@
 - 회원 탈퇴는 회원 행을 먼저 비관적으로 잠근 뒤 자기소개서와 이력서를 ID 순서로 비관적 잠금 조회한다.
 - 잠근 모든 자기소개서·이력서에 RAG DELETE 작업을 같은 쓰기 트랜잭션으로 등록한 후 회원을 삭제해 DB cascade와 tombstone 무효화를 원자적으로 처리한다.
 - 이력서 원본 파일은 모든 RAG DELETE 등록이 끝난 뒤 커밋 후 삭제로 예약한다. RAG 등록 실패 시 회원·개인 문서와 파일을 유지하고 등록 작업도 롤백한다.
+- RAG 변경을 flush한 뒤 `deleteAllByIdInBatch`로 사용자 ID를 삭제해 DB cascade를 실행한다. 문서를 로드한 영속성 컨텍스트에서 사용자 엔티티를 직접 삭제할 때 발생하는 참조
+  오류를 방지하며 rollback 시 문서·RAG 순번·파일을 모두 유지한다.
 - `UserServiceTest` 18개와 프로젝트 전체 564개가 성공했으며 실패·오류·건너뜀은 0이다.
 
 ### 기업·채용공고 RAG 작업 등록 연결 (2026-09-08)

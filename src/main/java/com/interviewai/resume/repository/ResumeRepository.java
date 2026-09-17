@@ -18,6 +18,13 @@ public interface ResumeRepository extends JpaRepository<Resume, Long> {
 
     Optional<Resume> findByIdAndUser_Id(Long id, Long userId);
 
+    @Query("""
+            SELECT resume.user.id
+            FROM Resume resume
+            WHERE resume.id = :resumeId
+            """)
+    Optional<Long> findOwnedId(@Param("resumeId") Long resumeId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT resume

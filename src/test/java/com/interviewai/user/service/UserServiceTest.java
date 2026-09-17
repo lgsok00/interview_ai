@@ -368,7 +368,8 @@ class UserServiceTest {
             order.verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 22L);
             order.verify(resumeFileCleanup).deleteAfterCommit("1/first.pdf");
             order.verify(resumeFileCleanup).deleteAfterCommit("1/second.pdf");
-            order.verify(userRepository).delete(user);
+            order.verify(userRepository).flush();
+            order.verify(userRepository).deleteAllByIdInBatch(List.of(USER_ID));
             verifyNoInteractions(passwordEncoder, refreshTokenService);
         }
 
@@ -385,7 +386,9 @@ class UserServiceTest {
             verify(userRepository).findByIdForUpdate(USER_ID);
             verify(coverLetterRepository).findAllOwnedForUpdate(USER_ID);
             verify(resumeRepository).findAllOwnedForUpdate(USER_ID);
-            verify(userRepository).delete(user);
+            InOrder order = inOrder(userRepository);
+            order.verify(userRepository).flush();
+            order.verify(userRepository).deleteAllByIdInBatch(List.of(USER_ID));
             verifyNoInteractions(ragRegistrationService, resumeFileCleanup);
         }
 
@@ -417,6 +420,8 @@ class UserServiceTest {
             verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 21L);
             verifyNoInteractions(resumeFileCleanup);
             verify(userRepository, never()).delete(any());
+            verify(userRepository, never()).flush();
+            verify(userRepository, never()).deleteAllByIdInBatch(any());
         }
 
 
@@ -430,6 +435,8 @@ class UserServiceTest {
 
             verify(userRepository).findByIdForUpdate(USER_ID);
             verify(userRepository, never()).delete(any());
+            verify(userRepository, never()).flush();
+            verify(userRepository, never()).deleteAllByIdInBatch(any());
             verifyNoInteractions(
                     passwordEncoder,
                     refreshTokenService,

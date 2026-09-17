@@ -10,6 +10,18 @@
 
 ### 작성된 자동 테스트
 
+#### 관리자 RAG 운영 — 자동 검증 완료 (2026-09-17)
+
+- 최신 선택 실행에서 관리자 RAG 80개와 UserService 18개, 전체 회귀에서 100개 클래스·916개가 성공했다. 실패·오류·건너뜀은 0이다.
+
+- `AdminRagServiceTest` 18개: 관리자 검사, 필터·페이지·ID 경계, 원본·작업 미존재, FAILED·횟수 제한·오래된 UPSERT 차단과 DELETE 재시도. 최초 선택 실행 성공.
+- `AdminRagReindexServiceTest` 19개: 네 원본의 현재 스냅샷, 기업→공고·소유자→문서 잠금 순서, 원본·소유자·버전 미존재와 이력서 본문 미준비. 최초 선택 실행 성공.
+- `AdminRagControllerTest` 22개: 여섯 endpoint, 필터·기본 페이지, HTTP 202, 입력 오류·401·403·404·409와 제목·본문·revision·파일 키 비노출. 최초 선택
+  실행 성공.
+- `AdminRagIntegrationTest` 21개: V16 제약, JDBC 필터·UTC·페이지, 재시도 예산·payload·순번 보존, generation, 네 원본 재색인, rollback과 등록·수정·탈퇴
+  동시성을 실제 MySQL에서 검증한다.
+- `UserServiceTest` 18개와 통합 회귀: 사용자 선행 잠금, RAG 변경 flush, ID 일괄 삭제·DB cascade, 커밋 후 파일 삭제와 rollback 보존을 검증한다.
+
 #### 관리자 사용자 관리 — 자동 검증 완료 (2026-09-17)
 
 - `AdminUserServiceTest` 16개: 검색 escape·필터·정렬·빈 목록, 페이지·검색어·ID 경계, 관리자 검사, 조회·미존재, 승격·강등·자기 강등 거부·동일 역할 멱등성, 잠금 대기 중 호출자

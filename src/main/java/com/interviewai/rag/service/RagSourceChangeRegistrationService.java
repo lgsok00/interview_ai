@@ -16,8 +16,8 @@ import java.util.Objects;
 @Service
 public class RagSourceChangeRegistrationService {
 
-    private static final String PIPELINE_VERSION = "rag-v1";
-    private static final int MAX_ATTEMPTS = 3;
+    static final String PIPELINE_VERSION = "rag-v1";
+    static final int MAX_ATTEMPTS = 3;
 
     private final RagSourceSnapshotFactory snapshotFactory;
     private final RagIndexJobRegistrationService jobRegistrationService;

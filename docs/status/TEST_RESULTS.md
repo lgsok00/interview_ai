@@ -2,10 +2,55 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-17이며 836개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-17이며 916개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 관리자 RAG·회원 탈퇴 선택 및 전체 회귀 성공 (2026-09-17)
+
+- 사용자 선택 실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.AdminRag*" --tests "com.interviewai.rag.controller.AdminRagControllerTest" --tests "com.interviewai.user.service.UserServiceTest"` —
+  BUILD SUCCESSFUL (32초).
+- 선택 범위 XML 8개·98개 성공, 실패·오류·건너뜀 0: `AdminRagServiceTest` 18개, `AdminRagReindexServiceTest` 19개,
+  `AdminRagControllerTest` 22개, `AdminRagIntegrationTest` 21개와 UserService 18개다.
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 45초). 최신 XML 100개·916개 성공, 실패·오류·건너뜀 0.
+- V16 기본값·범위 제약, 관리자 권한·필터·페이지·UTC 시각, 재시도 예산·스냅샷·순번 보존, 오래된 UPSERT 차단·DELETE 허용, 현재 원본 새 순번 재색인을 검증했다.
+- 네 원본 유형의 잠금 순서, 활성 generation 유지·교체, 늦은 attempt 차단, 최초 등록 경합, 수정·회원 탈퇴 경합, 등록·재시도·탈퇴 rollback 및 커밋 후 파일 정리를 실제 MySQL에서
+  확인했다.
+- 운영 HTTP는 6개 endpoint의 인증·바인딩·202·오류 응답과 제목·본문·revision·파일 키·소유자·attempt 비노출을 검증했다.
+- 회원 탈퇴는 사용자 행을 먼저 잠그고 RAG 변경을 flush한 뒤 사용자 ID 일괄 삭제로 DB cascade를 실행한다. 이를 통해 관리 중인 문서가 삭제 사용자 엔티티를 참조하던 JPA flush 오류를
+  방지한다.
+- Codex는 테스트를 실행하지 않고 사용자 출력·최신 XML·실제 변경사항을 확인했다. OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
+
+### 관리자 RAG·UserService 재실행 — 사용자 선행 잠금 누락 (2026-09-17)
+
+- 사용자 실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.AdminRag*" --tests "com.interviewai.rag.controller.AdminRagControllerTest" --tests "com.interviewai.user.service.UserServiceTest"`.
+- 출력은 중간에 잘려 종료 문구·소요 시간은 확인하지 않았다. 최신 XML 8개·98개 중 94개 성공, 4개 실패, 오류·건너뜀 0을 확인했다.
+- 관리자 RAG 서비스 18개·재색인 19개·HTTP 22개·MySQL 통합 21개는 모두 성공했다. 기존 MANDATORY spy 설정·삭제 참조 오류 관련 실패는 이번 실행에서 발생하지 않았다.
+- UserService 18개 중 4개 실패. `deleteCurrentUser`에 flush·ID 일괄 삭제를 반영하면서 사용자 `findByIdForUpdate` 호출이 빠져 호출 순서·미존재 오류 계약을
+  위반했고 불필요한 Mockito stubbing 오류도 발생했다.
+- 사용자 존재 확인·선행 잠금을 문서 조회 전에 복원하는 코드를 제시했다. 테스트 기대값을 완화하지 않는다.
+- 삭제 경합 통합 테스트는 준비 트랜잭션에서 사용자 잠금을 획득한다. 따라서 통합 테스트 통과는 서비스 자체의 잠금 획득을 증명하지 않으며 현재 단위 테스트가 누락을 검출했다.
+- Codex는 테스트를 직접 실행하지 않았다. 복원 후 선택 재실행·전체 회귀는 대기다.
+
+### 관리자 RAG 선택 실행 실패·원인 분석 (2026-09-17)
+
+- 사용자 실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.AdminRag*" --tests "com.interviewai.rag.controller.AdminRagControllerTest"` —
+  BUILD FAILED (45초).
+- XML 4개·79개 중 73개 성공, 6개 실패, 오류·건너뜀 0. 서비스 18개·재색인 서비스 19개·HTTP 22개는 성공했고 MySQL 통합 20개 중 6개가 실패했다.
+- 롤백 테스트 두 곳의 `doThrow`/`doAnswer` 설정이 MANDATORY 프록시를 호출해 `IllegalTransactionStateException`을 일으켰다. 미완성 Mockito 설정이 후속
+  테스트의 null 응답·UnfinishedStubbingException으로 이어졌다.
+- `AopTestUtils.getUltimateTargetObject`로 실제 spy를 얻어 설정하도록 테스트를 수정했다. 서비스 실행은 기존 트랜잭션 프록시를 계속 경유한다.
+- 소유자 삭제 경합 두 경우에는 관리 중인 CoverLetter/Resume가 제거된 User를 참조해 flush에서 `TransientPropertyValueException`이 발생했다. 기존
+  UserService도 같은 삭제 흐름임을 코드로 확인했다.
+- 삭제 경합 테스트를 수동 모사 대신 실제 UserService 호출로 변경하고 탈퇴 롤백 시 문서·순번·파일 보존 테스트를 추가했다. 현재 통합 테스트는 21개이며 추가·수정분은 실행 대기다.
+- UserService의 `delete(user)`를 `flush()` 후 `deleteAllByIdInBatch(List.of(userId))`로 바꾸는 수정안을 제공했다. 해당 애플리케이션 변경은 아직 반영되지
+  않았으며 UserServiceTest는 수정 계약에 맞춰 준비했다.
+- 현재 서비스 단위 테스트의 Optional 반환 stubbing은 연속 `thenReturn` 형태로 변경되어 있다. 이전 실행의 unchecked 경고 해소 여부는 재컴파일 확인 대기다.
+- Codex는 사용자 출력·XML·코드를 확인했으며 테스트를 직접 실행하지 않았다. 전체 회귀는 대기이고 완료로 기록하지 않는다.
 
 ### 관리자 사용자 관리 MySQL 통합 및 전체 회귀 (2026-09-17)
 

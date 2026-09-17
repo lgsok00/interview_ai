@@ -18,6 +18,13 @@ public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> 
 
     Optional<CoverLetter> findByIdAndUser_Id(Long id, Long userId);
 
+    @Query("""
+            SELECT coverLetter.user.id
+            FROM CoverLetter coverLetter
+            WHERE coverLetter.id = :coverLetterId
+            """)
+    Optional<Long> findOwnedId(@Param("coverLetterId") Long coverLetterId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT coverLetter

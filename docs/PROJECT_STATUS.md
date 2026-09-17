@@ -22,7 +22,8 @@
 | RAG 외부 색인            | 구현·전체 회귀 검증 완료: 700/100 token chunk·Processor·scheduler·Spring AI·Qdrant 연결 |
 | RAG 외부 검색            | 구현·전체 회귀 검증 완료: 인증 범위 metadata·활성 generation·원본 존재/소유권·Top-K 5              |
 | RAG 실제 외부 연동         | 검증 완료: 실제 OpenAI embedding·Qdrant 네트워크 UPSERT·개인 검색·DELETE smoke test       |
-| 회원 탈퇴 RAG 정리         | 구현·검증 완료: 개인 문서 잠금·DELETE 등록·cascade 삭제·커밋 후 이력서 파일 정리                      |
+| 회원 탈퇴 RAG 정리         | 구현·검증 완료: 사용자 선행 잠금, 개인 문서 DELETE, flush·DB cascade, 커밋 후 파일 정리             |
+| RAG 관리자 운영           | 구현·검증 완료: 원본·작업 조회, 실패 작업 재시도, 현재 원본 새 순번 재색인, 민감 내용 비노출                    |
 | 운영 실행 기반             | profile·컨테이너·health·OAuth2 proxy·로그·정리 scheduler 정책 검증 완료                   |
 | 면접 세션 생성             | 구현·검증 완료: 생성 API·대표 문서 자동 선택·현재 버전/추출 본문 스냅샷·미설정 생략                         |
 | 면접 세션 영속 기반          | 구현·검증 완료: V10·세션/질문 스냅샷·상태 전이·질문 순서·원본 비의존·cascade                          |
@@ -35,13 +36,35 @@
 
 ## 다음 작업
 
-1. RAG 관리자 원본·작업 조회, 실패 작업 재시도와 현재 원본 재색인 구현을 진행한다.
-2. 실패 작업 재시도와 현재 원본의 새 순번 재색인 계약을 구분하고 운영 API가 개인 문서 본문을 노출하지 않도록 설계한다.
-3. 사용자 정지·강제 삭제, 외부 수집·AI 문서 초안은 후속 범위다.
+1. 관리자 사용자 정지·강제 삭제의 상태 모델, 인증 차단, 마지막 관리자 보호와 개인 문서 RAG 정리 계약을 구체화한다.
+2. 외부 수집·AI 문서 초안은 후속 범위다.
 
 자기소개서 PDF 업로드는 이력서의 파일 저장·검증·추출 기반을 공통화하는 별도 후속 작업이다. 실제 배포 환경 선정은 MVP 핵심 흐름 완성 이후 진행한다.
 
 ## 최신 검증
+
+- 실행일: 2026-09-17 — 관리자 RAG·UserService 선택 실행 BUILD SUCCESSFUL (32초).
+- 사용자 실행:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.AdminRag*" --tests "com.interviewai.rag.controller.AdminRagControllerTest" --tests "com.interviewai.user.service.UserServiceTest"`.
+- 선택 범위 XML 8개·98개 성공, 실패·오류·건너뜀 0: 관리자 RAG 80개와 UserService 18개다.
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 45초). 최신 XML 100개·916개 성공, 실패·오류·건너뜀 0.
+- 원본·작업 조회와 개인 문서 내용 비노출, 같은 작업 재시도, 새 순번 재색인, V16, rollback·generation·동시성 및 회원 탈퇴 잠금·cascade·파일 정리를 검증했다.
+- Codex는 테스트를 실행하지 않고 사용자 출력·최신 XML·실제 변경사항을 확인했다. OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
+- 아래 실패 기록은 수정 과정의 진단 이력이다.
+
+- 실행일: 2026-09-17 — 관리자 RAG·UserService 선택 재실행 XML 8개·98개 중 94개 성공, 4개 실패, 오류·건너뜀 0.
+- 명령:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.AdminRag*" --tests "com.interviewai.rag.controller.AdminRagControllerTest" --tests "com.interviewai.user.service.UserServiceTest"`.
+- 관리자 RAG 80개는 전부 성공했다. 실패 4개는 회원 탈퇴의 사용자 잠금·존재 검사 호출이 빠져 발생했다. 해당 호출 복원과 전체 회귀는 대기다.
+- 삭제 경합 통합 테스트는 준비 트랜잭션에서 사용자 잠금을 먼저 잡으므로 이 성공만으로 UserService 내부의 선행 잠금이 검증됐다고 판단하지 않는다.
+- 아래 79개 실행은 수정 전 기록이다.
+
+- 실행일: 2026-09-17 — 관리자 RAG 선택 실행 BUILD FAILED (45초). XML 4개·79개 중 73개 성공, 6개 실패, 오류·건너뜀 0.
+- 실행 명령:
+  `.\gradlew.bat test --tests "com.interviewai.rag.service.AdminRag*" --tests "com.interviewai.rag.controller.AdminRagControllerTest"`.
+- 통합 테스트의 MANDATORY 프록시 stubbing 실패 2개와 후속 오염 2개, 문서를 로드한 상태의 사용자 JPA 삭제 실패 2개를 확인했다.
+- 실제 spy에 stubbing하도록 수정했고 실제 UserService를 통한 삭제 경합·롤백 회귀를 준비했다. 애플리케이션 삭제 수정과 재실행은 대기다. Codex는 테스트를 실행하지 않았다.
+- 아래 전체 836개 성공은 이번 변경 전 검증 기준이다.
 
 - 실행일: 2026-09-17 — 관리자 사용자 관리 MySQL 통합 및 전체 회귀 성공.
 - 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.user.service.AdminUserServiceIntegrationTest"` — BUILD
@@ -226,8 +249,8 @@
 - Java 21, Gradle Wrapper 9.5.1, Spring Boot 4.1.0, MySQL 8.4 및 Flyway
 - 기본 profile: `local`, 기본 서버 포트: `8080`
 - 브랜치: `main`
-- 이번 확인한 HEAD: `8ef2bf1 feat(user): 관리자 사용자 조회 및 역할 변경 API 추가`
-- 관리자 MySQL 통합 테스트와 검증 문서는 작업 트리에서 커밋 대기다. 최신 전체 검증은 96개 클래스·836개 성공이다.
+- 이번 확인한 HEAD: `79851f7 test(user): 관리자 사용자 MySQL 동시성 통합 테스트 추가`
+- 관리자 RAG 구현·테스트·검증 문서가 작업 트리에서 커밋 대기다. 최신 전체 검증은 100개 클래스·916개 성공이다.
 
 ## 문서 갱신 규칙
 
