@@ -7,6 +7,17 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### 관리자 사용자 관리 선택 검증 (2026-09-17)
+
+- 사용자 실행:
+  `.\gradlew.bat test --tests "com.interviewai.user.service.AdminUserServiceTest" --tests "com.interviewai.user.controller.AdminUserControllerTest"` —
+  BUILD SUCCESSFUL (34초).
+- 실제 XML: `AdminUserServiceTest` 16개, `AdminUserControllerTest` 13개, 총 29개 성공. 실패·오류·건너뜀 0.
+- 검색 필터·escape·페이지 경계, 사용자 조회·미존재, 승격·강등·자기 강등 거부·멱등성, HTTP 바인딩·검증 오류·민감 필드 제외·JWT 필수·403/404/409를 검증했다.
+- 잠금 대기 중 강등된 호출자를 최신 관리자 잠금 조회 결과의 ID로 재확인하는 수정이 반영됐다. 해당 회귀는 mock 기반이며 실제 DB 동시성 증명은 아니다.
+- 실제 MySQL 검색·잠금·동시 강등 통합 검증과 이번 변경의 전체 회귀는 대기다. Codex는 테스트를 실행하지 않고 사용자 출력·XML·반영 코드를 확인했다.
+- OpenJDK class-data sharing 경고는 이번 성공 결과에 영향을 주지 않았다.
+
 ### 면접 결과·성장 분석 구현 및 전체 회귀 (2026-09-16)
 
 - 사용자 선택 실행:

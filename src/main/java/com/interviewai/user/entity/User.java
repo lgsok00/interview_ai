@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Getter
@@ -91,6 +92,11 @@ public class User {
 
     public void changePassword(String encodedPassword) {
         this.passwordHash = encodedPassword;
+    }
+
+
+    public void changeRole(UserRole role) {
+        this.role = Objects.requireNonNull(role, "role은 필수입니다.");
     }
 
 

@@ -2,13 +2,17 @@ package com.interviewai.user.repository;
 
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
+import com.interviewai.user.enums.UserRole;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -27,4 +31,30 @@ public interface UserRepository extends JpaRepository<User, Long> {
             WHERE user.id = :userId
             """)
     Optional<User> findByIdForUpdate(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT user
+            FROM User user
+            WHERE (
+                LOWER(user.email) LIKE LOWER(:pattern) ESCAPE '!'
+                OR LOWER(user.nickname) LIKE LOWER(:pattern) ESCAPE '!'
+            )
+            AND (:role IS NULL OR user.role = :role)
+            AND (:provider IS NULL OR user.provider = :provider)
+            """)
+    Page<User> searchForAdmin(
+            @Param("pattern") String pattern,
+            @Param("role") UserRole role,
+            @Param("provider") AuthProvider provider,
+            Pageable pageable
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT user
+            FROM User user
+            WHERE user.role = com.interviewai.user.enums.UserRole.ADMIN
+            ORDER BY user.id
+            """)
+    List<User> findAllAdminsForUpdate();
 }

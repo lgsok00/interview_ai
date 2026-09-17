@@ -16,6 +16,21 @@
 
 ## 현재 구현된 기능
 
+### 관리자 사용자 관리 — 구현·선택 검증, DB 통합·전체 회귀 대기 (2026-09-17)
+
+- `GET /api/admin/users`: 이메일·닉네임 부분 검색, role/provider 필터, 기본 page 0·size 20(최대 100), `createdAt DESC, id DESC` 정렬. 검색어는
+  trim 후 최대 100자이며 LIKE 특수문자를 escape한다.
+- `GET /api/admin/users/{userId}`: 사용자 상세. 응답은 id·email·nickname·provider·role·createdAt·updatedAt이고
+  passwordHash·providerId는 제외한다.
+- `PATCH /api/admin/users/{userId}/role`: 필수 role(USER/ADMIN), 동일 역할은 멱등 반환, 성공은 200과 사용자 DTO다. Refresh Token 폐기는 추가하지
+  않았다.
+- DB ADMIN 검사 후 전체 관리자 행을 ID순 쓰기 잠금하고 결과에 호출자 ID가 남아 있는지 확인한다. 잠금 대기 중 강등된 호출자는 403 FORBIDDEN이다. 대상이 관리자 목록에 없으면 대상 행을
+  별도로 잠근다.
+- 자기 강등은 409 ADMIN_SELF_DEMOTION_NOT_ALLOWED이며 마지막 관리자 검사보다 우선한다. 마지막 관리자 강등 방어 분기도 포함하지만 회원 탈퇴 경로 전체에 마지막 관리자 보존 정책이
+  적용된 것은 아니다.
+- 기존 User 역할 컬럼을 사용하며 신규 migration은 없다. 기존 CatalogException·GlobalExceptionHandler·ErrorResponse를 재사용한다.
+- 서비스 16개·HTTP 13개 성공. 실제 MySQL 검색·잠금 동시성과 전체 회귀는 검증 대기다.
+
 ### 면접 결과와 성장 분석 — 구현·자동 검증 완료 (2026-09-16)
 
 - V15는 면접 세션에 nullable `completed_at`과 사용자·상태·완료 시각 인덱스를 추가하고 기존 완료 세션은 `updated_at`으로 backfill한다. 완료 상태와 완료 시각의 정합성을
