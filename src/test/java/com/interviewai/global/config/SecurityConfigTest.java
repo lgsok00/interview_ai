@@ -3,10 +3,13 @@ package com.interviewai.global.config;
 import com.interviewai.auth.controller.AuthController;
 import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.dto.SignupResponse;
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.AuthService;
 import com.interviewai.auth.service.GithubOAuth2UserService;
+import com.interviewai.user.entity.User;
+import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,22 +31,22 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.Optional;
 
+import static com.interviewai.support.AuthFixtures.localUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
 @Import({
         SecurityConfig.class,
+        UserStatusAuthenticationFilter.class,
         SecurityConfigTest.ProtectedTestController.class
 })
 @TestPropertySource(properties = {
@@ -76,6 +79,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private GithubOAuth2UserService githubOAuth2UserService;
+
+    @MockitoBean
+    private UserRepository userRepository;
 
 
     @Autowired
@@ -146,6 +152,8 @@ class SecurityConfigTest {
     @Test
     @DisplayName("유효한 JWT가 있으면 보호된 endpoint에 접근할 수 있다")
     void allowsProtectedEndpointWithValidJwt() throws Exception {
+        User user = localUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         String accessToken = issueAccessToken();
 
         mockMvc.perform(
@@ -157,6 +165,32 @@ class SecurityConfigTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().string("authenticated"));
+    }
+
+
+    @Test
+    @DisplayName("정지 전에 발급된 JWT도 보호된 endpoint에서 차단한다")
+    void rejectsSuspendedUserWithPreviouslyIssuedJwt() throws Exception {
+        User user = localUser();
+        user.suspend(java.time.LocalDateTime.now());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        mockMvc.perform(get("/api/security-test/protected")
+                        .header("Authorization", "Bearer " + issueAccessToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("USER_SUSPENDED"));
+    }
+
+
+    @Test
+    @DisplayName("삭제된 사용자의 기존 JWT는 유효하지 않은 토큰으로 처리한다")
+    void rejectsDeletedUserWithPreviouslyIssuedJwt() throws Exception {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/security-test/protected")
+                        .header("Authorization", "Bearer " + issueAccessToken()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_ACCESS_TOKEN"));
     }
 
 

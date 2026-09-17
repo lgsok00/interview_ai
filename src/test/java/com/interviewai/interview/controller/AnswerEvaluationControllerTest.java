@@ -1,5 +1,7 @@
 package com.interviewai.interview.controller;
 
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
+import com.interviewai.user.repository.UserRepository;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
@@ -27,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AnswerEvaluationController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, UserStatusAuthenticationFilter.class})
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h", "auth.jwt.refresh-token-expiration=14d",
@@ -42,11 +44,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class AnswerEvaluationControllerTest {
-
     private static final String ENDPOINT = "/api/interview-sessions/10/answers/30/evaluation";
     private static final LocalDateTime CREATED_AT = LocalDateTime.parse("2026-09-16T10:00:00");
     private static final LocalDateTime COMPLETED_AT = LocalDateTime.parse("2026-09-16T10:00:03");
-
+    @MockitoBean
+    UserRepository userRepository;
     @Autowired
     MockMvc mvc;
 

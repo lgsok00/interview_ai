@@ -28,6 +28,7 @@ import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.UserRole;
 import com.interviewai.user.repository.UserRepository;
+import com.interviewai.user.service.UserDeletionService;
 import com.interviewai.user.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,7 +77,8 @@ import static org.mockito.Mockito.*;
         AdminAuthorizationService.class, RagSourceSnapshotFactory.class,
         RagIndexSequenceService.class, RagIndexJobRegistrationService.class,
         RagIndexJobExecutionRepository.class, RagIndexJobExecutionService.class,
-        UserService.class, RagSourceChangeRegistrationService.class, ResumeFileTransactionCleanup.class,
+        UserService.class, UserDeletionService.class, RagSourceChangeRegistrationService.class,
+        ResumeFileTransactionCleanup.class,
         AdminRagIntegrationTest.TimeConfig.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AdminRagIntegrationTest extends MySqlIntegrationTest {

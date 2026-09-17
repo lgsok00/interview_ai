@@ -6,6 +6,7 @@ import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.auth.service.GithubOAuth2LoginService;
 import com.interviewai.auth.service.GoogleOAuth2LoginService;
 import com.interviewai.global.error.ErrorResponse;
+import com.interviewai.user.exception.UserSuspendedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
@@ -63,6 +64,14 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
             response.setStatus(HttpServletResponse.SC_OK);
             objectMapper.writeValue(response.getWriter(), loginResponse);
+
+        } catch (UserSuspendedException exception) {
+            writeError(
+                    response,
+                    HttpServletResponse.SC_FORBIDDEN,
+                    "USER_SUSPENDED",
+                    exception.getMessage()
+            );
 
         } catch (OAuth2EmailConflictException exception) {
             writeError(

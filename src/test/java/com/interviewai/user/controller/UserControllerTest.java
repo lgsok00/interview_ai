@@ -1,19 +1,21 @@
 package com.interviewai.user.controller;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
 import com.interviewai.global.config.SecurityConfig;
-import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.dto.ChangePasswordRequest;
+import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
-import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.exception.InvalidCurrentPasswordException;
 import com.interviewai.user.exception.PasswordChangeNotSupportedException;
 import com.interviewai.user.exception.SamePasswordException;
+import com.interviewai.user.exception.UserNotFoundException;
+import com.interviewai.user.repository.UserRepository;
 import com.interviewai.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,13 +29,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, UserStatusAuthenticationFilter.class})
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h",
@@ -49,11 +49,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class UserControllerTest {
-
     private static final Long USER_ID = 1L;
     private static final String EMAIL = "user@example.com";
     private static final String NICKNAME = "테스트유저";
-
+    @MockitoBean
+    UserRepository userRepository;
     @Autowired
     private MockMvc mockMvc;
 

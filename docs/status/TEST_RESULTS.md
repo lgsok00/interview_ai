@@ -2,10 +2,20 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-17이며 916개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-17이며 934개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 관리자 사용자 정지·강제 삭제 선택 및 전체 회귀 성공 (2026-09-17)
+
+- 사용자 선택 실행:
+  `.\gradlew.bat test --tests "com.interviewai.user.*" --tests "com.interviewai.auth.service.AuthServiceTest" --tests "com.interviewai.auth.service.RefreshTokenServiceTest" --tests "com.interviewai.auth.service.GoogleOAuth2LoginServiceTest" --tests "com.interviewai.auth.service.GithubOAuth2LoginServiceTest" --tests "com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandlerTest" --tests "com.interviewai.global.config.SecurityConfigTest"` —
+  BUILD SUCCESSFUL (46초).
+- 선택 XML 20개·161개 성공, 실패·오류·건너뜀 0.
+- `AdminRagIntegrationTest` 재실행 — BUILD SUCCESSFUL (36초), 21개 성공. 공통 사용자 삭제 서비스의 RAG·rollback 회귀를 확인했다.
+- 전체 실행 `.\gradlew.bat test` — BUILD SUCCESSFUL (5분 41초). XML 101개·934개 성공, 실패·오류·건너뜀 0.
+- 최초 전체 실행은 934개 중 913개 성공·21개 컨텍스트 실패였다. 제한된 JPA 테스트 구성에 `UserDeletionService`를 추가한 뒤 선택·전체 재실행이 성공했다.
 
 ### 관리자 RAG·회원 탈퇴 선택 및 전체 회귀 성공 (2026-09-17)
 

@@ -5,6 +5,7 @@ import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.auth.service.GithubOAuth2LoginService;
 import com.interviewai.auth.service.GoogleOAuth2LoginService;
+import com.interviewai.user.exception.UserSuspendedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -172,6 +173,21 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getContentAsString()).contains("INVALID_OAUTH2_USER");
+    }
+
+
+    @Test
+    @DisplayName("정지된 OAuth2 사용자는 403 오류를 반환한다")
+    void returnsForbiddenForSuspendedUser() throws Exception {
+        OAuth2AuthenticationToken authentication = googleAuthentication();
+        OidcUser oidcUser = oidcPrincipal(authentication);
+        when(googleOAuth2LoginService.login(oidcUser))
+                .thenThrow(new UserSuspendedException());
+
+        successHandler.onAuthenticationSuccess(request, response, authentication);
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("USER_SUSPENDED");
     }
 
 

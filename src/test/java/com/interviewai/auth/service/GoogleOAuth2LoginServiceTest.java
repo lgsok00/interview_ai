@@ -5,6 +5,7 @@ import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
+import com.interviewai.user.exception.UserSuspendedException;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,21 @@ class GoogleOAuth2LoginServiceTest {
         assertTokenResponse(response);
         verify(userRepository, never()).existsByEmail(anyString());
         verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    @DisplayName("정지된 기존 Google 사용자는 로그인할 수 없다")
+    void rejectsSuspendedGoogleUser() {
+        User user = googleUser();
+        user.suspend(java.time.LocalDateTime.now());
+        stubValidOidcUser();
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, PROVIDER_ID))
+                .thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> googleOAuth2LoginService.login(oidcUser))
+                .isInstanceOf(UserSuspendedException.class);
+
+        verifyNoInteractions(jwtTokenService, refreshTokenService);
     }
 
 

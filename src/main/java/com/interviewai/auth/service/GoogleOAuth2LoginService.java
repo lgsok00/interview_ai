@@ -5,6 +5,7 @@ import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
+import com.interviewai.user.exception.UserSuspendedException;
 import com.interviewai.user.repository.UserRepository;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,10 @@ public class GoogleOAuth2LoginService {
         User user = userRepository
                 .findByProviderAndProviderId(AuthProvider.GOOGLE, providerId)
                 .orElseGet(() -> createGoogleUser(email, oidcUser.getFullName(), providerId));
+
+        if (!user.isActive()) {
+            throw new UserSuspendedException();
+        }
 
         JwtTokenService.IssuedAccessToken accessToken = jwtTokenService.issueAccessToken(user);
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);

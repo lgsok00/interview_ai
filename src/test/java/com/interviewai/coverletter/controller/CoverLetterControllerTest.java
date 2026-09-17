@@ -1,5 +1,6 @@
 package com.interviewai.coverletter.controller;
 
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
@@ -12,6 +13,7 @@ import com.interviewai.coverletter.exception.CoverLetterVersionNotFoundException
 import com.interviewai.coverletter.exception.RepresentativeCoverLetterNotFoundException;
 import com.interviewai.coverletter.service.CoverLetterService;
 import com.interviewai.global.config.SecurityConfig;
+import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(CoverLetterController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, UserStatusAuthenticationFilter.class})
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h",
@@ -47,11 +49,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class CoverLetterControllerTest {
-
     private static final Long USER_ID = 1L;
     private static final Long COVER_LETTER_ID = 10L;
     private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 9, 3, 10, 0);
-
+    @MockitoBean
+    UserRepository userRepository;
     @Autowired
     private MockMvc mockMvc;
 

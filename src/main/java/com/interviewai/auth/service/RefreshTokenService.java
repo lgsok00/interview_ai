@@ -5,6 +5,7 @@ import com.interviewai.auth.exception.InvalidRefreshTokenException;
 import com.interviewai.auth.repository.RefreshTokenRepository;
 import com.interviewai.global.config.JwtProperties;
 import com.interviewai.user.entity.User;
+import com.interviewai.user.exception.UserSuspendedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,10 @@ public class RefreshTokenService {
 
     @Transactional
     public IssuedRefreshToken issue(User user) {
+        if (!user.isActive()) {
+            throw new UserSuspendedException();
+        }
+
         String rawToken = generateToken();
         Instant expiresAt = Instant.now().plus(jwtProperties.refreshTokenExpiration());
 
@@ -59,6 +64,10 @@ public class RefreshTokenService {
                 .orElseThrow(InvalidRefreshTokenException::new);
 
         if (refreshToken.isExpired(Instant.now())) {
+            throw new InvalidRefreshTokenException();
+        }
+
+        if (!refreshToken.getUser().isActive()) {
             throw new InvalidRefreshTokenException();
         }
 

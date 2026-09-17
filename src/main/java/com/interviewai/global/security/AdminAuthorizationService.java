@@ -43,7 +43,7 @@ public class AdminAuthorizationService {
     public User requireAdmin(String subject) {
         User user = requireUser(subject);
 
-        if (user.getRole() != UserRole.ADMIN) {
+        if (user.getRole() != UserRole.ADMIN || !user.isActive()) {
             throw new CatalogException(HttpStatus.FORBIDDEN, "FORBIDDEN", "관리자 권한이 필요합니다.");
         }
 

@@ -5,6 +5,7 @@ import com.interviewai.auth.exception.InvalidRefreshTokenException;
 import com.interviewai.auth.repository.RefreshTokenRepository;
 import com.interviewai.global.config.JwtProperties;
 import com.interviewai.user.entity.User;
+import com.interviewai.user.exception.UserSuspendedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,6 +75,19 @@ class RefreshTokenServiceTest {
 
 
     @Test
+    @DisplayName("정지 사용자에게 Refresh Token을 발급하지 않는다")
+    void rejectsIssuingTokenForSuspendedUser() {
+        User user = localUser();
+        user.suspend(java.time.LocalDateTime.now());
+
+        assertThatThrownBy(() -> refreshTokenService.issue(user))
+                .isInstanceOf(UserSuspendedException.class);
+
+        verifyNoInteractions(refreshTokenRepository);
+    }
+
+
+    @Test
     @DisplayName("유효한 Refresh Token을 새로운 토큰으로 회전한다")
     void rotatesValidRefreshToken() {
         User user = localUser();
@@ -128,6 +142,27 @@ class RefreshTokenServiceTest {
         assertThatThrownBy(() -> refreshTokenService.rotate(rawToken)).isInstanceOf(InvalidRefreshTokenException.class);
 
         assertThat(expiredToken.getTokenHash()).isEqualTo(hash(rawToken));
+    }
+
+
+    @Test
+    @DisplayName("정지 사용자의 기존 Refresh Token을 회전하지 않는다")
+    void rejectsSuspendedUsersRefreshToken() {
+        User user = localUser();
+        user.suspend(java.time.LocalDateTime.now());
+        String rawToken = "suspended-user-token";
+        RefreshToken savedToken = RefreshToken.create(
+                user,
+                hash(rawToken),
+                Instant.now().plus(Duration.ofDays(1))
+        );
+        when(refreshTokenRepository.findByTokenHashForUpdate(hash(rawToken)))
+                .thenReturn(Optional.of(savedToken));
+
+        assertThatThrownBy(() -> refreshTokenService.rotate(rawToken))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        assertThat(savedToken.getTokenHash()).isEqualTo(hash(rawToken));
     }
 
 

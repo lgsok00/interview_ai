@@ -3,6 +3,7 @@ package com.interviewai.user.repository;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
+import com.interviewai.user.enums.UserStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,11 +42,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             )
             AND (:role IS NULL OR user.role = :role)
             AND (:provider IS NULL OR user.provider = :provider)
+            AND (:status IS NULL OR user.status = :status)
             """)
     Page<User> searchForAdmin(
             @Param("pattern") String pattern,
             @Param("role") UserRole role,
             @Param("provider") AuthProvider provider,
+            @Param("status") UserStatus status,
             Pageable pageable
     );
 

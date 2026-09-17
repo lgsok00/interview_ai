@@ -16,7 +16,7 @@
 
 ## 현재 구현된 기능
 
-### 관리자 사용자 관리 — 구현·자동 검증 완료 (2026-09-17)
+### 관리자 사용자 관리 — 정지·강제 삭제 포함 구현·자동 검증 완료 (2026-09-17)
 
 - `GET /api/admin/users`: 이메일·닉네임 부분 검색, role/provider 필터, 기본 page 0·size 20(최대 100), `createdAt DESC, id DESC` 정렬. 검색어는
   trim 후 최대 100자이며 LIKE 특수문자를 escape한다.
@@ -26,11 +26,15 @@
   않았다.
 - DB ADMIN 검사 후 전체 관리자 행을 ID순 쓰기 잠금하고 결과에 호출자 ID가 남아 있는지 확인한다. 잠금 대기 중 강등된 호출자는 403 FORBIDDEN이다. 대상이 관리자 목록에 없으면 대상 행을
   별도로 잠근다.
-- 자기 강등은 409 ADMIN_SELF_DEMOTION_NOT_ALLOWED이며 마지막 관리자 검사보다 우선한다. 마지막 관리자 강등 방어 분기도 포함하지만 회원 탈퇴 경로 전체에 마지막 관리자 보존 정책이
-  적용된 것은 아니다.
+- V17로 `ACTIVE`·`SUSPENDED` 상태와 정지 시각, 상태·시각 정합성 CHECK 및 상태·역할·ID 인덱스를 추가했다. 목록은 상태 필터를 지원하고 상세 응답에 상태·정지 시각을 포함한다.
+- `PATCH /api/admin/users/{userId}/status`는 정지·복구를 멱등 처리한다. 정지는 Refresh Token을 전부 폐기하며 자기 정지와 마지막 활성 관리자 제거를 막는다.
+- `DELETE /api/admin/users/{userId}`는 자기 강제 삭제를 막고 Refresh Token 폐기 후 회원 탈퇴와 같은 공통 삭제 서비스를 사용한다. 개인 문서 RAG DELETE 등록, DB
+  cascade와 이력서 파일의 커밋 후 정리를 유지한다.
+- 로컬·Google·GitHub 로그인과 Refresh Token 발급·회전을 차단하며, JWT 인증 뒤 DB 상태 필터가 정지 전 발급된 Access Token과 삭제 사용자의 토큰도 각각 403·401로
+  거부한다.
+- 자기 강등은 409 ADMIN_SELF_DEMOTION_NOT_ALLOWED이며 마지막 관리자 검사보다 우선한다. 회원 탈퇴도 전체 관리자 행을 먼저 잠그고 마지막 활성 관리자의 탈퇴를 막는다.
 - 기존 User 역할 컬럼을 사용하며 신규 migration은 없다. 기존 CatalogException·GlobalExceptionHandler·ErrorResponse를 재사용한다.
-- 서비스 16개·HTTP 13개와 MySQL 통합 4개가 성공했다. 실제 MySQL 검색·필터·LIKE escape·페이지 정렬, 관리자 잠금 직렬화와 동시 상호 강등 시 관리자 1명 보존을 포함해 전체 836개
-  회귀 검증을 완료했다.
+- 관리자·사용자·인증·보안 선택 161개와 전체 934개가 성공했다. 실제 MySQL 검색·필터·LIKE escape·페이지 정렬, 관리자 잠금 직렬화와 동시 상호 강등, RAG 삭제 회귀를 포함한다.
 
 ### 면접 결과와 성장 분석 — 구현·자동 검증 완료 (2026-09-16)
 

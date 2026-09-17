@@ -1,6 +1,10 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.*;
+import com.interviewai.auth.dto.LoginRequest;
+import com.interviewai.auth.dto.LoginResponse;
+import com.interviewai.auth.dto.RefreshTokenRequest;
+import com.interviewai.auth.dto.SignupRequest;
+import com.interviewai.auth.dto.SignupResponse;
 import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
@@ -187,6 +191,21 @@ class AuthServiceTest {
             verify(jwtTokenService, never()).issueAccessToken(any(User.class));
 
             verify(refreshTokenService, never()).issue(any(User.class));
+        }
+
+
+        @Test
+        @DisplayName("정지 사용자는 올바른 비밀번호로도 로그인할 수 없다")
+        void rejectsSuspendedUser() {
+            User user = localUser();
+            user.suspend(java.time.LocalDateTime.now());
+            when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
+            when(passwordEncoder.matches(RAW_PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+
+            assertThatThrownBy(() -> authService.login(loginRequest()))
+                    .isInstanceOf(InvalidCredentialsException.class);
+
+            verifyNoInteractions(jwtTokenService, refreshTokenService);
         }
 
 

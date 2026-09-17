@@ -1,5 +1,6 @@
 package com.interviewai.rag.controller;
 
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
@@ -8,6 +9,7 @@ import com.interviewai.global.error.CatalogException;
 import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.rag.search.RagSearchResult;
 import com.interviewai.rag.service.RagSearchService;
+import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,16 +22,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(RagSearchController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, UserStatusAuthenticationFilter.class})
 @TestPropertySource(properties = {
         "rag.search.enabled=true",
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
@@ -46,13 +46,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class RagSearchControllerTest {
+    @MockitoBean
+    private UserRepository userRepository;
 
-    @Autowired private MockMvc mockMvc;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @MockitoBean private RagSearchService searchService;
-    @MockitoBean private OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
-    @MockitoBean private OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
-    @MockitoBean private GithubOAuth2UserService githubOAuth2UserService;
+    @MockitoBean
+    private RagSearchService searchService;
+    @MockitoBean
+    private OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
+    @MockitoBean
+    private OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
+    @MockitoBean
+    private GithubOAuth2UserService githubOAuth2UserService;
 
 
     @Test

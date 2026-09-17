@@ -5,6 +5,7 @@ import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
+import com.interviewai.user.exception.UserSuspendedException;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,21 @@ class GithubOAuth2LoginServiceTest {
         assertTokenResponse(response);
         verify(userRepository, never()).existsByEmail(anyString());
         verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    @DisplayName("정지된 기존 GitHub 사용자는 로그인할 수 없다")
+    void rejectsSuspendedGithubUser() {
+        User user = githubUser();
+        user.suspend(java.time.LocalDateTime.now());
+        stubValidGithubUser();
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GITHUB, PROVIDER_ID))
+                .thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> githubOAuth2LoginService.login(oauth2User, EMAIL))
+                .isInstanceOf(UserSuspendedException.class);
+
+        verifyNoInteractions(jwtTokenService, refreshTokenService);
     }
 
 

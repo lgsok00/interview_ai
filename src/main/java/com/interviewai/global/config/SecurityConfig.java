@@ -1,5 +1,6 @@
 package com.interviewai.global.config;
 
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
@@ -16,6 +17,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.SecretKey;
@@ -65,7 +67,10 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) {
+    public SecurityFilterChain apiSecurityFilterChain(
+            HttpSecurity http,
+            UserStatusAuthenticationFilter userStatusAuthenticationFilter
+    ) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
@@ -88,6 +93,7 @@ public class SecurityConfig {
                         resourceServer.jwt(jwt -> {
                         })
                 )
+                .addFilterAfter(userStatusAuthenticationFilter, BearerTokenAuthenticationFilter.class)
                 .build();
     }
 

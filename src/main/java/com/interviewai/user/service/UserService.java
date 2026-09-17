@@ -2,23 +2,19 @@ package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.service.RefreshTokenService;
-import com.interviewai.coverletter.entity.CoverLetter;
-import com.interviewai.coverletter.repository.CoverLetterRepository;
-import com.interviewai.rag.document.RagSourceType;
-import com.interviewai.rag.service.RagSourceChangeRegistrationService;
-import com.interviewai.resume.entity.Resume;
-import com.interviewai.resume.repository.ResumeRepository;
-import com.interviewai.resume.storage.ResumeFileTransactionCleanup;
+import com.interviewai.global.error.CatalogException;
 import com.interviewai.user.dto.ChangePasswordRequest;
 import com.interviewai.user.dto.CurrentUserResponse;
 import com.interviewai.user.dto.UpdateUserRequest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
+import com.interviewai.user.enums.UserRole;
 import com.interviewai.user.exception.InvalidCurrentPasswordException;
 import com.interviewai.user.exception.PasswordChangeNotSupportedException;
 import com.interviewai.user.exception.SamePasswordException;
 import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,28 +28,19 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
-    private final CoverLetterRepository coverLetterRepository;
-    private final ResumeRepository resumeRepository;
-    private final RagSourceChangeRegistrationService ragRegistrationService;
-    private final ResumeFileTransactionCleanup resumeFileCleanup;
+    private final UserDeletionService userDeletionService;
 
 
     public UserService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             RefreshTokenService refreshTokenService,
-            CoverLetterRepository coverLetterRepository,
-            ResumeRepository resumeRepository,
-            RagSourceChangeRegistrationService ragRegistrationService,
-            ResumeFileTransactionCleanup resumeFileCleanup
+            UserDeletionService userDeletionService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
-        this.coverLetterRepository = coverLetterRepository;
-        this.resumeRepository = resumeRepository;
-        this.ragRegistrationService = ragRegistrationService;
-        this.resumeFileCleanup = resumeFileCleanup;
+        this.userDeletionService = userDeletionService;
     }
 
 
@@ -103,24 +90,29 @@ public class UserService {
     @Transactional
     public void deleteCurrentUser(String subject) {
         Long userId = parseUserId(subject);
-        userRepository.findByIdForUpdate(userId).orElseThrow(UserNotFoundException::new);
 
-        List<CoverLetter> coverLetters = coverLetterRepository.findAllOwnedForUpdate(userId);
-        List<Resume> resumes = resumeRepository.findAllOwnedForUpdate(userId);
+        List<User> lockedAdmins = userRepository.findAllAdminsForUpdate();
 
-        coverLetters.forEach(coverLetter ->
-                ragRegistrationService.registerDelete(RagSourceType.COVER_LETTER, coverLetter.getId())
-        );
+        User user = lockedAdmins.stream()
+                .filter(admin -> admin.getId().equals(userId))
+                .findFirst()
+                .orElseGet(() -> userRepository.findByIdForUpdate(userId)
+                        .orElseThrow(UserNotFoundException::new)
+                );
 
-        resumes.forEach(resume -> ragRegistrationService.registerDelete(RagSourceType.RESUME, resume.getId()));
+        if (user.getRole() == UserRole.ADMIN) {
+            long activeAdminCount = lockedAdmins.stream().filter(User::isActive).count();
 
-        resumes.stream()
-                .map(Resume::getStorageKey)
-                .forEach(resumeFileCleanup::deleteAfterCommit);
+            if (activeAdminCount <= 1) {
+                throw new CatalogException(
+                        HttpStatus.CONFLICT,
+                        "LAST_ADMIN_DELETE_NOT_ALLOWED",
+                        "마지막 활성 관리자는 탈퇴할 수 없습니다."
+                );
+            }
+        }
 
-        userRepository.flush();
-
-        userRepository.deleteAllByIdInBatch(List.of(userId));
+        userDeletionService.deleteLocked(userId);
     }
 
 

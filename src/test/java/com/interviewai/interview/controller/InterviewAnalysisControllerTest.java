@@ -1,5 +1,6 @@
 package com.interviewai.interview.controller;
 
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
@@ -9,6 +10,7 @@ import com.interviewai.interview.dto.InterviewGrowthAnalysisResponse;
 import com.interviewai.interview.dto.InterviewResultResponse;
 import com.interviewai.interview.enums.InterviewAnalysisStatus;
 import com.interviewai.interview.service.InterviewAnalysisService;
+import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -30,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(InterviewAnalysisController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, UserStatusAuthenticationFilter.class})
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h",
@@ -46,6 +48,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class InterviewAnalysisControllerTest {
+    @MockitoBean
+    UserRepository userRepository;
 
     @Autowired
     MockMvc mvc;

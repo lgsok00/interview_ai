@@ -2,7 +2,18 @@ package com.interviewai.user.entity;
 
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
-import jakarta.persistence.*;
+import com.interviewai.user.enums.UserStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -49,6 +60,13 @@ public class User {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status;
+
+    @Column(name = "suspended_at")
+    private LocalDateTime suspendedAt;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -67,6 +85,7 @@ public class User {
         this.provider = provider;
         this.providerId = providerId;
         this.role = role;
+        this.status = UserStatus.ACTIVE;
     }
 
 
@@ -97,6 +116,23 @@ public class User {
 
     public void changeRole(UserRole role) {
         this.role = Objects.requireNonNull(role, "role은 필수입니다.");
+    }
+
+
+    public void suspend(LocalDateTime suspendedAt) {
+        this.status = UserStatus.SUSPENDED;
+        this.suspendedAt = Objects.requireNonNull(suspendedAt, "정지 시각은 필수입니다.");
+    }
+
+
+    public void activate() {
+        this.status = UserStatus.ACTIVE;
+        this.suspendedAt = null;
+    }
+
+
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
     }
 
 

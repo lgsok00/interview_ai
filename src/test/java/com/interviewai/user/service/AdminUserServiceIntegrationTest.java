@@ -1,5 +1,6 @@
 package com.interviewai.user.service;
 
+import com.interviewai.auth.service.RefreshTokenService;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.support.MySqlIntegrationTest;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -50,6 +52,10 @@ class AdminUserServiceIntegrationTest extends MySqlIntegrationTest {
     private PlatformTransactionManager transactionManager;
     @MockitoSpyBean
     private AdminAuthorizationService authorizationService;
+    @MockitoBean
+    private RefreshTokenService refreshTokenService;
+    @MockitoBean
+    private UserDeletionService userDeletionService;
 
     @AfterEach
     void cleanUp() {
@@ -72,12 +78,14 @@ class AdminUserServiceIntegrationTest extends MySqlIntegrationTest {
                 "  SPRING.USER  ",
                 UserRole.USER,
                 AuthProvider.GOOGLE,
+                null,
                 0,
                 20
         );
         var byNickname = service.search(
                 admin.getId().toString(),
                 "백엔드",
+                null,
                 null,
                 null,
                 0,
@@ -97,10 +105,10 @@ class AdminUserServiceIntegrationTest extends MySqlIntegrationTest {
         User underscore = createLocal("underscore@example.com", "지원자_A", UserRole.USER);
         User plain = createLocal("plain@example.com", "지원자 1000", UserRole.USER);
 
-        var percentResult = service.search(admin.getId().toString(), "%", null, null, 0, 20);
-        var underscoreResult = service.search(admin.getId().toString(), "_", null, null, 0, 20);
-        var firstPage = service.search(admin.getId().toString(), null, null, null, 0, 2);
-        var secondPage = service.search(admin.getId().toString(), null, null, null, 1, 2);
+        var percentResult = service.search(admin.getId().toString(), "%", null, null, null, 0, 20);
+        var underscoreResult = service.search(admin.getId().toString(), "_", null, null, null, 0, 20);
+        var firstPage = service.search(admin.getId().toString(), null, null, null, null, 0, 2);
+        var secondPage = service.search(admin.getId().toString(), null, null, null, null, 1, 2);
 
         assertThat(percentResult.items()).extracting(AdminUserResponse::id).containsExactly(percent.getId());
         assertThat(underscoreResult.items()).extracting(AdminUserResponse::id).containsExactly(underscore.getId());

@@ -1,5 +1,6 @@
 package com.interviewai.user.controller;
 
+import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
@@ -8,9 +9,12 @@ import com.interviewai.global.error.CatalogException;
 import com.interviewai.user.dto.AdminUserPageResponse;
 import com.interviewai.user.dto.AdminUserResponse;
 import com.interviewai.user.dto.ChangeUserRoleRequest;
+import com.interviewai.user.dto.ChangeUserStatusRequest;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
+import com.interviewai.user.enums.UserStatus;
 import com.interviewai.user.exception.UserNotFoundException;
+import com.interviewai.user.repository.UserRepository;
 import com.interviewai.user.service.AdminUserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,13 +33,12 @@ import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AdminUserController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, UserStatusAuthenticationFilter.class})
 @TestPropertySource(properties = {
         "auth.jwt.secret=test-jwt-secret-that-is-at-least-32-bytes-long",
         "auth.jwt.access-token-expiration=1h",
@@ -51,6 +54,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.security.oauth2.client.registration.github.scope[1]=user:email"
 })
 class AdminUserControllerTest {
+    @MockitoBean
+    UserRepository userRepository;
 
     @Autowired
     MockMvc mvc;
@@ -65,7 +70,7 @@ class AdminUserControllerTest {
 
     @Test
     void bindsDefaultsAndReturnsPage() throws Exception {
-        when(service.search("1", null, null, null, 0, 20))
+        when(service.search("1", null, null, null, null, 0, 20))
                 .thenReturn(new AdminUserPageResponse(List.of(response()), 0, 20, 1, 1));
         mvc.perform(get("/api/admin/users").with(jwt().jwt(token -> token.subject("1"))))
                 .andExpect(status().isOk())
@@ -78,14 +83,15 @@ class AdminUserControllerTest {
 
     @Test
     void bindsFilters() throws Exception {
-        when(service.search("1", "user", UserRole.ADMIN, AuthProvider.GITHUB, 1, 10))
+        when(service.search("1", "user", UserRole.ADMIN, AuthProvider.GITHUB, UserStatus.SUSPENDED, 1, 10))
                 .thenReturn(new AdminUserPageResponse(List.of(), 1, 10, 0, 0));
         mvc.perform(get("/api/admin/users")
                         .param("keyword", "user").param("role", "ADMIN").param("provider", "GITHUB")
+                        .param("status", "SUSPENDED")
                         .param("page", "1").param("size", "10")
                         .with(jwt().jwt(token -> token.subject("1"))))
                 .andExpect(status().isOk());
-        verify(service).search("1", "user", UserRole.ADMIN, AuthProvider.GITHUB, 1, 10);
+        verify(service).search("1", "user", UserRole.ADMIN, AuthProvider.GITHUB, UserStatus.SUSPENDED, 1, 10);
     }
 
     @Test
@@ -100,6 +106,21 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("ADMIN"));
     }
 
+    @Test
+    void changesStatusAndForceDeletesUser() throws Exception {
+        when(service.changeStatus("1", 2L, new ChangeUserStatusRequest(UserStatus.SUSPENDED)))
+                .thenReturn(response());
+
+        mvc.perform(patch("/api/admin/users/2/status").with(jwt().jwt(token -> token.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"SUSPENDED\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/admin/users/2").with(jwt().jwt(token -> token.subject("1"))))
+                .andExpect(status().isNoContent());
+
+        verify(service).forceDelete("1", 2L);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"{}", "{\"role\":null}", "{\"role\":\"ROOT\"}", "{"})
     void rejectsInvalidRoleBodies(String body) throws Exception {
@@ -111,7 +132,7 @@ class AdminUserControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"role", "provider", "page", "size"})
+    @ValueSource(strings = {"role", "provider", "status", "page", "size"})
     void rejectsInvalidQueryTypes(String parameter) throws Exception {
         mvc.perform(get("/api/admin/users").param(parameter, "invalid").with(jwt()))
                 .andExpect(status().isBadRequest())
@@ -142,11 +163,16 @@ class AdminUserControllerTest {
         mvc.perform(patch("/api/admin/users/2/role")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"ADMIN\"}"))
                 .andExpect(status().isUnauthorized());
+        mvc.perform(patch("/api/admin/users/2/status")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"SUSPENDED\"}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(delete("/api/admin/users/2")).andExpect(status().isUnauthorized());
         verifyNoInteractions(service);
     }
 
     private AdminUserResponse response() {
         return new AdminUserResponse(2L, "user@example.com", "사용자", AuthProvider.LOCAL,
-                UserRole.ADMIN, LocalDateTime.of(2026, 9, 17, 0, 0), LocalDateTime.of(2026, 9, 17, 0, 0));
+                UserRole.ADMIN, UserStatus.ACTIVE, null,
+                LocalDateTime.of(2026, 9, 17, 0, 0), LocalDateTime.of(2026, 9, 17, 0, 0));
     }
 }

@@ -2,11 +2,8 @@ package com.interviewai.user.service;
 
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.service.RefreshTokenService;
-import com.interviewai.coverletter.entity.CoverLetter;
 import com.interviewai.coverletter.repository.CoverLetterRepository;
-import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.rag.service.RagSourceChangeRegistrationService;
-import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.repository.ResumeRepository;
 import com.interviewai.resume.storage.ResumeFileTransactionCleanup;
 import com.interviewai.user.dto.ChangePasswordRequest;
@@ -70,19 +67,10 @@ class UserServiceTest {
     private ResumeFileTransactionCleanup resumeFileCleanup;
 
     @Mock
+    private UserDeletionService userDeletionService;
+
+    @Mock
     private User user;
-
-    @Mock
-    private CoverLetter firstCoverLetter;
-
-    @Mock
-    private CoverLetter secondCoverLetter;
-
-    @Mock
-    private Resume firstResume;
-
-    @Mock
-    private Resume secondResume;
 
     private UserService userService;
 
@@ -93,10 +81,7 @@ class UserServiceTest {
                 userRepository,
                 passwordEncoder,
                 refreshTokenService,
-                coverLetterRepository,
-                resumeRepository,
-                ragRegistrationService,
-                resumeFileCleanup
+                userDeletionService
         );
     }
 
@@ -338,38 +323,16 @@ class UserServiceTest {
         @Test
         @DisplayName("개인 문서의 RAG DELETE를 등록하고 회원과 이력서 파일을 삭제한다")
         void registersDocumentDeletesAndDeletesCurrentUser() {
+            when(userRepository.findAllAdminsForUpdate()).thenReturn(List.of());
             when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
-            when(coverLetterRepository.findAllOwnedForUpdate(USER_ID))
-                    .thenReturn(List.of(firstCoverLetter, secondCoverLetter));
-            when(resumeRepository.findAllOwnedForUpdate(USER_ID))
-                    .thenReturn(List.of(firstResume, secondResume));
-            when(firstCoverLetter.getId()).thenReturn(11L);
-            when(secondCoverLetter.getId()).thenReturn(12L);
-            when(firstResume.getId()).thenReturn(21L);
-            when(secondResume.getId()).thenReturn(22L);
-            when(firstResume.getStorageKey()).thenReturn("1/first.pdf");
-            when(secondResume.getStorageKey()).thenReturn("1/second.pdf");
+            when(user.getRole()).thenReturn(UserRole.USER);
 
             userService.deleteCurrentUser(USER_ID.toString());
 
-            InOrder order = inOrder(
-                    userRepository,
-                    coverLetterRepository,
-                    resumeRepository,
-                    ragRegistrationService,
-                    resumeFileCleanup
-            );
+            InOrder order = inOrder(userRepository, userDeletionService);
+            order.verify(userRepository).findAllAdminsForUpdate();
             order.verify(userRepository).findByIdForUpdate(USER_ID);
-            order.verify(coverLetterRepository).findAllOwnedForUpdate(USER_ID);
-            order.verify(resumeRepository).findAllOwnedForUpdate(USER_ID);
-            order.verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, 11L);
-            order.verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, 12L);
-            order.verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 21L);
-            order.verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 22L);
-            order.verify(resumeFileCleanup).deleteAfterCommit("1/first.pdf");
-            order.verify(resumeFileCleanup).deleteAfterCommit("1/second.pdf");
-            order.verify(userRepository).flush();
-            order.verify(userRepository).deleteAllByIdInBatch(List.of(USER_ID));
+            order.verify(userDeletionService).deleteLocked(USER_ID);
             verifyNoInteractions(passwordEncoder, refreshTokenService);
         }
 
@@ -377,62 +340,45 @@ class UserServiceTest {
         @Test
         @DisplayName("개인 문서가 없어도 회원을 삭제한다")
         void deletesCurrentUserWithoutDocuments() {
+            when(userRepository.findAllAdminsForUpdate()).thenReturn(List.of());
             when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
-            when(coverLetterRepository.findAllOwnedForUpdate(USER_ID)).thenReturn(List.of());
-            when(resumeRepository.findAllOwnedForUpdate(USER_ID)).thenReturn(List.of());
+            when(user.getRole()).thenReturn(UserRole.USER);
 
             userService.deleteCurrentUser(USER_ID.toString());
 
+            verify(userRepository).findAllAdminsForUpdate();
             verify(userRepository).findByIdForUpdate(USER_ID);
-            verify(coverLetterRepository).findAllOwnedForUpdate(USER_ID);
-            verify(resumeRepository).findAllOwnedForUpdate(USER_ID);
-            InOrder order = inOrder(userRepository);
-            order.verify(userRepository).flush();
-            order.verify(userRepository).deleteAllByIdInBatch(List.of(USER_ID));
-            verifyNoInteractions(ragRegistrationService, resumeFileCleanup);
+            verify(userDeletionService).deleteLocked(USER_ID);
         }
 
 
         @Test
         @DisplayName("RAG DELETE 등록에 실패하면 회원과 이력서 파일을 삭제하지 않는다")
         void preservesUserAndFilesWhenRagDeleteRegistrationFails() {
+            when(userRepository.findAllAdminsForUpdate()).thenReturn(List.of());
             when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
-            when(coverLetterRepository.findAllOwnedForUpdate(USER_ID))
-                    .thenReturn(List.of(firstCoverLetter));
-            when(resumeRepository.findAllOwnedForUpdate(USER_ID))
-                    .thenReturn(List.of(firstResume));
-            when(firstCoverLetter.getId()).thenReturn(11L);
-            when(firstResume.getId()).thenReturn(21L);
-            doAnswer(invocation -> {
-                if (invocation.getArgument(0) == RagSourceType.RESUME
-                        && invocation.<Long>getArgument(1).equals(21L)) {
-                    throw new IllegalStateException("RAG registration failed");
-                }
-
-                return null;
-            }).when(ragRegistrationService).registerDelete(any(RagSourceType.class), anyLong());
+            when(user.getRole()).thenReturn(UserRole.USER);
+            doThrow(new IllegalStateException("RAG registration failed"))
+                    .when(userDeletionService).deleteLocked(USER_ID);
 
             assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID.toString()))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("RAG registration failed");
 
-            verify(ragRegistrationService).registerDelete(RagSourceType.COVER_LETTER, 11L);
-            verify(ragRegistrationService).registerDelete(RagSourceType.RESUME, 21L);
-            verifyNoInteractions(resumeFileCleanup);
-            verify(userRepository, never()).delete(any());
-            verify(userRepository, never()).flush();
-            verify(userRepository, never()).deleteAllByIdInBatch(any());
+            verify(userDeletionService).deleteLocked(USER_ID);
         }
 
 
         @Test
         @DisplayName("JWT subject에 해당하는 사용자가 없으면 탈퇴에 실패한다")
         void rejectsUnknownUser() {
+            when(userRepository.findAllAdminsForUpdate()).thenReturn(List.of());
             when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID.toString()))
                     .isInstanceOf(UserNotFoundException.class);
 
+            verify(userRepository).findAllAdminsForUpdate();
             verify(userRepository).findByIdForUpdate(USER_ID);
             verify(userRepository, never()).delete(any());
             verify(userRepository, never()).flush();
@@ -444,8 +390,25 @@ class UserServiceTest {
                     resumeRepository,
                     ragRegistrationService,
                     resumeFileCleanup,
+                    userDeletionService,
                     user
             );
+        }
+
+
+        @Test
+        @DisplayName("마지막 활성 관리자는 탈퇴할 수 없다")
+        void rejectsLastActiveAdminDeletion() {
+            when(user.getId()).thenReturn(USER_ID);
+            when(user.getRole()).thenReturn(UserRole.ADMIN);
+            when(user.isActive()).thenReturn(true);
+            when(userRepository.findAllAdminsForUpdate()).thenReturn(List.of(user));
+
+            assertThatThrownBy(() -> userService.deleteCurrentUser(USER_ID.toString()))
+                    .isInstanceOfSatisfying(com.interviewai.global.error.CatalogException.class,
+                            error -> assertThat(error.getCode()).isEqualTo("LAST_ADMIN_DELETE_NOT_ALLOWED"));
+
+            verifyNoInteractions(userDeletionService);
         }
 
 

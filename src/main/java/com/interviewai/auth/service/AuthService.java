@@ -79,6 +79,7 @@ public class AuthService {
                 .filter(candidate -> candidate.getProvider() == AuthProvider.LOCAL)
                 .filter(candidate -> candidate.getPasswordHash() != null)
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
+                .filter(User::isActive)
                 .orElseThrow(InvalidCredentialsException::new);
 
         JwtTokenService.IssuedAccessToken accessToken = jwtTokenService.issueAccessToken(user);

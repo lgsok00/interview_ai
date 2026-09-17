@@ -1,11 +1,14 @@
 package com.interviewai.user.service;
 
+import com.interviewai.auth.service.RefreshTokenService;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.user.dto.ChangeUserRoleRequest;
+import com.interviewai.user.dto.ChangeUserStatusRequest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.AuthProvider;
 import com.interviewai.user.enums.UserRole;
+import com.interviewai.user.enums.UserStatus;
 import com.interviewai.user.exception.UserNotFoundException;
 import com.interviewai.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,11 +38,15 @@ class AdminUserServiceTest {
     UserRepository users;
     @Mock
     AdminAuthorizationService authorization;
+    @Mock
+    RefreshTokenService refreshTokens;
+    @Mock
+    UserDeletionService deletionService;
     AdminUserService service;
 
     @BeforeEach
     void setUp() {
-        service = new AdminUserService(users, authorization);
+        service = new AdminUserService(users, authorization, refreshTokens, deletionService);
     }
 
     @Test
@@ -47,10 +54,10 @@ class AdminUserServiceTest {
         PageRequest page = PageRequest.of(0, 100,
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
         User user = user(2L, UserRole.USER);
-        when(users.searchForAdmin("%a!%!_!!%", UserRole.USER, AuthProvider.LOCAL, page))
+        when(users.searchForAdmin("%a!%!_!!%", UserRole.USER, AuthProvider.LOCAL, UserStatus.ACTIVE, page))
                 .thenReturn(new PageImpl<>(List.of(user), page, 1));
 
-        var result = service.search("1", " a%_! ", UserRole.USER, AuthProvider.LOCAL, 0, 100);
+        var result = service.search("1", " a%_! ", UserRole.USER, AuthProvider.LOCAL, UserStatus.ACTIVE, 0, 100);
 
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().getFirst().id()).isEqualTo(2L);
@@ -58,14 +65,14 @@ class AdminUserServiceTest {
         assertThat(result.size()).isEqualTo(100);
         var order = inOrder(authorization, users);
         order.verify(authorization).requireAdmin("1");
-        order.verify(users).searchForAdmin("%a!%!_!!%", UserRole.USER, AuthProvider.LOCAL, page);
+        order.verify(users).searchForAdmin("%a!%!_!!%", UserRole.USER, AuthProvider.LOCAL, UserStatus.ACTIVE, page);
     }
 
     @Test
     void blankKeywordAndNoFiltersReturnEmptyPage() {
-        when(users.searchForAdmin(eq("%"), isNull(), isNull(), any()))
+        when(users.searchForAdmin(eq("%"), isNull(), isNull(), isNull(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
-        var result = service.search("1", "  ", null, null, 0, 20);
+        var result = service.search("1", "  ", null, null, null, 0, 20);
         assertThat(result.items()).isEmpty();
         assertThat(result.totalPages()).isZero();
     }
@@ -73,14 +80,14 @@ class AdminUserServiceTest {
     @ParameterizedTest
     @CsvSource({"-1,20", "0,0", "0,101"})
     void rejectsInvalidPagination(int page, int size) {
-        assertThatThrownBy(() -> service.search("1", null, null, null, page, size))
+        assertThatThrownBy(() -> service.search("1", null, null, null, null, page, size))
                 .isInstanceOf(CatalogException.class);
         verifyNoInteractions(users);
     }
 
     @Test
     void rejectsOverlongKeyword() {
-        assertThatThrownBy(() -> service.search("1", "a".repeat(101), null, null, 0, 20))
+        assertThatThrownBy(() -> service.search("1", "a".repeat(101), null, null, null, 0, 20))
                 .isInstanceOf(CatalogException.class);
         verifyNoInteractions(users);
     }
@@ -107,7 +114,7 @@ class AdminUserServiceTest {
     void deniesAllOperationsBeforeReadingTargets() {
         when(authorization.requireAdmin("1")).thenThrow(
                 new CatalogException(HttpStatus.FORBIDDEN, "FORBIDDEN", "관리자 권한이 필요합니다."));
-        assertThatThrownBy(() -> service.search("1", null, null, null, 0, 20))
+        assertThatThrownBy(() -> service.search("1", null, null, null, null, 0, 20))
                 .isInstanceOf(CatalogException.class);
         assertThatThrownBy(() -> service.get("1", 2L)).isInstanceOf(CatalogException.class);
         assertThatThrownBy(() -> service.changeRole("1", 2L, new ChangeUserRoleRequest(UserRole.ADMIN)))
@@ -184,6 +191,78 @@ class AdminUserServiceTest {
                     assertThat(error.getCode()).isEqualTo("FORBIDDEN");
                 });
         assertThat(target.getRole()).isEqualTo(UserRole.USER);
+    }
+
+    @Test
+    void suspendsUserAndRevokesRefreshTokens() {
+        User admin = user(1L, UserRole.ADMIN);
+        User target = user(2L, UserRole.USER);
+        when(authorization.requireAdmin("1")).thenReturn(admin);
+        when(users.findAllAdminsForUpdate()).thenReturn(List.of(admin));
+        when(users.findByIdForUpdate(2L)).thenReturn(Optional.of(target));
+
+        var response = service.changeStatus(
+                "1", 2L, new ChangeUserStatusRequest(UserStatus.SUSPENDED));
+
+        assertThat(response.status()).isEqualTo(UserStatus.SUSPENDED);
+        assertThat(response.suspendedAt()).isNotNull();
+        verify(refreshTokens).revokeAll(2L);
+    }
+
+    @Test
+    void reactivatesUserWithoutIssuingTokens() {
+        User admin = user(1L, UserRole.ADMIN);
+        User target = user(2L, UserRole.USER);
+        target.suspend(java.time.LocalDateTime.now());
+        when(authorization.requireAdmin("1")).thenReturn(admin);
+        when(users.findAllAdminsForUpdate()).thenReturn(List.of(admin));
+        when(users.findByIdForUpdate(2L)).thenReturn(Optional.of(target));
+
+        var response = service.changeStatus(
+                "1", 2L, new ChangeUserStatusRequest(UserStatus.ACTIVE));
+
+        assertThat(response.status()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(response.suspendedAt()).isNull();
+        verifyNoInteractions(refreshTokens, deletionService);
+    }
+
+    @Test
+    void rejectsSelfSuspension() {
+        User admin = user(1L, UserRole.ADMIN);
+        when(authorization.requireAdmin("1")).thenReturn(admin);
+        when(users.findAllAdminsForUpdate()).thenReturn(List.of(admin));
+
+        assertThatThrownBy(() -> service.changeStatus(
+                "1", 1L, new ChangeUserStatusRequest(UserStatus.SUSPENDED)))
+                .isInstanceOfSatisfying(CatalogException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("ADMIN_SELF_SUSPENSION_NOT_ALLOWED"));
+    }
+
+    @Test
+    void forceDeletesUserAfterRevokingTokens() {
+        User admin = user(1L, UserRole.ADMIN);
+        User target = user(2L, UserRole.USER);
+        when(authorization.requireAdmin("1")).thenReturn(admin);
+        when(users.findAllAdminsForUpdate()).thenReturn(List.of(admin));
+        when(users.findByIdForUpdate(2L)).thenReturn(Optional.of(target));
+
+        service.forceDelete("1", 2L);
+
+        var order = inOrder(refreshTokens, deletionService);
+        order.verify(refreshTokens).revokeAll(2L);
+        order.verify(deletionService).deleteLocked(2L);
+    }
+
+    @Test
+    void rejectsSelfForceDelete() {
+        User admin = user(1L, UserRole.ADMIN);
+        when(authorization.requireAdmin("1")).thenReturn(admin);
+        when(users.findAllAdminsForUpdate()).thenReturn(List.of(admin));
+
+        assertThatThrownBy(() -> service.forceDelete("1", 1L))
+                .isInstanceOfSatisfying(CatalogException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("ADMIN_SELF_DELETE_NOT_ALLOWED"));
+        verifyNoInteractions(refreshTokens, deletionService);
     }
 
     private User user(long id, UserRole role) {
