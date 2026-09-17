@@ -2,12 +2,22 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-16이며 803개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-17이며 836개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
-### 관리자 사용자 관리 선택 검증 (2026-09-17)
+### 관리자 사용자 관리 MySQL 통합 및 전체 회귀 (2026-09-17)
+
+- 사용자 선택 실행: `.\gradlew.bat test --tests "com.interviewai.user.service.AdminUserServiceIntegrationTest"` — BUILD
+  SUCCESSFUL (30초).
+- 사용자 전체 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (4분 21초).
+- 최신 XML 96개·836개 성공, 실패·오류·건너뜀 0. `AdminUserServiceIntegrationTest` 4개도 모두 성공했다.
+- 실제 MySQL의 이메일·닉네임 검색, role/provider 필터, LIKE 특수문자 escape, 안정적 페이지 정렬, 관리자 행 잠금 대기와 두 관리자의 동시 상호 강등 직렬화를 검증했다.
+- 동시 상호 강등은 두 요청 모두 최초 관리자 인증을 통과한 뒤 잠금에 진입하게 해 한 요청만 성공하고 DB에 관리자 1명이 남는 것을 확인한다.
+- Codex는 테스트를 실행하지 않고 사용자 출력·최신 XML·실제 변경사항을 확인했다. OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다.
+
+### 관리자 사용자 관리 서비스·HTTP 선택 검증 (2026-09-17)
 
 - 사용자 실행:
   `.\gradlew.bat test --tests "com.interviewai.user.service.AdminUserServiceTest" --tests "com.interviewai.user.controller.AdminUserControllerTest"` —
@@ -15,7 +25,7 @@
 - 실제 XML: `AdminUserServiceTest` 16개, `AdminUserControllerTest` 13개, 총 29개 성공. 실패·오류·건너뜀 0.
 - 검색 필터·escape·페이지 경계, 사용자 조회·미존재, 승격·강등·자기 강등 거부·멱등성, HTTP 바인딩·검증 오류·민감 필드 제외·JWT 필수·403/404/409를 검증했다.
 - 잠금 대기 중 강등된 호출자를 최신 관리자 잠금 조회 결과의 ID로 재확인하는 수정이 반영됐다. 해당 회귀는 mock 기반이며 실제 DB 동시성 증명은 아니다.
-- 실제 MySQL 검색·잠금·동시 강등 통합 검증과 이번 변경의 전체 회귀는 대기다. Codex는 테스트를 실행하지 않고 사용자 출력·XML·반영 코드를 확인했다.
+- 당시 실제 MySQL 검색·잠금·동시 강등 통합 검증과 전체 회귀는 대기였으며 위 최신 실행에서 완료했다. Codex는 테스트를 실행하지 않고 사용자 출력·XML·반영 코드를 확인했다.
 - OpenJDK class-data sharing 경고는 이번 성공 결과에 영향을 주지 않았다.
 
 ### 면접 결과·성장 분석 구현 및 전체 회귀 (2026-09-16)

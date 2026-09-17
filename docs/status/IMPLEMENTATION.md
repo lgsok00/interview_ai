@@ -16,7 +16,7 @@
 
 ## 현재 구현된 기능
 
-### 관리자 사용자 관리 — 구현·선택 검증, DB 통합·전체 회귀 대기 (2026-09-17)
+### 관리자 사용자 관리 — 구현·자동 검증 완료 (2026-09-17)
 
 - `GET /api/admin/users`: 이메일·닉네임 부분 검색, role/provider 필터, 기본 page 0·size 20(최대 100), `createdAt DESC, id DESC` 정렬. 검색어는
   trim 후 최대 100자이며 LIKE 특수문자를 escape한다.
@@ -29,7 +29,8 @@
 - 자기 강등은 409 ADMIN_SELF_DEMOTION_NOT_ALLOWED이며 마지막 관리자 검사보다 우선한다. 마지막 관리자 강등 방어 분기도 포함하지만 회원 탈퇴 경로 전체에 마지막 관리자 보존 정책이
   적용된 것은 아니다.
 - 기존 User 역할 컬럼을 사용하며 신규 migration은 없다. 기존 CatalogException·GlobalExceptionHandler·ErrorResponse를 재사용한다.
-- 서비스 16개·HTTP 13개 성공. 실제 MySQL 검색·잠금 동시성과 전체 회귀는 검증 대기다.
+- 서비스 16개·HTTP 13개와 MySQL 통합 4개가 성공했다. 실제 MySQL 검색·필터·LIKE escape·페이지 정렬, 관리자 잠금 직렬화와 동시 상호 강등 시 관리자 1명 보존을 포함해 전체 836개
+  회귀 검증을 완료했다.
 
 ### 면접 결과와 성장 분석 — 구현·자동 검증 완료 (2026-09-16)
 
