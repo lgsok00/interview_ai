@@ -119,3 +119,11 @@ interview:
     fixed-delay: ${INTERVIEW_EVALUATION_FIXED_DELAY:1s}
     initial-delay: ${INTERVIEW_EVALUATION_INITIAL_DELAY:5s}
     max-jobs-per-run: ${INTERVIEW_EVALUATION_MAX_JOBS_PER_RUN:20}
+
+cover-letter:
+  draft:
+    enabled: ${COVER_LETTER_DRAFT_ENABLED:false}
+    model: ${COVER_LETTER_DRAFT_MODEL:${INTERVIEW_CHAT_MODEL:}}
+    fixed-delay: ${COVER_LETTER_DRAFT_FIXED_DELAY:1s}
+    initial-delay: ${COVER_LETTER_DRAFT_INITIAL_DELAY:5s}
+    max-jobs-per-run: ${COVER_LETTER_DRAFT_MAX_JOBS_PER_RUN:20}
