@@ -182,18 +182,8 @@ public class ExternalCollectionRequest {
     }
 
 
-    public boolean ownsRunningAttempt(String expectedAttemptId, LocalDateTime now) {
-        return status == ExternalCollectionRequestStatus.RUNNING
-                && Objects.equals(attemptId, expectedAttemptId)
-                && leaseExpiresAt != null
-                && leaseExpiresAt.isAfter(now);
-    }
-
-
     public void renewLease(String expectedAttemptId, LocalDateTime now) {
-        if (!ownsRunningAttempt(expectedAttemptId, now)) {
-            throw new IllegalStateException("유효하지 않거나 만료된 수집 실행입니다.");
-        }
+        requireRunningAttempt(expectedAttemptId, now);
 
         leaseExpiresAt = now.plusSeconds(ExternalCollectionPolicy.LEASE_SECONDS);
         updatedAt = now;
@@ -213,11 +203,12 @@ public class ExternalCollectionRequest {
 
     public void fail(String expectedAttemptId, String failureCode, LocalDateTime now) {
         requireRunningAttempt(expectedAttemptId, now);
+        String validatedFailureCode = requireFailureCode(failureCode);
 
         status = ExternalCollectionRequestStatus.FAILED;
         clearExecution();
 
-        lastErrorCode = requireFailureCode(failureCode);
+        lastErrorCode = validatedFailureCode;
         updatedAt = now;
     }
 
@@ -250,7 +241,12 @@ public class ExternalCollectionRequest {
 
 
     private void requireRunningAttempt(String expectedAttemptId, LocalDateTime now) {
-        if (!ownsRunningAttempt(expectedAttemptId, now)) {
+        boolean invalidAttempt = status != ExternalCollectionRequestStatus.RUNNING
+                || !Objects.equals(attemptId, expectedAttemptId)
+                || leaseExpiresAt == null
+                || !leaseExpiresAt.isAfter(now);
+
+        if (invalidAttempt) {
             throw new IllegalStateException("유효하지 않거나 만료된 수집 실행입니다.");
         }
     }
