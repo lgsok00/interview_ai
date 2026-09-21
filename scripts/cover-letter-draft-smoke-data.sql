@@ -1,0 +1,124 @@
+-- Seed data for the real OpenAI cover-letter draft smoke test.
+-- smoke@example.com and job posting id=1 must already exist.
+-- Resume file metadata is only for the draft input snapshot; no physical PDF is created.
+
+START TRANSACTION;
+
+SET @smoke_email = 'smoke@example.com';
+SET @smoke_job_posting_id = 1;
+SET @smoke_user_id = (
+    SELECT id
+    FROM users
+    WHERE email = LOWER(TRIM(@smoke_email))
+      AND status = 'ACTIVE'
+    LIMIT 1
+);
+
+-- A missing user fails the NOT NULL constraint and leaves this transaction uncommitted.
+INSERT INTO cover_letters (
+    user_id,
+    title,
+    current_version_number,
+    created_at,
+    updated_at
+)
+VALUES (
+    @smoke_user_id,
+    CONVERT(0x4F70656E414920736D6F6B6520EC9E90EAB8B0EC868CEAB09CEC849C USING utf8mb4),
+    1,
+    UTC_TIMESTAMP(6),
+    UTC_TIMESTAMP(6)
+);
+
+SET @smoke_cover_letter_id = LAST_INSERT_ID();
+
+INSERT INTO cover_letter_versions (
+    cover_letter_id,
+    version_number,
+    title,
+    content,
+    created_at
+)
+VALUES (
+    @smoke_cover_letter_id,
+    1,
+    CONVERT(0x4F70656E414920736D6F6B6520EC9E90EAB8B0EC868CEAB09CEC849C USING utf8mb4),
+    CONVERT(0xECA080EB8A9420537072696E6720426F6F74EC9980204D7953514CEC9D8420ED999CEC9AA9ED95B420EBB0B1EC9794EB939C20EAB8B0EB8AA5EC9D8420EAB5ACED9884ED9688EC8AB5EB8B88EB8BA42E20EC9E91EC978520ED8190EC9D9820ED968920EC9EA0EAB888EAB3BC206C6561736520EBA78CEBA38C20ECB298EBA6ACEBA5BC20EC84A4EAB384ED9598EAB3A020ECA095EC83812C20EAB2BDEAB3842C20EC8BA4ED8CA820EC8B9CEB8298EBA6ACEC98A4EBA5BC20EC9E90EB8F9920ED858CEC8AA4ED8AB8EBA19C20EAB280ECA69DED9688EC8AB5EB8B88EB8BA42E20EBACB8ECA09C20EBB09CEC839D20EC8B9C20EBA19CEAB7B8EC998020EC9EACED988420ED858CEC8AA4ED8AB8EBA19C20EC9B90EC9DB8EC9D8420ECA281ED9E8C20EB92A420ED9A8CEAB78020ED858CEC8AA4ED8AB8EBA5BC20ECB694EAB080ED9598EB8A9420EBB0A9EC8B9DEC9CBCEBA19C20ED9288ECA788EC9D8420EAB480EBA6ACED9688EC8AB5EB8B88EB8BA42E USING utf8mb4),
+    UTC_TIMESTAMP(6)
+);
+
+INSERT INTO cover_letter_representatives (
+    user_id,
+    cover_letter_id,
+    created_at
+)
+VALUES (
+    @smoke_user_id,
+    @smoke_cover_letter_id,
+    UTC_TIMESTAMP(6)
+)
+ON DUPLICATE KEY UPDATE
+    cover_letter_id = @smoke_cover_letter_id,
+    created_at = UTC_TIMESTAMP(6);
+
+SET @smoke_resume_storage_key = CONCAT('smoke/', UUID(), '.pdf');
+SET @smoke_resume_text =
+    CONVERT(0xEBB0B1EC9794EB939C20EAB09CEBB09CEC9E9020EC9DB4EBA0A5EC849C2E204A6176612032312C20537072696E6720426F6F742C20537072696E672053656375726974792C204A50412C20466C797761792C204D7953514CEC9D8420EC82ACEC9AA9ED9688EC8AB5EB8B88EB8BA42E20EBB984EB8F99EAB8B020EC9E91EC9785EC9D9820EC84A0ECA0902C206C656173652C20EC9EACEC8B9CEB8F842C20EBA9B1EB93B1EC84B1EAB3BC20EB8F99EC8B9CEC84B120ED858CEC8AA4ED8AB8EBA5BC20EAB5ACED9884ED9688EC8AB5EB8B88EB8BA42E2041504920EC98A4EBA59820ED9895EC8B9DEC9D8420ED86B5EC9DBCED9598EAB3A020EC9E90EB8F9920ED858CEC8AA4ED8AB8EC998020EC8BA4ECA09C20EC99B8EBB68020EC97B0EB8F9920736D6F6B652074657374EBA19C20EBB380EAB2BDEC82ACED95ADEC9D8420EAB280ECA69DED9688EC8AB5EB8B88EB8BA42E USING utf8mb4);
+
+INSERT INTO resumes (
+    user_id,
+    title,
+    original_filename,
+    storage_key,
+    content_type,
+    file_size,
+    sha256,
+    extracted_text,
+    extraction_status,
+    extraction_failure_code,
+    created_at,
+    updated_at
+)
+VALUES (
+    @smoke_user_id,
+    CONVERT(0x4F70656E414920736D6F6B6520EC9DB4EBA0A5EC849C USING utf8mb4),
+    'openai-smoke-resume.pdf',
+    @smoke_resume_storage_key,
+    'application/pdf',
+    1,
+    SHA2(@smoke_resume_text, 256),
+    @smoke_resume_text,
+    'COMPLETED',
+    NULL,
+    UTC_TIMESTAMP(6),
+    UTC_TIMESTAMP(6)
+);
+
+SET @smoke_resume_id = LAST_INSERT_ID();
+
+INSERT INTO resume_representatives (
+    user_id,
+    resume_id,
+    created_at
+)
+VALUES (
+    @smoke_user_id,
+    @smoke_resume_id,
+    UTC_TIMESTAMP(6)
+)
+ON DUPLICATE KEY UPDATE
+    resume_id = @smoke_resume_id,
+    created_at = UTC_TIMESTAMP(6);
+
+COMMIT;
+
+SELECT
+    @smoke_email AS email,
+    @smoke_user_id AS user_id,
+    @smoke_cover_letter_id AS cover_letter_id,
+    @smoke_resume_id AS resume_id,
+    (
+        SELECT id
+        FROM job_postings
+        WHERE id = @smoke_job_posting_id
+    ) AS job_posting_id;

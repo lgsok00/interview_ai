@@ -4,13 +4,12 @@
 
 테스트별 검증 범위를 보존한 상세 목록이다. 실행 날짜·명령·결과는 [테스트 실행 기록](TEST_RESULTS.md)을 참고한다.
 
-자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름 smoke가 성공했다. 이 수동 smoke는 자동 테스트
-개수에
-포함하지 않는다.
+자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
+`scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
 ### 작성된 자동 테스트
 
-#### AI 자기소개서 초안 — 기본 자동 검증 완료 (2026-09-21)
+#### AI 자기소개서 초안 — 실행 심화 선택 검증 완료 (2026-09-21)
 
 - `CoverLetterDraftTest` 6개: 초기 상태와 불변 입력, AI 미설정 실패와 fallback 부재, 재시도·늦은 attempt 차단, lease 만료 경계, 검수 적용과 동일 내용 판정, 잘못된
   결과의 부분 변경 방지를 검증한다.
@@ -19,8 +18,13 @@
   충돌을 검증한다.
 - `CoverLetterDraftControllerTest` 6개: 생성·재생성 HTTP 202, ID·공백 지시 validation, 목록·상세와 내부 prompt/reasoning 비노출, 검수 적용, 전
   endpoint 인증을 검증한다.
-- 선택 XML 4개·25개와 전체 XML 108개·976개가 성공했고 실패·오류·건너뜀은 0이다. 생성기 JSON 파싱·설정·scheduler·실제 MySQL 선점/동시성과 실제 Chat은 직접 검증 범위가
-  아니다.
+- `CoverLetterDraftGeneratorTest` 8개: 입력 보존, 저장 모델과 호출 제한, 정상 구조화 응답, 잘못된 JSON·타입·추가 필드·길이, 미지원 버전·모델/client 부재를 검증한다.
+- `CoverLetterDraftConfigurationTest` 6개: 안전한 기본값, 명시 설정과 모델 정규화, 활성 시 모델/API key 필수, scheduler opt-in, 지연·처리 한도 경계, 호스트
+  설정 격리를 검증한다.
+- `CoverLetterDraftSchedulerTest` 5개: 설정된 지연, 빈 큐까지 처리, 실행당 한도, worker 기반 오류 중단, interrupt 보존을 검증한다.
+- `CoverLetterDraftIntegrationTest` 5개: 실제 MySQL 8.4의 V20, 선점·완료, lease 재선점과 늦은 쓰기 차단, 최대 시도 만료 실패, 동시 선점 단일 승자와
+  rollback을 검증한다.
+- 기존 기본 선택 XML 4개·25개와 추가 심화 선택 XML 4개·24개가 성공했다. 심화 테스트를 포함한 최신 전체 XML 112개 클래스·1,000개도 성공했고 실패·오류·건너뜀은 0이다.
 
 #### 외부 수집 영속 기반 — 자동 검증 완료 (2026-09-18)
 

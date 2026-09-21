@@ -2,10 +2,30 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-21이며 976개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-21이며 1,000개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### AI 자기소개서 초안 실행 심화 검증과 실제 Chat smoke 성공 (2026-09-21)
+
+- 사용자 선택 실행: `CoverLetterDraftGeneratorTest`, `CoverLetterDraftConfigurationTest`, `CoverLetterDraftSchedulerTest`,
+  `CoverLetterDraftIntegrationTest` — BUILD SUCCESSFUL (31초).
+- 실제 XML 4개 클래스·24개 성공, 실패·오류·건너뜀 0: 생성기 8개, 설정 6개, scheduler 5개, 실제 MySQL 통합 5개다.
+- 생성기는 신뢰할 수 없는 입력 보존, 저장 모델과 timeout/retry 제한, 구조화 JSON 정상·형식/타입/추가 필드/길이 실패를 검증했다. 설정은 안전한 기본값·활성 조건·API key·범위와 외부 환경
+  격리를, scheduler는 지연 설정·큐 소진·한도·예외·interrupt를 검증했다.
+- MySQL 8.4에서 V20, `FOR UPDATE SKIP LOCKED` 단일 선점, 만료 lease 재선점, 늦은 완료/실패 차단, 최대 시도 만료 실패와 완료 rollback을 검증했다.
+- 최초 실행은 fixture가 JVM 서울 시각을 저장하고 선점 SQL은 DB UTC를 사용해 24개 중 통합 4개가 실패했다. fixture도 DB `UTC_TIMESTAMP(6)`를 사용하도록 수정한 뒤
+  재실행이
+  성공했다.
+- 사용자 실제 smoke: `cover-letter-draft-smoke.ps1 -Email "smoke@example.com" -CoverLetterId 3 -JobPostingId 1` — PASS. draft
+  2가
+  `attemptCount=1`, `baseVersionNumber=1`, `REVIEW_READY`로 완료되고 구조화 제목·본문·변경 요약이 저장됐다.
+- 실제 Chat 전 최초 요청은 설정 미적용으로 `DRAFT_AI_NOT_CONFIGURED`, attempt 0으로 실패해 OpenAI 호출은 발생하지 않았다. Spring Boot 프로세스에 초안
+  활성화·모델·API key를 적용하고
+  재시작한 뒤 실제 호출이 성공했다.
+- 사용자 전체 실행: `.gradlew.bat test` — BUILD SUCCESSFUL (6분 9초). 실제 XML 112개 클래스·1,000개 성공, 실패·오류·건너뜀 0.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. Codex는 사용자 출력과 최신 XML을 확인했다.
 
 ### AI 자기소개서 초안 HTTP 흐름과 기본 실행 회귀 성공 (2026-09-21)
 
