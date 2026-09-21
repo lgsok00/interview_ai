@@ -7,6 +7,9 @@
 자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
 `scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
+최신 전체 회귀는 2026-09-21 브라우저 인증 계약 변경을 포함한 XML 112개 클래스·1,003개 성공이며 실패·오류·건너뜀은 0이다. 인증 테스트는 Access Token 전용 JSON,
+Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect와 credential CORS preflight를 검증한다.
+
 ### 작성된 자동 테스트
 
 #### AI 자기소개서 초안 — 실행 심화 선택 검증 완료 (2026-09-21)
@@ -241,7 +244,7 @@
 - 회원가입 성공
 - 비밀번호 평문 미저장
 - 중복 이메일 회원가입 실패
-- 로그인 성공 및 Access Token·Refresh Token 반환
+- 로그인 성공 및 Access Token 응답·Refresh Token cookie 발급
 - 로그인 이메일 정규화
 - 잘못된 비밀번호 로그인 실패
 - 존재하지 않는 이메일 로그인 실패
@@ -302,14 +305,14 @@
 - 회원가입 성공 시 HTTP 201과 응답 body 검증
 - 잘못된 이메일 회원가입 요청 시 HTTP 400 검증
 - 8자 미만 비밀번호 회원가입 요청 시 HTTP 400 검증
-- 로그인 성공 시 HTTP 200과 Access Token, Refresh Token 및 각 만료 시간 검증
+- 로그인 성공 시 HTTP 200과 Access Token JSON, Refresh Token HttpOnly cookie 및 만료 정보 검증
 - 잘못된 로그인 정보 입력 시 HTTP 401 검증
 - 빈 이메일 로그인 요청 시 HTTP 400 검증
-- 유효한 Refresh Token 재발급 성공
-- 빈 Refresh Token 요청 시 HTTP 400 검증
+- 유효한 Refresh Token cookie 재발급과 cookie 회전 성공
+- Refresh Token cookie 누락 시 HTTP 401 검증
 - 유효하지 않은 Refresh Token 요청 시 HTTP 401 및 `INVALID_REFRESH_TOKEN` 검증
 - 로그아웃 성공 시 HTTP 204와 빈 응답 검증
-- 빈 Refresh Token 로그아웃 요청 시 HTTP 400 검증
+- Refresh Token cookie 누락 로그아웃의 멱등한 HTTP 204와 cookie 만료 검증
 
 공통 인증 fixture인 `AuthFixtures`와 standalone MockMvc 설정을 제공하는 `ControllerTestSupport`가 작성되어 있다.
 
@@ -478,12 +481,12 @@
 
 `OAuth2AuthenticationSuccessHandlerTest`, `OAuth2AuthenticationFailureHandlerTest`에 다음 7개 시나리오가 작성되어 있다.
 
-- Google 인증 성공 시 Access Token·Refresh Token JSON 응답과 캐시 방지 header 반환
+- Google 인증 성공 시 Refresh Token HttpOnly cookie, 프론트 callback redirect와 캐시 방지 header 반환
 - Google 이외 registration의 인증 성공 거부
 - 기존 인증 방식과 이메일 충돌 시 HTTP 409 반환 및 토큰 미노출
 - 잘못된 Google 사용자 정보에 HTTP 401 반환
 - OAuth2 인증 실패 시 내부 오류와 민감 정보를 제외한 일반화된 HTTP 401 응답 반환
-- GitHub 인증 성공 시 검증된 이메일과 principal을 전달하고 토큰 JSON 응답 반환
+- GitHub 인증 성공 시 검증된 이메일과 principal을 전달하고 Refresh Token cookie·프론트 callback redirect 반환
 - 잘못된 GitHub 사용자 정보에 HTTP 401 반환
 
 `ProductionConfigurationTest`에 다음 6개 시나리오가 작성되어 있다.

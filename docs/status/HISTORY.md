@@ -2,6 +2,13 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-21 — 브라우저용 인증·CORS 계약 전환 전체 회귀 성공
+
+- 로그인·재발급 JSON에서 Refresh Token을 제거하고 `/api/auth` 범위의 HttpOnly cookie로 발급·회전·삭제하도록 변경했다.
+- OAuth2 성공은 토큰 JSON 대신 Refresh Token cookie를 발급하고 프론트 callback URL로 redirect한다.
+- 명시된 프론트 origin에 credential CORS를 허용하고 관련 controller·service·OAuth2·security 테스트를 새 계약에 맞췄다.
+- 사용자 전체 실행은 5분 47초 동안 112개 클래스·1,003개가 성공했고 실패·오류·건너뜀은 0이다.
+
 ## 2026-09-21 — AI 자기소개서 초안 실행 심화 검증·실제 Chat smoke 성공
 
 - 생성기 JSON 파싱·호출 제한 8개, 설정·외부 환경 격리 6개, scheduler 5개와 실제 MySQL V20·선점·lease·동시성·rollback 5개를 추가했다.

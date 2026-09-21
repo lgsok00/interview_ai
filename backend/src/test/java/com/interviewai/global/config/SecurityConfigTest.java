@@ -1,12 +1,13 @@
 package com.interviewai.global.config;
 
 import com.interviewai.auth.controller.AuthController;
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.dto.SignupResponse;
 import com.interviewai.auth.filter.UserStatusAuthenticationFilter;
 import com.interviewai.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
+import com.interviewai.auth.http.RefreshTokenCookieService;
 import com.interviewai.auth.service.AuthService;
+import com.interviewai.auth.service.AuthTokens;
 import com.interviewai.auth.service.GithubOAuth2UserService;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
@@ -39,13 +40,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
 @Import({
         SecurityConfig.class,
+        CorsConfig.class,
         UserStatusAuthenticationFilter.class,
         SecurityConfigTest.ProtectedTestController.class
 })
@@ -82,6 +83,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private UserRepository userRepository;
+
+    @MockitoBean
+    private RefreshTokenCookieService refreshTokenCookieService;
 
 
     @Autowired
@@ -120,7 +124,7 @@ class SecurityConfigTest {
     @DisplayName("로그인 endpoint는 인증 없이 접근할 수 있다")
     void allowsLoginWithoutAuthentication() throws Exception {
         when(authService.login(any()))
-                .thenReturn(LoginResponse.bearer(
+                .thenReturn(new AuthTokens(
                         "access-token",
                         "refresh-token",
                         3600,
@@ -199,7 +203,7 @@ class SecurityConfigTest {
     void allowsRefreshWithoutAuthentication() throws Exception {
         when(authService.refresh(any()))
                 .thenReturn(
-                        LoginResponse.bearer(
+                        new AuthTokens(
                                 "new-access-token",
                                 "new-refresh-token",
                                 3600,
@@ -209,12 +213,10 @@ class SecurityConfigTest {
 
         mockMvc.perform(
                         post("/api/auth/refresh")
-                                .contentType(APPLICATION_JSON)
-                                .content("""
-                                        {
-                                          "refreshToken": "old-refresh-token"
-                                        }
-                                        """)
+                                .cookie(new jakarta.servlet.http.Cookie(
+                                        "refresh_token",
+                                        "old-refresh-token"
+                                ))
                 )
                 .andExpect(status().isOk());
     }
@@ -225,12 +227,10 @@ class SecurityConfigTest {
     void allowsLogoutWithoutAuthentication() throws Exception {
         mockMvc.perform(
                         post("/api/auth/logout")
-                                .contentType(APPLICATION_JSON)
-                                .content("""
-                                        {
-                                          "refreshToken": "refresh-token"
-                                        }
-                                        """)
+                                .cookie(new jakarta.servlet.http.Cookie(
+                                        "refresh_token",
+                                        "refresh-token"
+                                ))
                 )
                 .andExpect(status().isNoContent());
     }
@@ -354,6 +354,63 @@ class SecurityConfigTest {
                 .andReturn();
 
         assertThat(result.getRequest().getSession(false)).isNull();
+    }
+
+
+    @Test
+    @DisplayName("허용된 프론트 origin의 API preflight 요청을 허용한다")
+    void allowsCorsPreflightFromConfiguredFrontend() throws Exception {
+        mockMvc.perform(
+                        options("/api/security-test/protected")
+                                .header("Origin", "http://localhost:5173")
+                                .header("Access-Control-Request-Method", "GET")
+                                .header(
+                                        "Access-Control-Request-Headers",
+                                        "Authorization, Content-Type"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://localhost:5173"
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Methods",
+                        org.hamcrest.Matchers.containsString("GET")
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Credentials",
+                        "true"
+                ));
+    }
+
+
+    @Test
+    @DisplayName("허용되지 않은 origin의 API preflight 요청을 거부한다")
+    void rejectsCorsPreflightFromUnknownOrigin() throws Exception {
+        mockMvc.perform(
+                        options("/api/security-test/protected")
+                                .header("Origin", "https://evil.example")
+                                .header("Access-Control-Request-Method", "GET")
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(
+                        "Access-Control-Allow-Origin"
+                ));
+    }
+
+
+    @Test
+    @DisplayName("허용된 origin의 실제 응답에 CORS header를 추가한다")
+    void addsCorsHeaderToActualRequestFromConfiguredFrontend() throws Exception {
+        mockMvc.perform(
+                        get("/actuator/health")
+                                .header("Origin", "http://localhost:5173")
+                )
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://localhost:5173"
+                ));
     }
 
 

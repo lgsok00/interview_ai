@@ -316,8 +316,8 @@
 - 검증된 GitHub 이메일이 없거나 GitHub 사용자 id가 누락된 인증 거부
 - GitHub 사용자 이름, login, 이메일 앞부분 순서의 닉네임 대체와 DB 제한인 50자 적용
 - GitHub 이메일 정규화 및 기존 인증 방식과의 자동 계정 연결 차단
-- Google 인증 성공 시 기존 Access Token·Refresh Token 응답을 반환하는 success handler
-- GitHub 인증 성공 시 기존 Access Token·Refresh Token 응답을 반환하도록 success handler 분기
+- Google 인증 성공 시 Refresh Token HttpOnly cookie를 발급하고 프론트 callback URL로 redirect하는 success handler
+- GitHub 인증 성공도 같은 cookie·redirect 계약을 사용하도록 provider 분기
 - OAuth2 인증 실패 원인을 일반화하고 민감 정보를 노출하지 않는 failure handler
 - OAuth2 인증 결과 응답의 브라우저 캐시 방지를 위한 `no-store`, `no-cache` header 적용
 - 환경변수 기반 Google OAuth2 client registration과 `openid`, `profile`, `email` scope 설정
@@ -337,17 +337,17 @@
     - 이메일과 비밀번호 validation
     - LOCAL 사용자 확인
     - 비밀번호 검증
-    - 성공 시 Bearer Access Token, Refresh Token과 각 만료 초 반환
+    - 성공 시 JSON에는 Bearer Access Token과 만료 초만 반환하고 Refresh Token은 HttpOnly cookie로 발급
 - `POST /api/auth/refresh`
-    - 인증 없이 Refresh Token 재발급 요청 가능
+    - 인증 없이 Refresh Token cookie로 재발급 요청 가능
     - 유효한 Refresh Token을 새 값으로 회전
-    - 회전된 Refresh Token과 새 Access Token 반환
+    - 회전된 Refresh Token cookie와 새 Access Token JSON 반환
     - 존재하지 않거나 만료된 Refresh Token은 HTTP 401 반환
 - `POST /api/auth/logout`
-    - 인증 없이 Refresh Token을 전달해 현재 기기의 세션 폐기
+    - 인증 없이 Refresh Token cookie를 전달해 현재 기기의 세션 폐기
     - Refresh Token 원문을 저장하지 않고 SHA-256 해시로 해당 행 삭제
     - 존재하지 않거나 이미 폐기된 Refresh Token도 멱등하게 HTTP 204 반환
-    - 빈 Refresh Token은 HTTP 400 반환
+    - cookie가 없거나 이미 폐기된 경우도 멱등하게 HTTP 204 반환하고 만료 cookie 반환
     - stateless Access Token은 즉시 폐기하지 않으며 기존 만료 시점까지 유효
 - `POST /api/auth/logout-all`
     - Bearer Access Token 인증 필요

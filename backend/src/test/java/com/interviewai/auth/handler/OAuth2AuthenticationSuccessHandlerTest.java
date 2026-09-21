@@ -1,8 +1,9 @@
 package com.interviewai.auth.handler;
 
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
+import com.interviewai.auth.http.RefreshTokenCookieService;
+import com.interviewai.auth.service.AuthTokens;
 import com.interviewai.auth.service.GithubOAuth2LoginService;
 import com.interviewai.auth.service.GoogleOAuth2LoginService;
 import com.interviewai.user.exception.UserSuspendedException;
@@ -31,7 +32,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.HttpHeaders.CACHE_CONTROL;
 import static org.springframework.http.HttpHeaders.PRAGMA;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @ExtendWith(MockitoExtension.class)
 class OAuth2AuthenticationSuccessHandlerTest {
@@ -42,7 +42,9 @@ class OAuth2AuthenticationSuccessHandlerTest {
     @Mock
     private GithubOAuth2LoginService githubOAuth2LoginService;
 
-    private ObjectMapper objectMapper;
+    @Mock
+    private RefreshTokenCookieService refreshTokenCookies;
+
     private OAuth2AuthenticationSuccessHandler successHandler;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -50,11 +52,13 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
     @BeforeEach
     void setUp() {
-        objectMapper = new ObjectMapper();
+        ObjectMapper objectMapper = new ObjectMapper();
         successHandler = new OAuth2AuthenticationSuccessHandler(
                 googleOAuth2LoginService,
                 githubOAuth2LoginService,
-                objectMapper
+                objectMapper,
+                refreshTokenCookies,
+                "http://localhost:5173/oauth/callback"
         );
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
@@ -62,28 +66,27 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
 
     @Test
-    @DisplayName("Google 인증 성공 시 서비스가 발급한 토큰 응답을 JSON으로 반환한다")
-    void returnsTokenResponseForGoogleAuthentication() throws Exception {
+    @DisplayName("Google 인증 성공 시 Refresh Token 쿠키를 설정하고 프론트로 리다이렉트한다")
+    void redirectsGoogleAuthenticationWithRefreshTokenCookie() throws Exception {
         OAuth2AuthenticationToken authentication = googleAuthentication();
         OidcUser oidcUser = oidcPrincipal(authentication);
-        LoginResponse loginResponse = LoginResponse.bearer(
+        AuthTokens tokens = new AuthTokens(
                 "access-token",
                 "refresh-token",
                 3600,
                 1209600
         );
         when(googleOAuth2LoginService.login(oidcUser))
-                .thenReturn(loginResponse);
+                .thenReturn(tokens);
 
         successHandler.onAuthenticationSuccess(request, response, authentication);
 
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getContentType()).startsWith(APPLICATION_JSON_VALUE);
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/oauth/callback");
         assertThat(response.getHeader(CACHE_CONTROL)).isEqualTo("no-store");
         assertThat(response.getHeader(PRAGMA)).isEqualTo("no-cache");
-        assertThat(response.getContentAsString()).isEqualTo(
-                objectMapper.writeValueAsString(loginResponse)
-        );
+        assertThat(response.getContentAsString()).doesNotContain("access-token", "refresh-token");
+        verify(refreshTokenCookies).write(response, "refresh-token", 1209600);
         verify(googleOAuth2LoginService).login(oidcUser);
     }
 
@@ -102,27 +105,27 @@ class OAuth2AuthenticationSuccessHandlerTest {
 
 
     @Test
-    @DisplayName("GitHub 인증 성공 시 검증된 이메일과 principal을 서비스에 전달한다")
-    void returnsTokenResponseForGithubAuthentication() throws Exception {
+    @DisplayName("GitHub 인증 성공 시 쿠키를 설정하고 검증된 이메일과 principal을 전달한다")
+    void redirectsGithubAuthenticationWithRefreshTokenCookie() throws Exception {
         OAuth2AuthenticationToken authentication = githubAuthentication();
         OAuth2User oauth2User = authentication.getPrincipal();
-        LoginResponse loginResponse = LoginResponse.bearer(
+        AuthTokens tokens = new AuthTokens(
                 "github-access-token",
                 "github-refresh-token",
                 3600,
                 1209600
         );
         when(githubOAuth2LoginService.login(oauth2User, "user@example.com"))
-                .thenReturn(loginResponse);
+                .thenReturn(tokens);
 
         successHandler.onAuthenticationSuccess(request, response, authentication);
 
-        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/oauth/callback");
         assertThat(response.getHeader(CACHE_CONTROL)).isEqualTo("no-store");
         assertThat(response.getHeader(PRAGMA)).isEqualTo("no-cache");
-        assertThat(response.getContentAsString()).isEqualTo(
-                objectMapper.writeValueAsString(loginResponse)
-        );
+        assertThat(response.getContentAsString()).doesNotContain("github-access-token", "github-refresh-token");
+        verify(refreshTokenCookies).write(response, "github-refresh-token", 1209600);
         verify(githubOAuth2LoginService).login(oauth2User, "user@example.com");
         verifyNoInteractions(googleOAuth2LoginService);
     }

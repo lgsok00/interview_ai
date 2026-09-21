@@ -121,8 +121,15 @@ API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기�
 - 전체 세션 폐기는 요청 시점에 저장된 해당 사용자의 Refresh Token을 모두 삭제하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 로컬 사용자 비밀번호 변경 시 해당 사용자의 모든 Refresh Token을 폐기하지만, 이미 발급된 stateless Access Token은 만료 시점까지 유효하다.
 - 동일 Refresh Token의 동시 회전에 대한 비관적 잠금 동작을 실제 MySQL에서 검증하는 동시성 통합 테스트는 아직 없다.
-- OAuth2 성공 handler는 현재 토큰 쌍을 JSON으로 반환한다. 운영 배포 전 Refresh Token 전달 방식을 Secure·HttpOnly cookie 또는 일회용 교환 코드로 변경할지 결정해야
-  한다.
+- 브라우저 인증은 Access Token만 JSON으로 반환하고 Refresh Token은 JavaScript에서 읽을 수 없는 `HttpOnly` cookie로 전달한다. 로그인·재발급은 cookie를
+  발급·회전하고,
+  로그아웃은 cookie 값을 폐기한 뒤 만료 cookie를 반환한다.
+- OAuth2 성공 handler도 Refresh Token cookie를 발급하고 설정된 프론트 callback URL로 redirect한다. 프론트 API 요청은 `credentials: "include"`를
+  사용하고 서버 CORS는
+  명시된 origin에만 credentials를 허용한다.
+- 로컬 기본 cookie는 `SameSite=Strict`, `Secure=false`이며 운영 HTTPS에서는 `REFRESH_TOKEN_COOKIE_SECURE=true`를 적용한다. Access Token은
+  프론트 메모리에만 두고
+  localStorage·sessionStorage에 영속 저장하지 않는다.
 - 로컬 및 운영 환경에서 Google 로그인을 사용하려면 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 환경변수와 Google Cloud Console의 승인된 redirect URI
   설정이 필요하다.
 - 로컬 및 운영 환경에서 GitHub 로그인을 사용하려면 `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` 환경변수와 GitHub OAuth App의 callback URL 설정이

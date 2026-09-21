@@ -1,6 +1,8 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.*;
+import com.interviewai.auth.dto.LoginRequest;
+import com.interviewai.auth.dto.SignupRequest;
+import com.interviewai.auth.dto.SignupResponse;
 import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
@@ -72,7 +74,7 @@ public class AuthService {
 
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public AuthTokens login(LoginRequest request) {
         String normalizedEmail = normalizeEmail(request.email());
 
         User user = userRepository.findByEmail(normalizedEmail)
@@ -86,7 +88,7 @@ public class AuthService {
 
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
 
-        return LoginResponse.bearer(
+        return new AuthTokens(
                 accessToken.token(),
                 refreshToken.token(),
                 accessToken.expiresIn(),
@@ -96,11 +98,11 @@ public class AuthService {
 
 
     @Transactional
-    public LoginResponse refresh(RefreshTokenRequest request) {
-        RefreshTokenService.RotatedRefreshToken refreshToken = refreshTokenService.rotate(request.refreshToken());
+    public AuthTokens refresh(String rawRefreshToken) {
+        RefreshTokenService.RotatedRefreshToken refreshToken = refreshTokenService.rotate(rawRefreshToken);
         JwtTokenService.IssuedAccessToken accessToken = jwtTokenService.issueAccessToken(refreshToken.user());
 
-        return LoginResponse.bearer(
+        return new AuthTokens(
                 accessToken.token(),
                 refreshToken.token(),
                 accessToken.expiresIn(),
@@ -110,8 +112,8 @@ public class AuthService {
 
 
     @Transactional
-    public void logout(RefreshTokenRequest request) {
-        refreshTokenService.revoke(request.refreshToken());
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revoke(rawRefreshToken);
     }
 
 

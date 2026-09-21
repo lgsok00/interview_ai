@@ -2,10 +2,20 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-21이며 1,000개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-21이며 1,003개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 브라우저용 인증·CORS 계약 변경 전체 회귀 성공 (2026-09-21)
+
+- 사용자 실행: `.\gradlew.bat test` — BUILD SUCCESSFUL (5분 47초).
+- 최신 XML 112개 클래스·1,003개 성공, 실패·오류·건너뜀 0.
+- 로그인·재발급 JSON에는 Access Token과 만료 정보만 반환하고 Refresh Token은 `HttpOnly`, 설정 가능한 `Secure`·`SameSite`, `/api/auth` 경로 cookie로
+  발급·회전한다.
+- 로그아웃은 cookie의 Refresh Token을 폐기하고 만료 cookie를 내려준다. OAuth2 성공은 같은 cookie를 발급한 뒤 프론트 callback URL로 redirect한다.
+- 허용된 프론트 origin의 credential CORS preflight와 기존 인증·OAuth2 회귀를 함께 검증했다.
+- OpenJDK class-data sharing 경고는 결과에 영향을 주지 않았다. Codex는 테스트를 실행하지 않고 사용자 출력과 최신 XML을 확인했다.
 
 ### AI 자기소개서 초안 실행 심화 검증과 실제 Chat smoke 성공 (2026-09-21)
 

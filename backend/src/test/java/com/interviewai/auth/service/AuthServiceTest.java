@@ -1,8 +1,6 @@
 package com.interviewai.auth.service;
 
 import com.interviewai.auth.dto.LoginRequest;
-import com.interviewai.auth.dto.LoginResponse;
-import com.interviewai.auth.dto.RefreshTokenRequest;
 import com.interviewai.auth.dto.SignupRequest;
 import com.interviewai.auth.dto.SignupResponse;
 import com.interviewai.auth.exception.DuplicateEmailException;
@@ -142,12 +140,11 @@ class AuthServiceTest {
             when(refreshTokenService.issue(user))
                     .thenReturn(new RefreshTokenService.IssuedRefreshToken("refresh-token", 1209600));
 
-            LoginResponse response = authService.login(loginRequest());
+            AuthTokens response = authService.login(loginRequest());
 
             assertThat(response.accessToken()).isEqualTo("access-token");
             assertThat(response.refreshToken()).isEqualTo("refresh-token");
-            assertThat(response.tokenType()).isEqualTo("Bearer");
-            assertThat(response.expiresIn()).isEqualTo(3600);
+            assertThat(response.accessTokenExpiresIn()).isEqualTo(3600);
             assertThat(response.refreshTokenExpiresIn()).isEqualTo(1209600);
 
             verify(jwtTokenService).issueAccessToken(user);
@@ -232,8 +229,6 @@ class AuthServiceTest {
         @DisplayName("유효한 Refresh Token을 회전하고 새 토큰 쌍을 반환한다")
         void rotatesRefreshTokenAndReturnsNewTokens() {
             User user = localUser();
-            RefreshTokenRequest request = new RefreshTokenRequest("old-refresh-token");
-
             when(refreshTokenService.rotate("old-refresh-token"))
                     .thenReturn(
                             new RefreshTokenService.RotatedRefreshToken(
@@ -251,12 +246,11 @@ class AuthServiceTest {
                             )
                     );
 
-            LoginResponse response = authService.refresh(request);
+            AuthTokens response = authService.refresh("old-refresh-token");
 
             assertThat(response.accessToken()).isEqualTo("new-access-token");
             assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
-            assertThat(response.tokenType()).isEqualTo("Bearer");
-            assertThat(response.expiresIn()).isEqualTo(3600);
+            assertThat(response.accessTokenExpiresIn()).isEqualTo(3600);
             assertThat(response.refreshTokenExpiresIn()).isEqualTo(1209600);
 
             verify(refreshTokenService).rotate("old-refresh-token");
@@ -267,12 +261,11 @@ class AuthServiceTest {
         @Test
         @DisplayName("Refresh Token이 유효하지 않으면 Access Token을 발급하지 않는다")
         void doesNotIssueAccessTokenForInvalidRefreshToken() {
-            RefreshTokenRequest request = new RefreshTokenRequest("invalid-refresh-token");
-
             when(refreshTokenService.rotate("invalid-refresh-token"))
                     .thenThrow(new InvalidRefreshTokenException());
 
-            assertThatThrownBy(() -> authService.refresh(request)).isInstanceOf(InvalidRefreshTokenException.class);
+            assertThatThrownBy(() -> authService.refresh("invalid-refresh-token"))
+                    .isInstanceOf(InvalidRefreshTokenException.class);
 
             verify(jwtTokenService, never()).issueAccessToken(any(User.class));
         }
@@ -285,9 +278,7 @@ class AuthServiceTest {
         @Test
         @DisplayName("요청받은 Refresh Token을 폐기한다")
         void revokesRequestedRefreshToken() {
-            RefreshTokenRequest request = new RefreshTokenRequest("refresh-token");
-
-            authService.logout(request);
+            authService.logout("refresh-token");
 
             verify(refreshTokenService).revoke("refresh-token");
         }

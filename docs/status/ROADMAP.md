@@ -77,12 +77,16 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - V18/V19 수집 요청·불변 스냅샷·상태/lease·수동 재시도와 최대 9회 이력 기반을 구현하고 전체 951개 회귀 검증을 완료했다 (2026-09-18).
     - 실제 네트워크 수집·사이트 파서·관리자 승인과 카탈로그/RAG 연결은 공식 API 또는 허가된 데이터 소스가 정해질 때 재개한다.
     - V20 AI 자기소개서 초안 테이블, 입력 스냅샷·해시, 구조화 Chat 생성기, 120초 lease·최대 3회 재시도 worker와 생성·조회·재생성·명시 적용 API를 구현했다.
-    - 엔티티·worker·서비스·HTTP 25개와 전체 976개 회귀가 성공했다 (2026-09-21). 다음 검증 대상은 생성기·설정·scheduler·실제 MySQL 동시성과 실제 OpenAI Chat
-      smoke다.
+    - 엔티티·worker·서비스·HTTP 25개에 이어 생성기·설정·scheduler·실제 MySQL 동시성과 실제 OpenAI Chat smoke까지 검증했다 (2026-09-21).
     - 기업·채용공고·RAG 문서·사용자 관리
     - 기업 정보 자동 수집과 AI 문서 재생성
     - STT/TTS, 실시간 면접, PDF 리포트는 MVP 이후 확장 범위
 11. 실제 배포 구성
     - 핵심 사용자 흐름 완성 후 배포 환경을 선정하고 secret, health check, 로그 수집과 scheduler 재기동 정책을 구성
+12. React 프론트엔드
+    - Vite·React·TypeScript 프로젝트와 API URL 환경변수, health 호출 기반을 준비했다.
+    - 백엔드는 Access Token JSON·Refresh Token HttpOnly cookie·OAuth2 callback redirect·credential CORS 계약으로 전환했고 전체 1,003개
+      회귀를 완료했다 (2026-09-21).
+    - 다음은 공통 API client, 인증 상태·재발급 흐름, 로그인/OAuth2 callback 화면과 보호 라우팅 구현이다.
 
 각 단계는 구현 코드와 관련 테스트가 모두 완료된 뒤 다음 단계로 이동한다. 구현만 끝난 경우에는 완료 처리하지 않고 `구현됨, 검증 대기`로 기록한다.

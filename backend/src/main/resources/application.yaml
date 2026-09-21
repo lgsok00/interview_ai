@@ -75,6 +75,19 @@ auth:
       initial-delay: ${REFRESH_TOKEN_CLEANUP_INITIAL_DELAY:1m}
       batch-size: ${REFRESH_TOKEN_CLEANUP_BATCH_SIZE:1000}
 
+  refresh-cookie:
+    name: refresh_token
+    path: /api/auth
+    same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Strict}
+    secure: ${REFRESH_TOKEN_COOKIE_SECURE:false}
+
+app:
+  cors:
+    allowed-origins: ${FRONTEND_ORIGINS:http://localhost:5173}
+
+  frontend:
+    oauth2-success-url: ${OAUTH2_SUCCESS_URL:http://localhost:5173/oauth/callback}
+
 management:
   endpoints:
     web:

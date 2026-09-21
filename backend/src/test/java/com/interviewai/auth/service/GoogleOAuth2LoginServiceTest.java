@@ -1,6 +1,5 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.user.entity.User;
@@ -58,7 +57,7 @@ class GoogleOAuth2LoginServiceTest {
                 .thenReturn(Optional.of(user));
         stubIssuedTokens(user);
 
-        LoginResponse response = googleOAuth2LoginService.login(oidcUser);
+        AuthTokens response = googleOAuth2LoginService.login(oidcUser);
 
         assertTokenResponse(response);
         verify(userRepository, never()).existsByEmail(anyString());
@@ -231,11 +230,10 @@ class GoogleOAuth2LoginServiceTest {
     }
 
 
-    private void assertTokenResponse(LoginResponse response) {
+    private void assertTokenResponse(AuthTokens response) {
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
-        assertThat(response.tokenType()).isEqualTo("Bearer");
-        assertThat(response.expiresIn()).isEqualTo(3600);
+        assertThat(response.accessTokenExpiresIn()).isEqualTo(3600);
         assertThat(response.refreshTokenExpiresIn()).isEqualTo(1209600);
     }
 }

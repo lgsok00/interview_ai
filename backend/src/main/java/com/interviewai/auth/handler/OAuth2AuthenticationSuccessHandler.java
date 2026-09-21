@@ -1,8 +1,9 @@
 package com.interviewai.auth.handler;
 
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
+import com.interviewai.auth.http.RefreshTokenCookieService;
+import com.interviewai.auth.service.AuthTokens;
 import com.interviewai.auth.service.GithubOAuth2LoginService;
 import com.interviewai.auth.service.GoogleOAuth2LoginService;
 import com.interviewai.global.error.ErrorResponse;
@@ -10,6 +11,8 @@ import com.interviewai.user.exception.UserSuspendedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -32,16 +35,22 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     private final GoogleOAuth2LoginService googleOAuth2LoginService;
     private final GithubOAuth2LoginService githubOAuth2LoginService;
     private final ObjectMapper objectMapper;
+    private final RefreshTokenCookieService refreshTokenCookies;
+    private final String oauth2SuccessUrl;
 
 
     public OAuth2AuthenticationSuccessHandler(
             GoogleOAuth2LoginService googleOAuth2LoginService,
             GithubOAuth2LoginService githubOAuth2LoginService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            RefreshTokenCookieService refreshTokenCookies,
+            @Value("${app.frontend.oauth2-success-url}") String oauth2SuccessUrl
     ) {
         this.googleOAuth2LoginService = googleOAuth2LoginService;
         this.githubOAuth2LoginService = githubOAuth2LoginService;
         this.objectMapper = objectMapper;
+        this.refreshTokenCookies = refreshTokenCookies;
+        this.oauth2SuccessUrl = requireOauth2SuccessUrl(oauth2SuccessUrl);
     }
 
 
@@ -51,8 +60,6 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             @NonNull HttpServletResponse response,
             @NonNull Authentication authentication
     ) throws IOException {
-        prepareResponse(response);
-
         if (!(authentication instanceof OAuth2AuthenticationToken oauth2Token)) {
             writeInvalidOAuth2User(response);
 
@@ -60,10 +67,12 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         }
 
         try {
-            LoginResponse loginResponse = login(oauth2Token);
+            AuthTokens tokens = login(oauth2Token);
 
-            response.setStatus(HttpServletResponse.SC_OK);
-            objectMapper.writeValue(response.getWriter(), loginResponse);
+            refreshTokenCookies.write(response, tokens.refreshToken(), tokens.refreshTokenExpiresIn());
+
+            prepareRedirectResponse(response);
+            response.sendRedirect(oauth2SuccessUrl);
 
         } catch (UserSuspendedException exception) {
             writeError(
@@ -91,7 +100,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         }
     }
 
-    private LoginResponse login(OAuth2AuthenticationToken oauth2Token) {
+    private AuthTokens login(OAuth2AuthenticationToken oauth2Token) {
         String registrationId = oauth2Token.getAuthorizedClientRegistrationId();
 
         return switch (registrationId) {
@@ -102,7 +111,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
 
 
-    private LoginResponse loginWithGoogle(OAuth2AuthenticationToken oauth2Token) {
+    private AuthTokens loginWithGoogle(OAuth2AuthenticationToken oauth2Token) {
         if (!(oauth2Token.getPrincipal() instanceof OidcUser oidcUser)) {
             throw new InvalidOAuth2UserException();
         }
@@ -111,7 +120,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
 
 
-    private LoginResponse loginWithGithub(OAuth2AuthenticationToken oauth2Token) {
+    private AuthTokens loginWithGithub(OAuth2AuthenticationToken oauth2Token) {
         OAuth2User oauth2User = oauth2Token.getPrincipal();
         String verifiedEmail = oauth2User.getAttribute(VERIFIED_EMAIL_ATTRIBUTE);
 
@@ -119,11 +128,17 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
 
 
-    private void prepareResponse(HttpServletResponse response) {
+    private void prepareRedirectResponse(HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        response.setHeader(HttpHeaders.PRAGMA, "no-cache");
+    }
+
+
+    private void prepareJsonResponse(HttpServletResponse response) {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setHeader("Cache-Control", "no-store");
-        response.setHeader("Pragma", "no-cache");
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        response.setHeader(HttpHeaders.PRAGMA, "no-cache");
     }
 
 
@@ -138,7 +153,18 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
 
     private void writeError(HttpServletResponse response, int status, String code, String message) throws IOException {
+        prepareJsonResponse(response);
         response.setStatus(status);
+
         objectMapper.writeValue(response.getWriter(), ErrorResponse.of(code, message));
+    }
+
+
+    private String requireOauth2SuccessUrl(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("OAuth2 성공 redirect URL은 필수입니다.");
+        }
+
+        return value.strip();
     }
 }

@@ -1,6 +1,5 @@
 package com.interviewai.auth.service;
 
-import com.interviewai.auth.dto.LoginResponse;
 import com.interviewai.auth.exception.InvalidOAuth2UserException;
 import com.interviewai.auth.exception.OAuth2EmailConflictException;
 import com.interviewai.user.entity.User;
@@ -33,7 +32,7 @@ public class GoogleOAuth2LoginService {
 
 
     @Transactional
-    public LoginResponse login(OidcUser oidcUser) {
+    public AuthTokens login(OidcUser oidcUser) {
         if (oidcUser == null || !Boolean.TRUE.equals(oidcUser.getEmailVerified())) {
             throw new InvalidOAuth2UserException();
         }
@@ -52,7 +51,7 @@ public class GoogleOAuth2LoginService {
         JwtTokenService.IssuedAccessToken accessToken = jwtTokenService.issueAccessToken(user);
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user);
 
-        return LoginResponse.bearer(
+        return new AuthTokens(
                 accessToken.token(),
                 refreshToken.token(),
                 accessToken.expiresIn(),
