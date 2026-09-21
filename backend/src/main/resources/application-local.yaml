@@ -2,6 +2,7 @@ spring:
   config:
     activate:
       on-profile: local
+    import: optional:file:./config/application-local-secrets.properties
 
   datasource:
     url: jdbc:mysql://localhost:${MYSQL_PORT:3308}/${MYSQL_DATABASE:interview_ai}
@@ -10,7 +11,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
-    show-sql: true
+    show-sql: false
 
 auth:
   jwt:
