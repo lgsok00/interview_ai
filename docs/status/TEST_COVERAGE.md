@@ -10,12 +10,17 @@
 
 ### 작성된 자동 테스트
 
-#### AI 자기소개서 초안 영속·생성 실행 기반 — 테스트 작성 대기 (2026-09-18)
+#### AI 자기소개서 초안 — 기본 자동 검증 완료 (2026-09-21)
 
-- V20, 입력 스냅샷·해시, 구조화 출력 검증, 선점·lease·최대 3회 재시도·만료 회수·늦은 완료 차단과 scheduler 설정이 구현됐다.
-- 관련 단위·MySQL 통합 테스트는 아직 작성하지 않았으며 컴파일도 미검증이다. 기존 최신 전체 회귀 951개는 이번 V20 변경 전 기준이다.
-- 후속 테스트는 정상 생성, 명시·대표 이력서 선택, 입력 길이 경계, prompt injection 데이터 격리, AI 형식·quota·timeout·네트워크 실패, 만료 lease, 동시 선점과 늦은 완료
-  차단을 포함해야 한다.
+- `CoverLetterDraftTest` 6개: 초기 상태와 불변 입력, AI 미설정 실패와 fallback 부재, 재시도·늦은 attempt 차단, lease 만료 경계, 검수 적용과 동일 내용 판정, 잘못된
+  결과의 부분 변경 방지를 검증한다.
+- `CoverLetterDraftWorkerTest` 5개: 마지막 만료 lease 우선 회수, 성공 저장, 형식 오류 재시도, DB 오류 전파, interrupt 시 lease 보존을 검증한다.
+- `CoverLetterDraftServiceTest` 8개: 활성·비활성 생성, 최신 스냅샷 재생성과 원본 연결, 실행 중 재생성 거부, 새 버전/RAG 적용, 기준 버전 충돌, 동일 적용 멱등성과 다른 적용
+  충돌을 검증한다.
+- `CoverLetterDraftControllerTest` 6개: 생성·재생성 HTTP 202, ID·공백 지시 validation, 목록·상세와 내부 prompt/reasoning 비노출, 검수 적용, 전
+  endpoint 인증을 검증한다.
+- 선택 XML 4개·25개와 전체 XML 108개·976개가 성공했고 실패·오류·건너뜀은 0이다. 생성기 JSON 파싱·설정·scheduler·실제 MySQL 선점/동시성과 실제 Chat은 직접 검증 범위가
+  아니다.
 
 #### 외부 수집 영속 기반 — 자동 검증 완료 (2026-09-18)
 

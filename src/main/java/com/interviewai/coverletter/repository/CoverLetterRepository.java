@@ -42,4 +42,6 @@ public interface CoverLetterRepository extends JpaRepository<CoverLetter, Long> 
             ORDER BY coverLetter.id
             """)
     List<CoverLetter> findAllOwnedForUpdate(@Param("userId") Long userId);
+
+    boolean existsByIdAndUser_Id(Long id, Long userId);
 }

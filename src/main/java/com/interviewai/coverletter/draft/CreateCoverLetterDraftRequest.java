@@ -17,16 +17,8 @@ public record CreateCoverLetterDraftRequest(
 ) {
 
     public CreateCoverLetterDraftRequest {
-        instruction = normalizeInstruction(instruction);
-    }
-
-
-    private static String normalizeInstruction(String value) {
-        if (value == null) {
-            return null;
+        if (instruction != null) {
+            instruction = instruction.strip();
         }
-
-        String normalized = value.strip();
-        return normalized.isEmpty() ? null : normalized;
     }
 }

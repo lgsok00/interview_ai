@@ -449,6 +449,17 @@ public class CoverLetterDraft {
     }
 
 
+    public void failPending(String failureCode, LocalDateTime now) {
+        if (status != CoverLetterDraftStatus.PENDING || attemptCount != 0) {
+            throw new IllegalStateException("실행 전 대기 초안만 즉시 실패 처리할 수 있습니다.");
+        }
+
+        this.status = CoverLetterDraftStatus.FAILED;
+        this.failureCode = requireFailureCode(failureCode);
+        this.updatedAt = Objects.requireNonNull(now, "now는 필수입니다.");
+    }
+
+
     public void failExpired(String failureCode, LocalDateTime now) {
         if (status != CoverLetterDraftStatus.RUNNING || leaseExpiresAt == null || leaseExpiresAt.isAfter(now)) {
             throw new IllegalStateException("만료된 실행 중 초안이 아닙니다.");

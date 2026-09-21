@@ -16,7 +16,7 @@
 
 ## 현재 구현된 기능
 
-### AI 자기소개서 초안 영속·생성 실행 기반 — 구현됨, 검증 대기 (2026-09-18)
+### AI 자기소개서 초안 — 구현·기본 자동 검증 완료 (2026-09-21)
 
 - V20 `cover_letter_drafts`는 사용자·대상 자기소개서, 재생성 원본, 자기소개서 현재 버전과 기업·공고·이력서 입력 스냅샷, SHA-256 입력 해시, prompt/model, 생성·적용 결과를
   저장한다.
@@ -26,8 +26,12 @@
   외부 도구 호출을 금지한다.
 - 작업 상태는 `PENDING → RUNNING → REVIEW_READY/FAILED`이며 120초 lease, 최대 3회 자동 시도, 만료 실행 재선점, 마지막 만료 실패, attempt UUID 기반 늦은
   완료 차단을 구현했다. fallback 본문은 생성하지 않는다.
-- 조건부 scheduler와 OpenAI 전용 Chat bean을 추가했다. 생성·조회·재생성·명시 적용 HTTP API, 비활성 설정의 실패 행 등록, 기준 버전 충돌과 적용 멱등성 연결은 아직 미구현이다.
-- 현재 변경은 컴파일과 자동 테스트를 실행하지 않은 검증 대기 상태다.
+- 조건부 scheduler와 OpenAI 전용 Chat bean을 추가했다. `POST/GET /api/cover-letters/{coverLetterId}/drafts`, 상세 조회, `regenerate`,
+  `apply`를 제공하며 생성·재생성은 HTTP 202다.
+- AI 비활성·모델 미설정도 fallback 없이 `FAILED/DRAFT_AI_NOT_CONFIGURED` 행으로 남긴다. 재생성은 최신 현재 버전을 다시 스냅샷해 새 ID와 원본 초안 연결을 저장한다.
+- 적용은 자기소개서→초안 순서로 잠그고 기준 버전 불일치를 `DRAFT_BASE_VERSION_CONFLICT`로 거부한다. 검수자가 제출한 제목·본문으로 새 버전과 RAG UPSERT를 저장하며 같은 내용
+  재전송은 멱등 반환한다.
+- 초안 단위·서비스·worker·HTTP 25개와 전체 976개 회귀가 성공했다. 생성기 파싱·설정·scheduler·실제 MySQL 선점/동시성 직접 테스트와 실제 OpenAI Chat 호출은 대기다.
 
 ### 관리자 사용자 관리 — 정지·강제 삭제 포함 구현·자동 검증 완료 (2026-09-17)
 
