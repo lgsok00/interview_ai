@@ -87,6 +87,8 @@ Notion의 프로젝트 기획서, 요구사항 정의서, 시스템 아키텍처
     - Vite·React·TypeScript 프로젝트와 API URL 환경변수, health 호출 기반을 준비했다.
     - 백엔드는 Access Token JSON·Refresh Token HttpOnly cookie·OAuth2 callback redirect·credential CORS 계약으로 전환했고 전체 1,003개
       회귀를 완료했다 (2026-09-21).
-    - 다음은 공통 API client, 인증 상태·재발급 흐름, 로그인/OAuth2 callback 화면과 보호 라우팅 구현이다.
+    - 공통 API client, 메모리 Access Token, credential cookie 요청, 백엔드 오류 변환을 구현하고 프론트엔드 Vitest 6개·lint·build를 검증했다 (
+      2026-09-23).
+    - 다음은 인증 상태·재발급 흐름, 로그인/OAuth2 callback 화면과 보호 라우팅 구현이다.
 
 각 단계는 구현 코드와 관련 테스트가 모두 완료된 뒤 다음 단계로 이동한다. 구현만 끝난 경우에는 완료 처리하지 않고 `구현됨, 검증 대기`로 기록한다.

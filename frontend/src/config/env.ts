@@ -1,9 +1,9 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 
-if (!apiBaseUrl) {
+if (!rawApiBaseUrl) {
     throw new Error('VITE_API_BASE_URL is required.')
 }
 
 export const env = {
-    apiBaseUrl,
+    apiBaseUrl: rawApiBaseUrl.replace(/\/+$/, ''),
 } as const

@@ -2,6 +2,13 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-23 — React 공통 API client 필수 검증 완료
+
+- 공통 요청의 credential cookie, 메모리 Access Token의 인증 Bearer 헤더, JSON 요청과 백엔드 `ErrorResponse` 변환을 구현하고 health 호출을 공통 client로
+  연결했다.
+- Vitest 2개 파일·6개와 lint·build가 사용자 실행에서 성공했다. 인증 상태·자동 재발급·OAuth2 callback·보호 라우팅은 다음 작업이다.
+- 확인한 HEAD는 `8bde4c2`이며 프론트엔드 client·테스트·문서는 작업 트리에서 커밋 대기다.
+
 ## 2026-09-21 — 브라우저용 인증·CORS 계약 전환 전체 회귀 성공
 
 - 로그인·재발급 JSON에서 Refresh Token을 제거하고 `/api/auth` 범위의 HttpOnly cookie로 발급·회전·삭제하도록 변경했다.

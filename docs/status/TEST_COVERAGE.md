@@ -12,6 +12,14 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 공통 API client — 필수 테스트 검증 완료 (2026-09-23)
+
+- `accessTokenStore.test.ts` 2개: Access Token의 공백 정규화·메모리 저장·삭제와 빈 값 거부를 검증한다.
+- `client.test.ts` 4개: 인증 JSON 요청의 cookie·Bearer 헤더·직렬화, 공개 요청의 cookie와 Authorization 생략, 백엔드 오류 응답 변환, body/json 동시 지정
+  거부를 검증한다.
+- 사용자 실행 Vitest 2개 파일·6개 성공, lint 경고·오류 0, TypeScript·Vite build 성공. 브라우저 실제 인증·자동 재발급·OAuth2 callback·라우팅은 이 테스트 범위에
+  포함되지 않는다.
+
 #### AI 자기소개서 초안 — 실행 심화 선택 검증 완료 (2026-09-21)
 
 - `CoverLetterDraftTest` 6개: 초기 상태와 불변 입력, AI 미설정 실패와 fallback 부재, 재시도·늦은 attempt 차단, lease 만료 경계, 검수 적용과 동일 내용 판정, 잘못된
