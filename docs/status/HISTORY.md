@@ -2,6 +2,14 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
+## 2026-09-28 — React 프론트엔드 인증 구현·검증 완료
+
+- 로그인·로그아웃 API, 앱 시작 refresh 기반 인증 상태 복구, Google·GitHub OAuth2 callback, 보호 라우팅과 로그인 후 return path 복원을 연결했다.
+- 공통 API client에 동시 refresh 요청 single-flight와 401 원 요청 1회 재시도를 추가했다. 재발급 실패 시 Access Token을 제거한다.
+- 로그인·홈·OAuth callback에 반응형 디자인을 적용했다. 디자인 적용 후 사용자 실행 Vitest 3개 파일·13개 성공, TypeScript·Vite build 성공, lint 오류·경고 0이다.
+- 사용자는 브라우저 인증 흐름을 확인했고 문제 없음을 전달했다. 디자인 적용 후 데스크톱·모바일 시각 QA 결과와 provider별 세부 실행 결과는 별도 전달되지 않았다.
+- 변경사항과 문서는 작업 트리에서 커밋 대기다.
+
 ## 2026-09-23 — React 공통 API client 필수 검증 완료
 
 - 공통 요청의 credential cookie, 메모리 Access Token의 인증 Bearer 헤더, JSON 요청과 백엔드 `ErrorResponse` 변환을 구현하고 health 호출을 공통 client로

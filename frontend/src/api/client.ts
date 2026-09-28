@@ -38,6 +38,29 @@ function createBody(options: ApiRequestOptions): BodyInit | null | undefined {
     return options.body
 }
 
+let refreshInFlight: Promise<boolean> | null = null
+
+async function tryRefreshAccessToken(): Promise<boolean> {
+    if (!refreshInFlight) {
+        refreshInFlight = apiRequest<{ accessToken: string }>(
+            '/api/auth/refresh',
+            {method: 'POST'},
+        )
+            .then(({accessToken}) => {
+                accessTokenStore.set(accessToken)
+                return true
+            })
+            .catch(() => {
+                accessTokenStore.clear()
+                return false
+            })
+            .finally(() => {
+                refreshInFlight = null
+            })
+    }
+    return refreshInFlight
+}
+
 async function readResponseBody(response: Response): Promise<unknown> {
     const text = await response.text()
 
@@ -90,6 +113,14 @@ export async function apiRequest<T>(
     path: string,
     options: ApiRequestOptions = {},
 ): Promise<T> {
+    return executeApiRequest<T>(path, options, false)
+}
+
+async function executeApiRequest<T>(
+    path: string,
+    options: ApiRequestOptions,
+    hasRetried: boolean,
+): Promise<T> {
     const {
         authenticated: _authenticated,
         body: _body,
@@ -103,6 +134,21 @@ export async function apiRequest<T>(
         body: createBody(options),
         credentials: 'include',
     })
+
+    if (response.status === 401
+        && options.authenticated
+        && !hasRetried
+        && path !== '/api/auth/login'
+        && path !== '/api/auth/refresh'
+    ) {
+        const refreshed = await tryRefreshAccessToken()
+
+        if (refreshed) {
+            return executeApiRequest<T>(path, options, true)
+        }
+
+        accessTokenStore.clear()
+    }
 
     const responseBody = await readResponseBody(response)
 

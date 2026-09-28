@@ -12,13 +12,22 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 프론트엔드 인증/UI — 자동 검증 및 브라우저 인증 흐름 확인 (2026-09-28)
+
+- `accessTokenStore.test.ts` 2개: Access Token의 공백 정규화·메모리 저장·삭제와 빈 값 거부를 검증한다.
+- `authApi.test.ts` 4개: 로그인 자격 증명과 응답, refresh 요청, 204 logout, 인증 API 실패 전달을 검증한다.
+- `client.test.ts` 7개: 기존 인증·공개 요청, 오류 변환과 body/json 제한에 더해 401 refresh·Bearer 교체 후 재요청, 재발급 실패 토큰 제거, 재요청 후 401 추가 재발급 차단을 검증한다.
+- 사용자 실행 Vitest 3개 파일·13개 성공. 디자인 반영 후 TypeScript·Vite build 성공, lint 오류·경고 0이다.
+- 자동 테스트에는 React component/router 렌더링이 포함되지 않는다. 사용자가 후속 브라우저 인증 흐름을 확인해 문제 없음을 전달했다 (2026-09-28). provider별 별도 결과는 기록하지 않았다.
+- 반응형 화면 CSS는 빌드로 확인했으며 데스크톱·모바일 시각 검토는 별도 자동 테스트나 사용자 결과로 확인되지 않았다.
+
 #### React 공통 API client — 필수 테스트 검증 완료 (2026-09-23)
 
 - `accessTokenStore.test.ts` 2개: Access Token의 공백 정규화·메모리 저장·삭제와 빈 값 거부를 검증한다.
 - `client.test.ts` 4개: 인증 JSON 요청의 cookie·Bearer 헤더·직렬화, 공개 요청의 cookie와 Authorization 생략, 백엔드 오류 응답 변환, body/json 동시 지정
   거부를 검증한다.
-- 사용자 실행 Vitest 2개 파일·6개 성공, lint 경고·오류 0, TypeScript·Vite build 성공. 브라우저 실제 인증·자동 재발급·OAuth2 callback·라우팅은 이 테스트 범위에
-  포함되지 않는다.
+- 당시 사용자 실행 Vitest 2개 파일·6개 성공, lint 경고·오류 0, TypeScript·Vite build 성공이다. 자동 재발급·OAuth2 callback·라우팅은 2026-09-28에 후속
+  구현·검증했다.
 
 #### AI 자기소개서 초안 — 실행 심화 선택 검증 완료 (2026-09-21)
 
