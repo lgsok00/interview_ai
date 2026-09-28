@@ -7,16 +7,25 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 관리자 카탈로그 화면 검증 완료 (2026-09-28)
+
+- 사용자 실행: `frontend`에서 `npm test` — Vitest 4개 파일·18개 성공, 실패 0.
+- 사용자 실행: `npm run build` — `tsc -b && vite build` 성공.
+- 최초 lint 실행에서는 `AdminCatalogPage.tsx` 조회 effect 관련 경고 1개가 있었고, 코드 조정 후 사용자가 lint 경고 해결을 확인했다.
+- 사용자가 관리자 카탈로그 화면의 시각점검을 완료했다. 기업·공고 목록과 입력 UI의 실제 브라우저 확인은 자동 테스트 개수에 포함하지 않는다.
+- 자동 테스트는 관리자 카탈로그 API wrapper 동작을 포함하며 React component/router 렌더링은 포함하지 않는다. Codex는 테스트를 실행하지 않았다.
+
 ### React 인증과 디자인 반영 후 자동 검증 성공 (2026-09-28)
 
 - 사용자 실행: `frontend`에서 `npm test` — Vitest 3개 파일·13개 성공, 실패 0.
 - 사용자 실행 후 디자인 반영 재실행: `npm run lint` — 오류·경고 0. `npm run build` — TypeScript·Vite build 성공.
-- 기존 저장 토큰과 로그인·refresh·logout API, 401 후 Access Token 재발급 및 원 요청 1회 재시도, 재발급 실패 시 토큰 제거, 재시도 뒤 401에서 추가 재발급하지 않는 동작을 테스트했다.
+- 기존 저장 토큰과 로그인·refresh·logout API, 401 후 Access Token 재발급 및 원 요청 1회 재시도, 재발급 실패 시 토큰 제거, 재시도 뒤 401에서 추가 재발급하지 않는 동작을
+  테스트했다.
 - OAuth callback, 인증 상태, 보호 라우팅 구현은 확인했지만 자동 테스트는 React component/router를 렌더링하지 않는다.
 - lint 경고는 `AuthProvider.tsx`의 context export에 대한 Fast Refresh 최적화 안내다. 테스트와 빌드는 통과했다.
 - 백엔드 전체 테스트는 이번 실행에 포함되지 않았다. Codex는 사용자 출력과 실제 저장소 변경사항을 확인했으며 테스트를 직접 실행하지 않았다.
 - 후속 사용자 확인: 브라우저 인증 흐름을 점검했고 문제 없음. provider별 세부 실행 결과는 별도로 구분해 기록하지 않는다.
-- 로그인·홈·OAuth callback에 반응형 디자인 코드를 반영한 뒤 위 자동 검증을 다시 실행했다. 화면의 데스크톱·모바일 시각 검토는 결과를 전달받지 못해 기록하지 않는다.
+- 로그인·홈·OAuth callback에 반응형 디자인 코드를 반영한 뒤 위 자동 검증을 다시 실행했다. 후속 사용자 확인에서 디자인 시각점검 완료, 문제 없음을 전달받았다 (2026-09-28).
 
 ### React 공통 API client 필수 검증 성공 (2026-09-23)
 

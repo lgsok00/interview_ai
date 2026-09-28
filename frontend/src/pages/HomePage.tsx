@@ -1,10 +1,36 @@
 import {useAuth} from "../auth/useAuth";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {Link} from "react-router-dom";
+import {apiRequest} from "../api/client";
+
+interface CurrentUser {
+    role: 'USER' | 'ADMIN'
+}
 
 export function HomePage() {
     const {logout} = useAuth()
     const [errorMessage, setErrorMessage] = useState('')
+    const [isAdmin, setIsAdmin] = useState(false)
+
+    useEffect(() => {
+        let active = true
+
+        void apiRequest<CurrentUser>('/api/users/me', {authenticated: true})
+            .then((user) => {
+                if (active) {
+                    setIsAdmin(user.role === 'ADMIN')
+                }
+            })
+            .catch(() => {
+                if (active) {
+                    setIsAdmin(false)
+                }
+            })
+
+        return () => {
+            active = false
+        }
+    }, [])
 
     async function handleLogout() {
         setErrorMessage('')
@@ -27,6 +53,7 @@ export function HomePage() {
 
                 <div className="workspace-header-actions">
                     <span className="account-label">내 면접 준비 공간</span>
+                    {isAdmin && <Link className="secondary-button" to="/admin">관리자</Link>}
                     <button
                         className="secondary-button"
                         type="button"

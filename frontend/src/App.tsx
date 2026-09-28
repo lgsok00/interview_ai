@@ -4,6 +4,8 @@ import {ProtectedRoute} from './auth/ProtectedRoute'
 import {HomePage} from './pages/HomePage'
 import {OAuthCallbackPage} from './pages/OAuthCallbackPage'
 import {LoginPage} from './pages/LoginPage'
+import {AdminRoute} from './auth/AdminRoute'
+import {AdminCatalogPage} from './pages/AdminCatalogPage'
 
 import './App.css'
 
@@ -17,6 +19,7 @@ function App() {
 
                     <Route element={<ProtectedRoute/>}>
                         <Route path="/" element={<HomePage/>}/>
+                        <Route path="/admin" element={<AdminRoute><AdminCatalogPage/></AdminRoute>}/>
                     </Route>
 
                     <Route path="*" element={<Navigate to="/" replace/>}/>

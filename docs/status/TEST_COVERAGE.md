@@ -12,14 +12,19 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
-#### React 프론트엔드 인증/UI — 자동 검증 및 브라우저 인증 흐름 확인 (2026-09-28)
+#### React 프론트엔드 인증·관리자 카탈로그 UI — 자동 검증 및 브라우저 확인 (2026-09-28)
 
 - `accessTokenStore.test.ts` 2개: Access Token의 공백 정규화·메모리 저장·삭제와 빈 값 거부를 검증한다.
 - `authApi.test.ts` 4개: 로그인 자격 증명과 응답, refresh 요청, 204 logout, 인증 API 실패 전달을 검증한다.
-- `client.test.ts` 7개: 기존 인증·공개 요청, 오류 변환과 body/json 제한에 더해 401 refresh·Bearer 교체 후 재요청, 재발급 실패 토큰 제거, 재요청 후 401 추가 재발급 차단을 검증한다.
+- `client.test.ts` 7개: 기존 인증·공개 요청, 오류 변환과 body/json 제한에 더해 401 refresh·Bearer 교체 후 재요청, 재발급 실패 토큰 제거, 재요청 후 401 추가 재발급
+  차단을 검증한다.
 - 사용자 실행 Vitest 3개 파일·13개 성공. 디자인 반영 후 TypeScript·Vite build 성공, lint 오류·경고 0이다.
-- 자동 테스트에는 React component/router 렌더링이 포함되지 않는다. 사용자가 후속 브라우저 인증 흐름을 확인해 문제 없음을 전달했다 (2026-09-28). provider별 별도 결과는 기록하지 않았다.
-- 반응형 화면 CSS는 빌드로 확인했으며 데스크톱·모바일 시각 검토는 별도 자동 테스트나 사용자 결과로 확인되지 않았다.
+- 자동 테스트에는 React component/router 렌더링이 포함되지 않는다. 사용자가 후속 브라우저 인증 흐름을 확인해 문제 없음을 전달했다 (2026-09-28). provider별 별도 결과는 기록하지
+  않았다.
+- 반응형 화면 CSS는 빌드로 확인했고, 사용자가 디자인 시각점검을 완료해 문제 없음을 전달했다 (2026-09-28). 이 수동 검토는 자동 테스트 개수에 포함하지 않는다.
+- `adminCatalogApi.test.ts` 5개: 관리자·공용 목록 query 계약, 전체 기업 페이지 조회, 기업 생성·수정, 공고 생성·수정 payload, 삭제와 오류 전달을 검증한다.
+- 관리자 카탈로그 화면 구현 후 사용자 실행 Vitest는 4개 파일·18개 성공, TypeScript·Vite build 성공이다. 사용자는 관리자 화면 시각점검 완료와 lint 경고 해결을 확인했다. 화면 수동
+  점검은 자동 테스트 개수에 포함하지 않는다.
 
 #### React 공통 API client — 필수 테스트 검증 완료 (2026-09-23)
 
