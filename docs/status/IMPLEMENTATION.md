@@ -69,6 +69,16 @@
   로드맵으로 변환한다. 별도 AI 호출이나 분석 결과 테이블은 사용하지 않는다.
 - 서비스 6개·컨트롤러 4개 신규 테스트와 기존 세션 완료 시각 회귀를 포함해 전체 XML 93개·803개가 성공했고 실패·오류·건너뜀은 0이다.
 
+### React 면접 결과·평가 상태·개선사항 화면 — 구현·검증 완료 (2026-09-29)
+
+- `/interviews/{sessionId}/result`에서 인증된 `GET /api/interview-sessions/{sessionId}/result`를 조회한다. 완료 면접의 공고·기업·직무, 전체 및
+  차원별 점수,
+  질문별 답변과 평가 상태를 표시한다.
+- 완료 평가는 강점·개선사항·개선 답변 예시를 보여준다. 평가 대기·처리 중 상태가 있으면 3초 간격으로 결과를 다시 조회하며, 실패·미요청 상태와 평가 없음도 구분한다.
+- `interviewSessionApi.test.ts` 결과 API 테스트 6개를 추가했다. 사용자 실행 프런트엔드 Vitest 6개 파일·40개, lint 경고·오류 0, TypeScript·Vite build
+  성공과
+  브라우저 시각점검을 확인했다. 자동 테스트에는 React component 렌더링이 포함되지 않는다.
+
 ### 면접 답변 저장·조회와 답변 기반 꼬리 질문 — 구현·자동 검증 완료 (2026-09-15)
 
 - V13은 질문당 하나의 `interview_answers`와 질문의 nullable `parent_question_id`를 추가한다. 답변은 질문 FK cascade, 부모 연결은 self FK

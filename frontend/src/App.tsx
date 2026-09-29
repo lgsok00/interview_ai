@@ -8,6 +8,7 @@ import {AdminRoute} from './auth/AdminRoute'
 import {AdminCatalogPage} from './pages/AdminCatalogPage'
 import {CatalogPage} from './pages/CatalogPage'
 import {InterviewSessionPage} from './pages/InterviewSessionPage'
+import {InterviewResultPage} from './pages/InterviewResultPage'
 
 import './App.css'
 
@@ -23,6 +24,7 @@ function App() {
                         <Route path="/" element={<HomePage/>}/>
                         <Route path="/catalog" element={<CatalogPage/>}/>
                         <Route path="/interviews/:sessionId" element={<InterviewSessionPage/>}/>
+                        <Route path="/interviews/:sessionId/result" element={<InterviewResultPage/>}/>
                         <Route path="/admin" element={<AdminRoute><AdminCatalogPage/></AdminRoute>}/>
                     </Route>
 

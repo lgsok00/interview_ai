@@ -421,7 +421,18 @@ export function InterviewSessionPage() {
                             )}
 
                             {session.status === 'COMPLETED' && (
-                                <p role="status">이 면접 세션은 완료되었습니다.</p>
+                                <section className="interview-question-preview"
+                                         aria-labelledby="interview-completed-title">
+                                    <div>
+                                        <p className="eyebrow">PRACTICE COMPLETE</p>
+                                        <h2 id="interview-completed-title">수고하셨습니다.</h2>
+                                        <p>답변별 평가와 개선사항을 확인해 다음 연습에 활용해 보세요.</p>
+                                    </div>
+                                    <Link className="primary-button interview-start-button"
+                                          to={`/interviews/${session.id}/result`}>
+                                        면접 결과 보기
+                                    </Link>
+                                </section>
                             )}
                         </>
                     )}

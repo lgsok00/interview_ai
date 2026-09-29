@@ -103,3 +103,71 @@ export function completeInterviewSession(sessionId: number): Promise<InterviewSe
         authenticated: true,
     })
 }
+
+export type InterviewAnalysisStatus = 'PENDING' | 'PARTIAL' | 'COMPLETED'
+export type InterviewEvaluationStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+export type InterviewScoreDimension = 'STAR' | 'LOGIC' | 'JOB_FIT'
+
+export interface InterviewResultEvaluation {
+    status: InterviewEvaluationStatus | null
+    starScore: number | null
+    logicScore: number | null
+    jobFitScore: number | null
+    averageScore: number | null
+    strengths: string | null
+    improvements: string | null
+    improvedAnswer: string | null
+    failureCode: string | null
+    completedAt: string | null
+}
+
+export interface InterviewResultQuestion {
+    questionId: number
+    parentQuestionId: number | null
+    questionType: InterviewQuestionType
+    sequence: number
+    question: string
+    answerId: number | null
+    answer: string | null
+    evaluation: InterviewResultEvaluation | null
+}
+
+export interface InterviewResult {
+    session: {
+        id: number
+        companyName: string
+        jobPostingTitle: string
+        jobRole: string
+        completedAt: string
+    }
+    analysisStatus: InterviewAnalysisStatus
+    answerCount: number
+    completedEvaluationCount: number
+    pendingEvaluationCount: number
+    processingEvaluationCount: number
+    failedEvaluationCount: number
+    notRequestedEvaluationCount: number
+    overall: {
+        sampleCount: number
+        averageScore: number | null
+        starScore: number | null
+        logicScore: number | null
+        jobFitScore: number | null
+    }
+    byQuestionType: Array<{
+        questionType: InterviewQuestionType
+        answerCount: number
+        evaluatedCount: number
+        averageScore: number | null
+        starScore: number | null
+        logicScore: number | null
+        jobFitScore: number | null
+    }>
+    questions: InterviewResultQuestion[]
+}
+
+export function getInterviewResult(sessionId: number): Promise<InterviewResult> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/result`, {
+        authenticated: true
+    })
+}
