@@ -12,6 +12,14 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 면접 세션 생성 API (2026-09-29)
+
+- `interviewSessionApi.test.ts` 5개: 공고 ID를 담은 인증된 세션 생성, 생성 API 오류 전달, 인증된 세션 상세 조회, GENERATING·READY 상태 반환, 상세 조회 오류
+  전달을 검증한다.
+- 사용자 실행 Vitest 6개 파일·30개 성공, lint 경고·오류 0, TypeScript·Vite build 성공을 확인했다. 사용자는 공고 상세에서 생성하고 상태 페이지로 이동하는 브라우저 시각점검도
+  완료했다.
+- React component/router 렌더링은 자동 테스트에 포함되지 않는다. 수동 브라우저 점검은 자동 테스트 개수에 포함하지 않는다.
+
 #### React 프론트엔드 인증·관리자 카탈로그 UI — 자동 검증 및 브라우저 확인 (2026-09-28)
 
 - `accessTokenStore.test.ts` 2개: Access Token의 공백 정규화·메모리 저장·삭제와 빈 값 거부를 검증한다.

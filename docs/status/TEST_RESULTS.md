@@ -7,6 +7,15 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 공고 상세 면접 세션 생성 흐름 검증 성공 (2026-09-29)
+
+- 사용자 실행: `frontend`에서 `npm test` — Vitest 6개 파일·30개 성공, 실패 0 (423ms).
+- 사용자 실행: `npm run lint` — 경고·오류 0. `npm run build` — `tsc -b && vite build` 성공 (Vite 44 modules transformed).
+- 신규 `interviewSessionApi.test.ts` 5개에서 인증된 POST 생성 payload, 생성 오류 전달, 인증된 세션 상세 조회, GENERATING·READY 상태 반환, 상세 조회 오류
+  전달을 검증했다.
+- 사용자가 공고 상세에서 면접 세션 생성 및 생성 상태 페이지를 브라우저 시각점검했고 완료를 확인했다. 테스트는 API wrapper 중심이며 React component 렌더링을 포함하지 않는다. Codex는
+  테스트·lint·build를 실행하지 않았다.
+
 ### React 일반 사용자 카탈로그 API 테스트 성공 (2026-09-29)
 
 - 최초 사용자 실행: `frontend`에서 `npm test` — Vitest 5개 파일·25개 성공, 실패 0 (905ms).

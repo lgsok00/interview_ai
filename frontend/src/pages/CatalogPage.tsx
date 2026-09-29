@@ -15,7 +15,8 @@ import {
 } from "../api/catalogApi";
 import {ApiError} from "../api/ApiError";
 import {type SubmitEvent, useEffect, useState} from "react";
-import {Link} from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
+import {createInterviewSession} from '../api/interviewSessionApi'
 
 type Tab = 'companies' | 'postings' | 'favorites'
 type Detail =
@@ -67,6 +68,9 @@ export function CatalogPage() {
     const [loadedRequestKey, setLoadedRequestKey] = useState('')
     const [busyId, setBusyId] = useState<number | null>(null)
     const [error, setError] = useState('')
+    const navigate = useNavigate()
+    const [creatingInterview, setCreatingInterview] = useState(false)
+    const [interviewError, setInterviewError] = useState('')
 
     const requestKey = `${tab}:${keyword}:${status}:${companyFilter}:${page}`
     const loading = loadedRequestKey !== requestKey
@@ -155,6 +159,7 @@ export function CatalogPage() {
 
     async function openPosting(posting: JobPostingSummary) {
         setError('')
+        setInterviewError('')
 
         try {
             const result = await getJobPosting(posting.id)
@@ -162,6 +167,25 @@ export function CatalogPage() {
 
         } catch (loadError) {
             setError(messageOf(loadError))
+        }
+    }
+
+    async function startInterview() {
+        if (detail?.kind !== 'posting') return
+
+        const jobPostingId = detail.value.id
+        setCreatingInterview(true)
+        setInterviewError('')
+
+        try {
+            const session = await createInterviewSession(jobPostingId)
+            navigate(`/interviews/${session.id}`)
+
+        } catch (error) {
+            setInterviewError(messageOf(error))
+
+        } finally {
+            setCreatingInterview(false)
         }
     }
 
@@ -415,6 +439,17 @@ export function CatalogPage() {
                                         채용 페이지 방문 ↗
                                     </a>
                                 )}
+                                {interviewError && (
+                                    <p className="form-alert" role="alert">{interviewError}</p>
+                                )}
+                                <button
+                                    className="primary-button catalog-detail-action"
+                                    type="button"
+                                    disabled={creatingInterview}
+                                    onClick={() => void startInterview()}
+                                >
+                                    {creatingInterview ? '면접 세션을 만들고 있습니다…' : '이 공고로 면접 연습'}
+                                </button>
                             </>
                         )}
                     </section>

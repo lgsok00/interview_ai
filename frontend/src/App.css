@@ -1410,3 +1410,65 @@
         font-size: 11px;
     }
 }
+
+.interview-status-content {
+    width: min(100% - 48px, 720px);
+    margin: 0 auto;
+    padding: 64px 0 80px;
+}
+
+.interview-status-content > h1 {
+    margin: 14px 0 0;
+    color: var(--ink);
+    font-size: clamp(27px, 4vw, 38px);
+    letter-spacing: -1.8px;
+}
+
+.interview-status-content > .workspace-intro {
+    margin: 10px 0 26px;
+}
+
+.interview-status-card {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    padding: clamp(22px, 4vw, 34px);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 9px 28px rgb(28 42 73 / 4%);
+}
+
+.interview-status-card h2 {
+    margin: 4px 0 0;
+    color: var(--ink);
+    font-size: 21px;
+    letter-spacing: -0.6px;
+}
+
+.interview-status-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.interview-status-card .form-alert {
+    color: var(--danger);
+}
+
+.interview-back-link {
+    margin-top: 10px;
+}
+
+.catalog-detail-action:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+@media (max-width: 700px) {
+    .interview-status-content {
+        width: min(100% - 32px, 560px);
+        padding-top: 38px;
+    }
+}
