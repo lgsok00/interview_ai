@@ -7,11 +7,21 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 진행 중 면접 답변·꼬리 질문 UI 확인 (2026-09-29)
+
+- 사용자 실행: `frontend`에서 `npm test` — Vitest 6개 파일·34개 성공, 실패 0 (359ms). `npm run lint` — 경고·오류 0. `npm run build` —
+  TypeScript·Vite build 성공.
+- 사용자가 진행 중 면접 답변·꼬리 질문 화면의 브라우저 시각점검 완료를 확인했다.
+- 이번 UI 변경의 신규 자동 테스트는 추가되지 않았다. 전달된 34개는 기존 테스트 전체 결과이며 component 렌더링과 신규 답변 API wrapper는 별도 자동 검증하지 않았다. Codex는 테스트를
+  직접 실행하지 않았다.
+
 ### React 면접 질문 미리보기·시작 UI 검증 성공 (2026-09-29)
 
-- 사용자 재실행: `frontend`에서 `npm test` — Vitest 6개 파일·34개 성공, 실패 0 (343ms), `npm run lint` — 경고·오류 0, `npm run build` — TypeScript·Vite build 성공.
+- 사용자 재실행: `frontend`에서 `npm test` — Vitest 6개 파일·34개 성공, 실패 0 (343ms), `npm run lint` — 경고·오류 0, `npm run build` —
+  TypeScript·Vite build 성공.
 - 사용자는 READY 세션에서 질문 확인·면접 시작 화면의 브라우저 시각점검도 완료했다.
-- 추가한 API 테스트 4개는 질문 조회 정상·오류, 세션 시작 요청·오류 전달을 검증한다. 자동 테스트는 API wrapper를 검증하며 React component 렌더링은 포함하지 않는다. Codex는 사용자 실행 결과를 확인했으며 테스트를 직접 실행하지 않았다.
+- 추가한 API 테스트 4개는 질문 조회 정상·오류, 세션 시작 요청·오류 전달을 검증한다. 자동 테스트는 API wrapper를 검증하며 React component 렌더링은 포함하지 않는다. Codex는 사용자
+  실행 결과를 확인했으며 테스트를 직접 실행하지 않았다.
 
 ### React 공고 상세 면접 세션 생성 흐름 검증 성공 (2026-09-29)
 

@@ -58,3 +58,48 @@ export function startInterviewSession(sessionId: number): Promise<InterviewSessi
         authenticated: true
     })
 }
+
+export interface InterviewAnswer {
+    id: number
+    questionId: number
+    content: string
+    followUpQuestionId: number | null
+    createdAt: string
+}
+
+export interface InterviewFollowUp {
+    parentQuestionId: number
+    question: InterviewQuestion
+}
+
+export function getInterviewAnswers(sessionId: number): Promise<InterviewAnswer[]> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/answers`, {
+        authenticated: true
+    })
+}
+
+export function submitInterviewAnswer(
+    sessionId: number,
+    questionId: number,
+    content: string,
+): Promise<InterviewAnswer> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/questions/${questionId}/answer`, {
+        method: 'PUT',
+        authenticated: true,
+        json: {content},
+    })
+}
+
+export function generateInterviewFollowUp(sessionId: number, questionId: number): Promise<InterviewFollowUp> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/questions/${questionId}/follow-up`, {
+        method: 'POST',
+        authenticated: true,
+    })
+}
+
+export function completeInterviewSession(sessionId: number): Promise<InterviewSession> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/complete`, {
+        method: 'POST',
+        authenticated: true,
+    })
+}

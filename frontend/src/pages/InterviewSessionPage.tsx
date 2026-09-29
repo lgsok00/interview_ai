@@ -1,10 +1,15 @@
 import {
+    completeInterviewSession,
+    generateInterviewFollowUp,
+    getInterviewAnswers,
     getInterviewQuestions,
     getInterviewSession,
+    type InterviewAnswer,
     type InterviewQuestion,
     type InterviewSession,
     type InterviewSessionStatus,
     startInterviewSession,
+    submitInterviewAnswer,
 } from "../api/interviewSessionApi";
 import {ApiError} from "../api/ApiError";
 import {Link, useParams} from "react-router-dom";
@@ -44,7 +49,11 @@ export function InterviewSessionPage() {
     const loading = validSessionId && currentState === null
 
     const [questions, setQuestions] = useState<InterviewQuestion[]>([])
+    const [answers, setAnswers] = useState<InterviewAnswer[]>([])
+    const [drafts, setDrafts] = useState<Record<number, string>>({})
     const [starting, setStarting] = useState(false)
+    const [completing, setCompleting] = useState(false)
+    const [answeringQuestionId, setAnsweringQuestionId] = useState<number | null>(null)
     const [actionError, setActionError] = useState('')
 
     useEffect(() => {
@@ -58,11 +67,18 @@ export function InterviewSessionPage() {
                 const result = await getInterviewSession(sessionId)
                 if (!active) return
 
-                if (result.status === 'READY') {
+                if (result.status === 'READY' || result.status === 'IN_PROGRESS') {
                     const questionResults = await getInterviewQuestions(sessionId)
                     if (!active) return
 
                     setQuestions(questionResults)
+
+                    if (result.status === 'IN_PROGRESS') {
+                        const answerResults = await getInterviewAnswers(sessionId)
+                        if (!active) return
+
+                        setAnswers(answerResults)
+                    }
                 }
 
                 setLoadState({sessionId, session: result})
@@ -102,6 +118,63 @@ export function InterviewSessionPage() {
         }
     }
 
+    async function handleSubmitAnswer(question: InterviewQuestion) {
+        const content = drafts[question.id]?.trim() ?? ''
+        if (!content) return
+
+        setAnsweringQuestionId(question.id)
+        setActionError('')
+
+        try {
+            const savedAnswer = await submitInterviewAnswer(sessionId, question.id, content)
+
+            setAnswers((current) => [
+                ...current.filter((answer) => answer.questionId !== savedAnswer.questionId),
+                savedAnswer,
+            ])
+            setDrafts((current) => ({...current, [question.id]: ''}))
+
+            if (question.questionType !== 'FOLLOW_UP' && !savedAnswer.followUpQuestionId) {
+                const result = await generateInterviewFollowUp(sessionId, question.id)
+
+                setQuestions((current) => {
+                    if (current.some((item) => item.id === result.question.id)) {
+                        return current
+                    }
+
+                    return [...current, result.question]
+                })
+                setAnswers((current) => current.map((answer) =>
+                    answer.questionId === question.id
+                        ? {...answer, followUpQuestionId: result.question.id}
+                        : answer,
+                ))
+            }
+
+        } catch (error) {
+            setActionError(messageOf(error))
+
+        } finally {
+            setAnsweringQuestionId(null)
+        }
+    }
+
+    async function handleCompleteInterview() {
+        setCompleting(true)
+        setActionError('')
+
+        try {
+            const result = await completeInterviewSession(sessionId)
+            setLoadState({sessionId, session: result})
+
+        } catch (error) {
+            setActionError(messageOf(error))
+
+        } finally {
+            setCompleting(false)
+        }
+    }
+
     return (
         <main className="workspace interview-status-workspace">
             <header className="workspace-header">
@@ -115,10 +188,16 @@ export function InterviewSessionPage() {
             </header>
 
             <section className="interview-status-content">
-                <p className="eyebrow">INTERVIEW PREPARATION</p>
-                <h1>면접 질문을 준비하고 있어요.</h1>
+                <p className="eyebrow">INTERVIEW PRACTICE</p>
+                <h1>
+                    {session?.status === 'IN_PROGRESS'
+                        ? '답변을 이어가 볼까요?'
+                        : '면접 질문을 준비하고 있어요.'}
+                </h1>
                 <p className="workspace-intro">
-                    공고와 내 자료를 바탕으로 연습 질문을 만들고 있습니다.
+                    {session?.status === 'IN_PROGRESS'
+                        ? '답변을 제출하면 초기 질문에 대한 꼬리 질문이 이어집니다.'
+                        : '공고와 내 자료를 바탕으로 연습 질문을 만들고 있습니다.'}
                 </p>
 
                 <section className="interview-status-card" aria-live="polite">
@@ -147,8 +226,10 @@ export function InterviewSessionPage() {
                             )}
 
                             {session.status === 'READY' && (
-                                <section className="interview-question-preview"
-                                         aria-labelledby="question-preview-title">
+                                <section
+                                    className="interview-question-preview"
+                                    aria-labelledby="question-preview-title"
+                                >
                                     <div>
                                         <p className="eyebrow">YOUR QUESTIONS</p>
                                         <h2 id="question-preview-title">이번 면접 질문</h2>
@@ -156,7 +237,9 @@ export function InterviewSessionPage() {
                                     </div>
 
                                     {questions.length === 0 ? (
-                                        <p role="status">질문을 불러오지 못했거나 아직 준비되지 않았습니다. 새로고침해 주세요.</p>
+                                        <p role="status">
+                                            질문을 불러오지 못했거나 아직 준비되지 않았습니다. 새로고침해 주세요.
+                                        </p>
                                     ) : (
                                         <ol className="interview-question-list">
                                             {questions.map((question) => (
@@ -174,7 +257,9 @@ export function InterviewSessionPage() {
                                         </ol>
                                     )}
 
-                                    {actionError && <p className="form-alert" role="alert">{actionError}</p>}
+                                    {actionError && (
+                                        <p className="form-alert" role="alert">{actionError}</p>
+                                    )}
 
                                     <button
                                         className="primary-button interview-start-button"
@@ -195,7 +280,144 @@ export function InterviewSessionPage() {
                             )}
 
                             {session.status === 'IN_PROGRESS' && (
-                                <p role="status">이 면접 세션은 진행 중입니다.</p>
+                                <section
+                                    className="interview-question-preview"
+                                    aria-labelledby="live-interview-title"
+                                >
+                                    <div>
+                                        <p className="eyebrow">INTERVIEW IN PROGRESS</p>
+                                        <h2 id="live-interview-title">질문에 답변해 주세요</h2>
+                                        <p>답변은 질문별로 저장되고 초기 질문 뒤에 꼬리 질문이 이어집니다.</p>
+                                    </div>
+
+                                    {questions.length === 0 ? (
+                                        <p role="status">질문을 불러오고 있습니다.</p>
+                                    ) : (
+                                        <ol className="interview-question-list">
+                                            {questions.map((question) => {
+                                                const answer = answers.find(
+                                                    (item) => item.questionId === question.id,
+                                                )
+                                                const isFollowUp = question.questionType === 'FOLLOW_UP'
+                                                const pending = answeringQuestionId === question.id
+
+                                                return (
+                                                    <li key={question.id}>
+                                                        <span className="question-number">
+                                                            질문 {question.sequenceNumber}
+                                                        </span>
+                                                        <span className="question-type">
+                                                            {isFollowUp ? '꼬리 질문' :
+                                                                question.questionType === 'TECHNICAL'
+                                                                    ? '기술'
+                                                                    : '인성'}
+                                                        </span>
+                                                        <p>{question.content}</p>
+
+                                                        {answer ? (
+                                                            <>
+                                                                <p className="interview-answer-label">내 답변</p>
+                                                                <p className="interview-answer">
+                                                                    {answer.content}
+                                                                </p>
+                                                                {!isFollowUp && !answer.followUpQuestionId && (
+                                                                    <>
+                                                                        {actionError && (
+                                                                            <p className="form-alert" role="alert">
+                                                                                {actionError}
+                                                                            </p>
+                                                                        )}
+                                                                        <button
+                                                                            className="secondary-button"
+                                                                            type="button"
+                                                                            disabled={pending}
+                                                                            onClick={() => {
+                                                                                setDrafts((current) => ({
+                                                                                    ...current,
+                                                                                    [question.id]: answer.content,
+                                                                                }))
+                                                                                void generateInterviewFollowUp(
+                                                                                    sessionId,
+                                                                                    question.id,
+                                                                                ).then((result) => {
+                                                                                    setQuestions((current) =>
+                                                                                        current.some(
+                                                                                            (item) => item.id === result.question.id,
+                                                                                        )
+                                                                                            ? current
+                                                                                            : [...current, result.question],
+                                                                                    )
+                                                                                    setAnswers((current) =>
+                                                                                        current.map((item) =>
+                                                                                            item.questionId === question.id
+                                                                                                ? {
+                                                                                                    ...item,
+                                                                                                    followUpQuestionId: result.question.id,
+                                                                                                }
+                                                                                                : item,
+                                                                                        ),
+                                                                                    )
+                                                                                    setActionError('')
+                                                                                }).catch((error: unknown) => {
+                                                                                    setActionError(messageOf(error))
+                                                                                })
+                                                                            }}
+                                                                        >
+                                                                            꼬리 질문 다시 만들기
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <div className="interview-answer-form">
+                                                                <label htmlFor={`answer-${question.id}`}>
+                                                                    답변
+                                                                </label>
+                                                                <textarea
+                                                                    id={`answer-${question.id}`}
+                                                                    value={drafts[question.id] ?? ''}
+                                                                    maxLength={10000}
+                                                                    rows={5}
+                                                                    placeholder="경험과 판단 근거를 구체적으로 작성해 주세요."
+                                                                    onChange={(event) => setDrafts((current) => ({
+                                                                        ...current,
+                                                                        [question.id]: event.target.value,
+                                                                    }))}
+                                                                />
+                                                                <div className="interview-answer-actions">
+                                                                    <span>
+                                                                        {(drafts[question.id] ?? '').length} / 10,000자
+                                                                    </span>
+                                                                    <button
+                                                                        className="primary-button"
+                                                                        type="button"
+                                                                        disabled={pending || !drafts[question.id]?.trim()}
+                                                                        onClick={() => void handleSubmitAnswer(question)}
+                                                                    >
+                                                                        {pending ? '저장 중…' : '답변 제출'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </li>
+                                                )
+                                            })}
+                                        </ol>
+                                    )}
+
+                                    {actionError && (
+                                        <p className="form-alert" role="alert">{actionError}</p>
+                                    )}
+
+                                    <button
+                                        className="primary-button interview-start-button"
+                                        type="button"
+                                        onClick={() => void handleCompleteInterview()}
+                                        disabled={completing || answeringQuestionId !== null}
+                                    >
+                                        {completing ? '면접을 마치는 중…' : '면접 완료하기'}
+                                    </button>
+                                </section>
                             )}
 
                             {session.status === 'COMPLETED' && (
