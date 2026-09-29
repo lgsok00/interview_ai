@@ -94,13 +94,13 @@ export function HomePage() {
                         <span className="card-arrow" aria-hidden="true">↗</span>
                     </article>
 
-                    <article className="workspace-card">
+                    <Link className="workspace-card" to="/growth">
                         <span className="card-icon card-icon-lilac" aria-hidden="true">03</span>
                         <p className="card-kicker">GROWTH</p>
                         <h2>성장 기록</h2>
                         <p>연습 결과를 돌아보고 다음 목표를 세워보세요.</p>
                         <span className="card-arrow" aria-hidden="true">↗</span>
-                    </article>
+                    </Link>
 
                     <Link className="workspace-card catalog-home-card" to="/catalog">
                         <span className="card-icon card-icon-mint" aria-hidden="true">04</span>

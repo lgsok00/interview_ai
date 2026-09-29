@@ -7,6 +7,14 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 면접 성장 분석 화면 자동 검증 (2026-09-29)
+
+- 첫 사용자 실행에서 effect 로딩 상태 lint 경고 1개가 발생했다. effect에서 API를 직접 비동기 호출하고 완료 상태만 저장하도록 수정했다.
+- 사용자 재실행 `frontend`의 `npm test` — Vitest 7개 파일·44개 성공, 실패 0 (413ms). `npm run lint` — 경고·오류 0. `npm run build` —
+  `tsc -b && vite build` 성공 (47 modules transformed).
+- 신규 `interviewGrowthApi.test.ts` 4개에서 기본 기간 query, 직무·기업·공고 필터 encoding, 빈 필터 생략, API 오류 전달을 검증했다.
+- 사용자가 성장 분석 화면 브라우저 시각점검 완료를 확인했다. 화면 component 렌더링은 자동 테스트에 포함되지 않는다. Codex는 명령을 실행하지 않았다.
+
 ### React 진행 중 면접 답변·꼬리 질문 UI 확인 (2026-09-29)
 
 - 사용자 실행: `frontend`에서 `npm test` — Vitest 6개 파일·34개 성공, 실패 0 (359ms). `npm run lint` — 경고·오류 0. `npm run build` —
