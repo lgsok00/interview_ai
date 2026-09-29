@@ -1,4 +1,11 @@
-import {getInterviewSession, type InterviewSession, type InterviewSessionStatus} from "../api/interviewSessionApi";
+import {
+    getInterviewQuestions,
+    getInterviewSession,
+    type InterviewQuestion,
+    type InterviewSession,
+    type InterviewSessionStatus,
+    startInterviewSession,
+} from "../api/interviewSessionApi";
 import {ApiError} from "../api/ApiError";
 import {Link, useParams} from "react-router-dom";
 import {useEffect, useState} from "react";
@@ -36,6 +43,10 @@ export function InterviewSessionPage() {
             : ''
     const loading = validSessionId && currentState === null
 
+    const [questions, setQuestions] = useState<InterviewQuestion[]>([])
+    const [starting, setStarting] = useState(false)
+    const [actionError, setActionError] = useState('')
+
     useEffect(() => {
         if (!validSessionId) return
 
@@ -46,6 +57,13 @@ export function InterviewSessionPage() {
             try {
                 const result = await getInterviewSession(sessionId)
                 if (!active) return
+
+                if (result.status === 'READY') {
+                    const questionResults = await getInterviewQuestions(sessionId)
+                    if (!active) return
+
+                    setQuestions(questionResults)
+                }
 
                 setLoadState({sessionId, session: result})
 
@@ -67,6 +85,22 @@ export function InterviewSessionPage() {
             if (timeout) clearTimeout(timeout)
         }
     }, [sessionId, validSessionId])
+
+    async function handleStartInterview() {
+        setStarting(true)
+        setActionError('')
+
+        try {
+            const result = await startInterviewSession(sessionId)
+            setLoadState({sessionId, session: result})
+
+        } catch (error) {
+            setActionError(messageOf(error))
+
+        } finally {
+            setStarting(false)
+        }
+    }
 
     return (
         <main className="workspace interview-status-workspace">
@@ -113,7 +147,44 @@ export function InterviewSessionPage() {
                             )}
 
                             {session.status === 'READY' && (
-                                <p role="status">질문이 준비되었습니다. 면접 진행 화면은 다음 단계에서 연결됩니다.</p>
+                                <section className="interview-question-preview"
+                                         aria-labelledby="question-preview-title">
+                                    <div>
+                                        <p className="eyebrow">YOUR QUESTIONS</p>
+                                        <h2 id="question-preview-title">이번 면접 질문</h2>
+                                        <p>질문을 먼저 확인한 뒤 준비가 되면 면접을 시작하세요.</p>
+                                    </div>
+
+                                    {questions.length === 0 ? (
+                                        <p role="status">질문을 불러오지 못했거나 아직 준비되지 않았습니다. 새로고침해 주세요.</p>
+                                    ) : (
+                                        <ol className="interview-question-list">
+                                            {questions.map((question) => (
+                                                <li key={question.id}>
+                                                    <span className="question-number">
+                                                        질문 {question.sequenceNumber}
+                                                    </span>
+                                                    <span className="question-type">
+                                                        {question.questionType === 'TECHNICAL' ? '기술' :
+                                                            question.questionType === 'BEHAVIORAL' ? '인성' : '꼬리 질문'}
+                                                    </span>
+                                                    <p>{question.content}</p>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    )}
+
+                                    {actionError && <p className="form-alert" role="alert">{actionError}</p>}
+
+                                    <button
+                                        className="primary-button interview-start-button"
+                                        type="button"
+                                        onClick={() => void handleStartInterview()}
+                                        disabled={starting || questions.length === 0}
+                                    >
+                                        {starting ? '면접을 시작하는 중…' : '면접 시작하기'}
+                                    </button>
+                                </section>
                             )}
 
                             {session.status === 'FAILED' && (

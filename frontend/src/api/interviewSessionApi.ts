@@ -33,3 +33,28 @@ export function getInterviewSession(sessionId: number): Promise<InterviewSession
         authenticated: true
     })
 }
+
+export type InterviewQuestionType = 'TECHNICAL' | 'BEHAVIORAL' | 'FOLLOW_UP'
+export type QuestionGenerationSource = 'AI' | 'FALLBACK'
+
+export interface InterviewQuestion {
+    id: number
+    sequenceNumber: number
+    questionType: InterviewQuestionType
+    generationSource: QuestionGenerationSource
+    content: string
+    createdAt: string
+}
+
+export function getInterviewQuestions(sessionId: number): Promise<InterviewQuestion[]> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/questions`, {
+        authenticated: true
+    })
+}
+
+export function startInterviewSession(sessionId: number): Promise<InterviewSession> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/start`, {
+        method: 'POST',
+        authenticated: true
+    })
+}

@@ -1457,6 +1457,62 @@
     color: var(--danger);
 }
 
+.interview-question-preview {
+    display: grid;
+    width: 100%;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.interview-question-preview h2 {
+    margin: 8px 0 5px;
+    color: var(--ink);
+    font-size: 20px;
+}
+
+.interview-question-preview > div > p:last-child {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.interview-question-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.interview-question-list li {
+    padding: 17px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #fbfcff;
+}
+
+.question-number,
+.question-type {
+    display: inline-flex;
+    margin-right: 8px;
+    color: #64708a;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.interview-question-list li p {
+    margin-top: 10px;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+}
+
+.interview-start-button {
+    max-width: 260px;
+}
+
 .interview-back-link {
     margin-top: 10px;
 }

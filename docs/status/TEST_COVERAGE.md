@@ -12,6 +12,12 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 면접 질문 미리보기·시작 API (2026-09-29)
+
+- `interviewSessionApi.test.ts`에 질문 목록 endpoint 정상 응답·오류 전달, 세션 시작 POST 계약·오류 전달 4개 테스트를 추가했다.
+- 사용자 재실행 Vitest 6개 파일·34개 성공, lint 경고·오류 0, TypeScript·Vite build 성공을 확인했다. React component 렌더링 테스트는 포함하지 않는다.
+- 사용자는 READY 세션 질문 미리보기·시작 화면의 브라우저 시각점검 완료를 확인했다.
+
 #### React 면접 세션 생성 API (2026-09-29)
 
 - `interviewSessionApi.test.ts` 5개: 공고 ID를 담은 인증된 세션 생성, 생성 API 오류 전달, 인증된 세션 상세 조회, GENERATING·READY 상태 반환, 상세 조회 오류

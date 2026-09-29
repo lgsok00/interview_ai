@@ -1,5 +1,12 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {createInterviewSession, getInterviewSession, type InterviewSession,} from './interviewSessionApi'
+import {
+    createInterviewSession,
+    getInterviewQuestions,
+    getInterviewSession,
+    type InterviewQuestion,
+    type InterviewSession,
+    startInterviewSession,
+} from './interviewSessionApi'
 
 const {apiRequestMock} = vi.hoisted(() => ({apiRequestMock: vi.fn()}))
 
@@ -17,6 +24,17 @@ const generatingSession: InterviewSession = {
     updatedAt: '2026-09-29T10:00:00Z',
     completedAt: null,
 }
+
+const questions: InterviewQuestion[] = [
+    {
+        id: 51,
+        sequenceNumber: 1,
+        questionType: 'TECHNICAL',
+        generationSource: 'AI',
+        content: '서비스의 장애를 진단하고 복구한 경험을 설명해 주세요.',
+        createdAt: '2026-09-29T10:01:00Z',
+    },
+]
 
 describe('interviewSessionApi', () => {
     afterEach(() => apiRequestMock.mockReset())
@@ -68,5 +86,41 @@ describe('interviewSessionApi', () => {
         apiRequestMock.mockRejectedValue(error)
 
         await expect(getInterviewSession(999)).rejects.toBe(error)
+    })
+
+    it('세션 질문을 인증된 질문 endpoint에서 조회한다', async () => {
+        apiRequestMock.mockResolvedValue(questions)
+
+        await expect(getInterviewQuestions(31)).resolves.toEqual(questions)
+
+        expect(apiRequestMock).toHaveBeenCalledWith('/api/interview-sessions/31/questions', {
+            authenticated: true,
+        })
+    })
+
+    it('질문 조회 오류를 호출자에게 전달한다', async () => {
+        const error = new Error('INTERVIEW_SESSION_NOT_FOUND')
+        apiRequestMock.mockRejectedValue(error)
+
+        await expect(getInterviewQuestions(999)).rejects.toBe(error)
+    })
+
+    it('인증된 면접 시작 POST 요청을 보내고 변경된 세션을 반환한다', async () => {
+        const startedSession = {...generatingSession, status: 'IN_PROGRESS' as const}
+        apiRequestMock.mockResolvedValue(startedSession)
+
+        await expect(startInterviewSession(31)).resolves.toEqual(startedSession)
+
+        expect(apiRequestMock).toHaveBeenCalledWith('/api/interview-sessions/31/start', {
+            method: 'POST',
+            authenticated: true,
+        })
+    })
+
+    it('면접 시작 오류를 호출자에게 전달한다', async () => {
+        const error = new Error('INTERVIEW_SESSION_CONFLICT')
+        apiRequestMock.mockRejectedValue(error)
+
+        await expect(startInterviewSession(31)).rejects.toBe(error)
     })
 })
