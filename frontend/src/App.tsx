@@ -6,6 +6,7 @@ import {OAuthCallbackPage} from './pages/OAuthCallbackPage'
 import {LoginPage} from './pages/LoginPage'
 import {AdminRoute} from './auth/AdminRoute'
 import {AdminCatalogPage} from './pages/AdminCatalogPage'
+import {CatalogPage} from './pages/CatalogPage'
 
 import './App.css'
 
@@ -19,6 +20,7 @@ function App() {
 
                     <Route element={<ProtectedRoute/>}>
                         <Route path="/" element={<HomePage/>}/>
+                        <Route path="/catalog" element={<CatalogPage/>}/>
                         <Route path="/admin" element={<AdminRoute><AdminCatalogPage/></AdminRoute>}/>
                     </Route>
 

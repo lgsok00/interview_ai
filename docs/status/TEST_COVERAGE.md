@@ -26,6 +26,17 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 - 관리자 카탈로그 화면 구현 후 사용자 실행 Vitest는 4개 파일·18개 성공, TypeScript·Vite build 성공이다. 사용자는 관리자 화면 시각점검 완료와 lint 경고 해결을 확인했다. 화면 수동
   점검은 자동 테스트 개수에 포함하지 않는다.
 
+#### React 일반 사용자 기업·채용공고 탐색 API (2026-09-29)
+
+- `catalogApi.test.ts` 7개: 기업 검색 query와 사용자 지정 size, 기본·관심 기업 목록, 공고 keyword·상태·기업 필터, 기업별 공고 query, 기업·공고 상세 조회, 관심
+  등록·해제 HTTP method,
+  API 오류 전파를 검증한다.
+- 사용자 실행 `npm test`에서 Vitest 5개 파일·25개 성공, 실패 0을 확인했다. 최초 lint의 effect 경고를 로딩 상태 계산 방식 변경으로 해결한 후 lint 경고·오류 0,
+  TypeScript·Vite build 성공,
+  Vitest 25개 재실행 성공을 확인했다. 상세 실행 결과는 [테스트 실행 기록](TEST_RESULTS.md)을 참고한다.
+- 탐색 페이지 React component/router 렌더링은 현재 테스트 의존성에 포함되지 않아 자동 검증하지 않았다. 사용자는 브라우저 시각점검 완료를 확인했다 (2026-09-29). 수동 확인은 자동
+  테스트 개수에 포함하지 않는다.
+
 #### React 공통 API client — 필수 테스트 검증 완료 (2026-09-23)
 
 - `accessTokenStore.test.ts` 2개: Access Token의 공백 정규화·메모리 저장·삭제와 빈 값 거부를 검증한다.

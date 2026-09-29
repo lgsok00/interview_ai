@@ -101,6 +101,14 @@ export function HomePage() {
                         <p>연습 결과를 돌아보고 다음 목표를 세워보세요.</p>
                         <span className="card-arrow" aria-hidden="true">↗</span>
                     </article>
+
+                    <Link className="workspace-card catalog-home-card" to="/catalog">
+                        <span className="card-icon card-icon-mint" aria-hidden="true">04</span>
+                        <p className="card-kicker">EXPLORE</p>
+                        <h2>기업·채용공고 탐색</h2>
+                        <p>관심 있는 기업과 지금 모집 중인 공고를 찾아보세요.</p>
+                        <span className="card-arrow" aria-hidden="true">↗</span>
+                    </Link>
                 </section>
             </section>
         </main>

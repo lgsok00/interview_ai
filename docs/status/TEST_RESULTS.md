@@ -7,6 +7,16 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 일반 사용자 카탈로그 API 테스트 성공 (2026-09-29)
+
+- 최초 사용자 실행: `frontend`에서 `npm test` — Vitest 5개 파일·25개 성공, 실패 0 (905ms).
+- 최초 `npm run lint`에서 `CatalogPage.tsx` 목록 effect의 동기 `setLoading(true)` 경고 1개가 확인됐다. 요청 키와 완료 키 비교로 로딩 상태를 계산하도록 수정했다.
+- 수정 후 사용자 재실행: `npm run lint` — 경고·오류 0. `npm run build` — `tsc -b && vite build` 성공. `npm test` — Vitest 5개 파일·25개 성공,
+  실패 0 (841ms).
+- 신규 `catalogApi.test.ts` 7개에서 기업 검색·페이지 크기, 관심 기업 목록, 공고 상태·기업 필터, 기업별 공고 목록, 상세 조회, 관심 등록·해제와 API 오류 전달을 검증했다.
+- 자동 테스트는 API wrapper를 검증하며 React 화면 렌더링은 포함하지 않는다. 사용자는 탐색 화면 브라우저 시각점검 완료를 확인했다 (2026-09-29). Codex는 테스트·lint·build를
+  실행하지 않았다.
+
 ### React 관리자 카탈로그 화면 검증 완료 (2026-09-28)
 
 - 사용자 실행: `frontend`에서 `npm test` — Vitest 4개 파일·18개 성공, 실패 0.
