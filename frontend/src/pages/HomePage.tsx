@@ -78,35 +78,27 @@ export function HomePage() {
                 )}
 
                 <section className="workspace-grid" aria-label="면접 준비 메뉴">
-                    <article className="workspace-card card-primary">
+                    <Link className="workspace-card card-primary" to="/catalog">
                         <span className="card-icon" aria-hidden="true">01</span>
                         <p className="card-kicker">PRACTICE</p>
                         <h2>면접 연습</h2>
-                        <p>내 이력과 지원 공고를 바탕으로 질문에 답해보세요.</p>
+                        <p>관심 있는 채용공고를 찾아 면접 연습을 시작해 보세요.</p>
                         <span className="card-arrow" aria-hidden="true">↗</span>
-                    </article>
+                    </Link>
 
-                    <article className="workspace-card">
+                    <Link className="workspace-card" to="/documents">
                         <span className="card-icon card-icon-mint" aria-hidden="true">02</span>
                         <p className="card-kicker">MY STORY</p>
                         <h2>내 자료 정리</h2>
                         <p>자기소개서와 이력서를 한곳에서 관리하세요.</p>
                         <span className="card-arrow" aria-hidden="true">↗</span>
-                    </article>
+                    </Link>
 
                     <Link className="workspace-card" to="/growth">
                         <span className="card-icon card-icon-lilac" aria-hidden="true">03</span>
                         <p className="card-kicker">GROWTH</p>
                         <h2>성장 기록</h2>
                         <p>연습 결과를 돌아보고 다음 목표를 세워보세요.</p>
-                        <span className="card-arrow" aria-hidden="true">↗</span>
-                    </Link>
-
-                    <Link className="workspace-card catalog-home-card" to="/catalog">
-                        <span className="card-icon card-icon-mint" aria-hidden="true">04</span>
-                        <p className="card-kicker">EXPLORE</p>
-                        <h2>기업·채용공고 탐색</h2>
-                        <p>관심 있는 기업과 지금 모집 중인 공고를 찾아보세요.</p>
                         <span className="card-arrow" aria-hidden="true">↗</span>
                     </Link>
                 </section>

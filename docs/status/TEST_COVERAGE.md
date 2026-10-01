@@ -12,6 +12,15 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 홈 메뉴·문서 관리 API (2026-10-01)
+
+- `documentsApi.test.ts` 8개: 자기소개서 목록·상세·버전, 생성·수정 payload, 제목 100자·본문 20,000자 경계 payload, 삭제·대표 설정·버전 복원, 이력서 목록·제목
+  수정·multipart PDF 업로드·삭제·대표 설정·다운로드 경로, 백엔드 오류 전달을 검증한다.
+- `client.test.ts`에 추가한 3개: 인증 Blob 응답, 401 후 Access Token 갱신과 다운로드 재시도, 재시도 후 401 오류를 검증한다.
+- 사용자 `npm test` 실행은 Vitest 8개 파일·55개 성공, 실패 0이다. 최초 lint 경고를 수정한 뒤 `npm run lint` 경고·오류 0, `npm run build` 성공과 브라우저
+  시각점검을 확인했다.
+- 자동 테스트는 API wrapper와 공통 client를 대상으로 한다. 홈·문서 관리 React component 렌더링, 폼 상호작용, 브라우저 다운로드 동작은 자동 테스트에 포함되지 않는다.
+
 #### React 면접 성장 분석 API (2026-09-29)
 
 - `interviewGrowthApi.test.ts` 4개: 기간만 있는 인증 요청, 직무·기업·공고 필터 query 인코딩, 빈/미설정 필터 생략, API 오류 전달을 검증한다.

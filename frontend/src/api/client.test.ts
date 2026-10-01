@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {accessTokenStore} from '../auth/accessTokenStore'
 import {ApiError} from './ApiError'
-import {apiRequest} from './client'
+import {apiRequest, apiRequestBlob} from './client'
 
 describe('apiRequest', () => {
     afterEach(() => {
@@ -27,7 +27,7 @@ describe('apiRequest', () => {
             }))
         vi.stubGlobal('fetch', fetchMock)
 
-        await expect(apiRequest<{result: string}>('/api/protected', {
+        await expect(apiRequest<{ result: string }>('/api/protected', {
             authenticated: true,
         })).resolves.toEqual({result: 'ok'})
 
@@ -110,7 +110,7 @@ describe('apiRequest', () => {
         )
         vi.stubGlobal('fetch', fetchMock)
 
-        await expect(apiRequest<{id: number}>('/api/example', {
+        await expect(apiRequest<{ id: number }>('/api/example', {
             method: 'POST',
             authenticated: true,
             json: {name: '테스트'},
@@ -174,5 +174,72 @@ describe('apiRequest', () => {
             json: {name: '테스트'},
         })).rejects.toThrow('Specify either body or json, not both.')
         expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('인증 Blob 요청은 Bearer Token과 cookie를 보내고 응답을 Blob으로 반환한다', async () => {
+        accessTokenStore.set('access-token')
+        const pdf = new Blob(['pdf-content'], {type: 'application/pdf'})
+        const fetchMock = vi.fn().mockResolvedValue(new Response(pdf, {status: 200}))
+        vi.stubGlobal('fetch', fetchMock)
+
+        await expect(apiRequestBlob('/api/resumes/12/file')).resolves.toEqual(pdf)
+
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+        expect(url).toMatch(/\/api\/resumes\/12\/file$/)
+        expect(init.credentials).toBe('include')
+        expect(new Headers(init.headers).get('Authorization')).toBe('Bearer access-token')
+    })
+
+    it('Blob 요청이 401이면 access token을 갱신하고 파일 요청을 한 번 재시도한다', async () => {
+        accessTokenStore.set('expired-access-token')
+        const pdf = new Blob(['pdf-content'], {type: 'application/pdf'})
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(null, {status: 401}))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                accessToken: 'renewed-access-token',
+                tokenType: 'Bearer',
+                expiresIn: 900,
+            }), {
+                status: 200,
+                headers: {'Content-Type': 'application/json'},
+            }))
+            .mockResolvedValueOnce(new Response(pdf, {status: 200}))
+        vi.stubGlobal('fetch', fetchMock)
+
+        await expect(apiRequestBlob('/api/resumes/12/file')).resolves.toEqual(pdf)
+
+        expect(fetchMock).toHaveBeenCalledTimes(3)
+        const [retryUrl, retryInit] = fetchMock.mock.calls[2] as [string, RequestInit]
+        expect(retryUrl).toMatch(/\/api\/resumes\/12\/file$/)
+        expect(new Headers(retryInit.headers).get('Authorization')).toBe('Bearer renewed-access-token')
+    })
+
+    it('Blob 요청 재시도도 401이면 오류를 반환하고 추가 재발급을 시도하지 않는다', async () => {
+        accessTokenStore.set('expired-access-token')
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(null, {status: 401}))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                accessToken: 'renewed-access-token',
+                tokenType: 'Bearer',
+                expiresIn: 900,
+            }), {
+                status: 200,
+                headers: {'Content-Type': 'application/json'},
+            }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                code: 'INVALID_ACCESS_TOKEN',
+                message: '인증이 필요합니다.',
+                errors: {},
+            }), {
+                status: 401,
+                headers: {'Content-Type': 'application/json'},
+            }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        await expect(apiRequestBlob('/api/resumes/12/file')).rejects.toMatchObject({
+            status: 401,
+            code: 'INVALID_ACCESS_TOKEN',
+        })
+        expect(fetchMock).toHaveBeenCalledTimes(3)
     })
 })

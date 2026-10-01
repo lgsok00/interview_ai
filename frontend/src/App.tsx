@@ -10,6 +10,7 @@ import {CatalogPage} from './pages/CatalogPage'
 import {InterviewSessionPage} from './pages/InterviewSessionPage'
 import {InterviewResultPage} from './pages/InterviewResultPage'
 import {InterviewGrowthPage} from './pages/InterviewGrowthPage'
+import {DocumentsPage} from './pages/DocumentsPage'
 
 import './App.css'
 
@@ -27,6 +28,7 @@ function App() {
                         <Route path="/interviews/:sessionId" element={<InterviewSessionPage/>}/>
                         <Route path="/interviews/:sessionId/result" element={<InterviewResultPage/>}/>
                         <Route path="/growth" element={<InterviewGrowthPage/>}/>
+                        <Route path="/documents" element={<DocumentsPage/>}/>
                         <Route path="/admin" element={<AdminRoute><AdminCatalogPage/></AdminRoute>}/>
                     </Route>
 

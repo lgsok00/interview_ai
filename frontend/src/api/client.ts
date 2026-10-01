@@ -116,6 +116,34 @@ export async function apiRequest<T>(
     return executeApiRequest<T>(path, options, false)
 }
 
+export async function apiRequestBlob(path: string): Promise<Blob> {
+    async function execute(hasRetried: boolean): Promise<Blob> {
+        const response = await fetch(`${env.apiBaseUrl}${path}`, {
+            headers: createHeaders({authenticated: true}),
+            credentials: 'include',
+        })
+
+        if (response.status === 401 && !hasRetried) {
+            const refreshed = await tryRefreshAccessToken()
+
+            if (refreshed) {
+                return execute(true)
+            }
+
+            accessTokenStore.clear()
+        }
+
+        if (!response.ok) {
+            const responseBody = await readResponseBody(response)
+            throw toApiError(response, responseBody)
+        }
+
+        return response.blob()
+    }
+
+    return execute(false)
+}
+
 async function executeApiRequest<T>(
     path: string,
     options: ApiRequestOptions,

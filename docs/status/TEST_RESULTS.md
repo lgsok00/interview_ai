@@ -7,6 +7,18 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 홈 메뉴·문서 관리 API 테스트 (2026-10-01)
+
+- 사용자 실행 `frontend`의 `npm test` — Vitest 8개 파일·55개 성공, 실패 0 (905ms).
+- 신규 `documentsApi.test.ts` 8개는 자기소개서 CRUD·대표 설정·버전 복원, 최대 제목·본문 경계 payload, 이력서 목록·multipart 업로드·제목 수정·삭제·대표 설정·다운로드 경로
+  및 API 오류 전달을 검증한다. `client.test.ts`의 추가 3개는 Blob 다운로드와 401 재발급·재시도 성공/실패를 검증한다.
+- 최초 lint에서 `DocumentsPage.tsx`의 초기 effect가 동기 상태 갱신을 유발해 경고 1개가 발생했다. 초기 effect에서 API를 직접 요청하고 비동기 완료 후 상태를 설정하도록 수정했다.
+- 후속 사용자 실행 `npm test` — Vitest 8개 파일·55개 성공, 실패 0 (986ms). `npm run lint` — 경고·오류 0. `npm run build` —
+  `tsc -b && vite build` 성공 (49 modules transformed).
+- PDF 업로드 폼 초기화는 이벤트의 `currentTarget` 요소를 비동기 작업 전에 저장하도록 수정했다. 사용자가 브라우저 시각점검도 완료했다. 자동 테스트에는 UI component 렌더링이 포함되지
+  않는다.
+- Docker Compose의 MySQL·Qdrant 컨테이너와 네트워크를 사용자가 종료했다. Codex는 테스트를 실행하지 않았다.
+
 ### React 면접 성장 분석 화면 자동 검증 (2026-09-29)
 
 - 첫 사용자 실행에서 effect 로딩 상태 lint 경고 1개가 발생했다. effect에서 API를 직접 비동기 호출하고 완료 상태만 저장하도록 수정했다.
