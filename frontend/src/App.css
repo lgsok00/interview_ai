@@ -2556,3 +2556,77 @@
         text-align: center;
     }
 }
+
+.draft-content > .documents-panel {
+    margin-top: 20px;
+}
+
+.draft-fields {
+    display: grid;
+    min-width: 0;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.draft-fields legend {
+    margin-bottom: 14px;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.draft-job-picker {
+    display: grid;
+    gap: 12px;
+}
+
+.draft-fields select {
+    width: 100%;
+    min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid #dfe4ed;
+    border-radius: 8px;
+    color: var(--ink);
+    background: #fff;
+    font: inherit;
+    font-size: 13px;
+}
+
+.draft-entry-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid #e2e6ef;
+    border-radius: 7px;
+    color: #52617a;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.draft-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.8;
+}
+
+.draft-warnings {
+    margin: 16px 0;
+    padding: 14px;
+    border-radius: 10px;
+    background: #fff7e8;
+    color: #805920;
+}
+
+.draft-warnings li {
+    margin-top: 8px;
+    overflow-wrap: anywhere;
+}
+
+.draft-content button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}

@@ -301,6 +301,9 @@ export function DocumentsPage() {
                                         </div>
                                         <div className="documents-actions">
                                             <button type="button" onClick={() => void beginEdit(item.id)}>수정</button>
+                                            <Link className="draft-entry-link" to={`/documents/${item.id}/drafts`}>
+                                                AI 초안
+                                            </Link>
                                             <button type="button" onClick={() => void toggleVersions(item.id)}>
                                                 {versionsFor === item.id ? '버전 닫기' : '버전 이력'}
                                             </button>

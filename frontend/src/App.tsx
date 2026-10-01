@@ -12,6 +12,7 @@ import {InterviewResultPage} from './pages/InterviewResultPage'
 import {InterviewGrowthPage} from './pages/InterviewGrowthPage'
 import {DocumentsPage} from './pages/DocumentsPage'
 import {InterviewSessionListPage} from './pages/InterviewSessionListPage'
+import {CoverLetterDraftPage} from './pages/CoverLetterDraftPage'
 
 import './App.css'
 
@@ -31,6 +32,7 @@ function App() {
                         <Route path="/interviews/:sessionId/result" element={<InterviewResultPage/>}/>
                         <Route path="/growth" element={<InterviewGrowthPage/>}/>
                         <Route path="/documents" element={<DocumentsPage/>}/>
+                        <Route path="/documents/:coverLetterId/drafts" element={<CoverLetterDraftPage/>}/>
                         <Route path="/admin" element={<AdminRoute><AdminCatalogPage/></AdminRoute>}/>
                     </Route>
 

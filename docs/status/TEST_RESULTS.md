@@ -7,6 +7,19 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React AI 자기소개서 초안 UI 검증 성공 (2026-10-01)
+
+- 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`.
+- `npm test` — Vitest 9개 파일·86개 성공, 실패 0, 전체 463ms. 신규 `coverLetterDraftApi.test.ts` 23개 성공 (8ms).
+- `npm run lint` — 경고 0·오류 0 (41 files, 67ms).
+- `npm run build` — `tsc -b && vite build` 성공 (52 modules transformed, 150ms).
+- 사용자가 초안 생성 성공과 브라우저 확인 완료를 전달했다. 재생성·적용·충돌·모바일 등 개별 수동 시나리오의 실행 결과는 별도 기록하지 않았다. 자동 테스트는 API wrapper 범위이며 component
+  렌더링·자동 조회·폼 상호작용은 포함하지 않는다.
+- 최초 생성 시 `REPRESENTATIVE_RESUME_NOT_READY` 오류가 전달됐다. 대표 미설정 또는 추출 미완료/빈 본문을 같은 코드로 거부하는 백엔드 조건을 확인하고 이력서 선택·추출 확인을
+  안내했다. 이후 생성 성공을 전달받았으며 실제 해소 방법은 별도 전달되지 않았다.
+- 코드·Git 상태와 사용자 실행 출력을 대조했다. 확인한 HEAD는 `9cea9c9`이며 초안 UI·API 테스트·문서 변경은 커밋 대기다. Codex는 테스트·lint·build를 직접 실행하지 않았다.
+  백엔드·Flyway 변경과 백엔드 테스트 재실행은 없다.
+
 ### React 면접 세션 목록 화면 검증 성공 (2026-10-01)
 
 - 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`.
