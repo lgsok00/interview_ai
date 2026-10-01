@@ -101,6 +101,14 @@ export function HomePage() {
                         <p>연습 결과를 돌아보고 다음 목표를 세워보세요.</p>
                         <span className="card-arrow" aria-hidden="true">↗</span>
                     </Link>
+
+                    <Link className="workspace-card" to="/interviews">
+                        <span className="card-icon" aria-hidden="true">04</span>
+                        <p className="card-kicker">MY INTERVIEWS</p>
+                        <h2>내 면접 기록</h2>
+                        <p>진행 중인 면접을 이어가고 완료한 면접 결과를 확인하세요.</p>
+                        <span className="card-arrow" aria-hidden="true">↗</span>
+                    </Link>
                 </section>
             </section>
         </main>

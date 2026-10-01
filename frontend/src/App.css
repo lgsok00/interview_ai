@@ -2477,3 +2477,82 @@
         align-items: flex-start;
     }
 }
+
+.session-list-toolbar,
+.session-list-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.session-list-toolbar {
+    margin-bottom: 20px;
+}
+
+.session-list-toolbar p,
+.session-list-pagination span {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.session-list-pagination {
+    justify-content: center;
+    margin-top: 24px;
+}
+
+.session-status {
+    display: inline-flex;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3653b8;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.session-status[data-status="IN_PROGRESS"] {
+    background: #fff3df;
+    color: #8a5700;
+}
+
+.session-status[data-status="COMPLETED"] {
+    background: #e7f6ef;
+    color: #226749;
+}
+
+.session-status[data-status="FAILED"] {
+    background: #fff0f0;
+    color: #a73737;
+}
+
+.session-list-card h2,
+.session-list-card .catalog-company,
+.session-list-card .catalog-meta {
+    overflow-wrap: anywhere;
+}
+
+.session-list-action {
+    flex-shrink: 0;
+}
+
+.session-list-toolbar button:disabled,
+.session-list-pagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .session-list-card {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .session-list-action {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+}

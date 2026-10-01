@@ -20,11 +20,29 @@ export interface InterviewSession {
     completedAt: string | null
 }
 
+export interface InterviewSessionPageResponse {
+    content: InterviewSession[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    first: boolean
+    last: boolean
+}
+
 export function createInterviewSession(jobPostingId: number): Promise<InterviewSession> {
     return apiRequest('/api/interview-sessions', {
         method: 'POST',
         authenticated: true,
         json: {jobPostingId},
+    })
+}
+
+export function listInterviewSessions(page = 0, size = 20): Promise<InterviewSessionPageResponse> {
+    const query = new URLSearchParams({page: String(page), size: String(size)})
+
+    return apiRequest(`/api/interview-sessions?${query}`, {
+        authenticated: true
     })
 }
 
@@ -106,7 +124,6 @@ export function completeInterviewSession(sessionId: number): Promise<InterviewSe
 
 export type InterviewAnalysisStatus = 'PENDING' | 'PARTIAL' | 'COMPLETED'
 export type InterviewEvaluationStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
-export type InterviewScoreDimension = 'STAR' | 'LOGIC' | 'JOB_FIT'
 
 export interface InterviewResultEvaluation {
     status: InterviewEvaluationStatus | null

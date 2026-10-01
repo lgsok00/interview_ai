@@ -7,6 +7,15 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 면접 세션 목록 화면 검증 성공 (2026-10-01)
+
+- 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`.
+- `npm test` — Vitest 8개 파일·63개 성공, 실패 0, 전체 386ms. `interviewSessionApi.test.ts`는 목록 API 신규 8개를 포함한 23개 성공이다.
+- `npm run lint` — 경고 0·오류 0 (38 files, 29ms).
+- `npm run build` — `tsc -b && vite build` 성공 (50 modules transformed, 147ms).
+- 사용자가 브라우저 확인 완료를 전달했다. 신규 자동 테스트는 API wrapper의 query·응답·오류 전달을 검증하며 component 렌더링과 화면 상호작용은 포함하지 않는다.
+- 코드·Git 상태와 사용자 실행 출력을 대조했다. 확인한 HEAD는 `993d8bc`이며 목록 화면·테스트·문서 변경은 커밋 대기다. Codex는 테스트·lint·build를 직접 실행하지 않았다.
+
 ### React 홈 메뉴·문서 관리 API 테스트 (2026-10-01)
 
 - 사용자 실행 `frontend`의 `npm test` — Vitest 8개 파일·55개 성공, 실패 0 (905ms).

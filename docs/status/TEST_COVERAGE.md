@@ -12,6 +12,14 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 면접 세션 목록 API (2026-10-01)
+
+- `interviewSessionApi.test.ts`에 신규 8개를 추가해 해당 파일은 총 23개다. 기본 인증 목록 query와 다섯 상태·완료 시각·페이지 정보를 검증한다.
+- 사용자 지정 페이지와 size 1/100 경계 2개, 빈 목록·범위 밖 페이지 응답 2개, HTTP 400/401/503 오류 객체 전달 3개를 포함한다.
+- 공통 client를 mock한 API wrapper 테스트다. 서버의 정렬·소유권·validation 자체와 component 렌더링, URL 페이지 이동, 새로고침, 재개·결과 링크 동작은 이번 자동 테스트
+  대상이 아니다.
+- 사용자 실행 Vitest 8개 파일·63개 성공, lint 경고·오류 0, TypeScript·Vite build 성공과 브라우저 확인 완료를 확인했다.
+
 #### React 홈 메뉴·문서 관리 API (2026-10-01)
 
 - `documentsApi.test.ts` 8개: 자기소개서 목록·상세·버전, 생성·수정 payload, 제목 100자·본문 20,000자 경계 payload, 삭제·대표 설정·버전 복원, 이력서 목록·제목

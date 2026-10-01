@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {ApiError} from './ApiError'
 import {
     createInterviewSession,
     getInterviewQuestions,
@@ -6,6 +7,8 @@ import {
     getInterviewSession,
     type InterviewQuestion,
     type InterviewSession,
+    type InterviewSessionPageResponse,
+    listInterviewSessions,
     startInterviewSession,
 } from './interviewSessionApi'
 
@@ -39,6 +42,84 @@ const questions: InterviewQuestion[] = [
 
 describe('interviewSessionApi', () => {
     afterEach(() => apiRequestMock.mockReset())
+
+    it('기본 페이지를 인증 조회하고 다섯 상태·완료 시각·페이지 정보를 반환한다', async () => {
+        const result: InterviewSessionPageResponse = {
+            content: [
+                {...generatingSession, id: 35, status: 'FAILED', failureCode: 'GENERATION_FAILED'},
+                {...generatingSession, id: 34, status: 'COMPLETED', completedAt: '2026-10-01T10:30:00Z'},
+                {...generatingSession, id: 33, status: 'IN_PROGRESS'},
+                {...generatingSession, id: 32, status: 'READY'},
+                generatingSession,
+            ],
+            page: 0,
+            size: 20,
+            totalElements: 25,
+            totalPages: 2,
+            first: true,
+            last: false,
+        }
+        apiRequestMock.mockResolvedValue(result)
+
+        await expect(listInterviewSessions()).resolves.toEqual(result)
+        expect(apiRequestMock).toHaveBeenCalledWith(
+            '/api/interview-sessions?page=0&size=20',
+            {authenticated: true},
+        )
+    })
+
+    it.each([1, 100])('사용자 지정 페이지와 size 경계 %i를 요청한다', async (size) => {
+        const result: InterviewSessionPageResponse = {
+            content: [generatingSession],
+            page: 2,
+            size,
+            totalElements: size * 2 + 1,
+            totalPages: 3,
+            first: false,
+            last: true,
+        }
+        apiRequestMock.mockResolvedValue(result)
+
+        await expect(listInterviewSessions(2, size)).resolves.toEqual(result)
+        expect(apiRequestMock).toHaveBeenCalledWith(
+            `/api/interview-sessions?page=2&size=${size}`,
+            {authenticated: true},
+        )
+    })
+
+    it.each([
+        {page: 0, totalElements: 0, totalPages: 0, first: true},
+        {page: 3, totalElements: 21, totalPages: 2, first: false},
+    ])('빈 목록과 범위 밖 페이지 정보를 보존한다: page=$page', async (metadata) => {
+        const result: InterviewSessionPageResponse = {
+            ...metadata,
+            content: [],
+            size: 20,
+            last: true,
+        }
+        apiRequestMock.mockResolvedValue(result)
+
+        await expect(listInterviewSessions(metadata.page)).resolves.toEqual(result)
+        expect(apiRequestMock).toHaveBeenCalledWith(
+            `/api/interview-sessions?page=${metadata.page}&size=20`,
+            {authenticated: true},
+        )
+    })
+
+    it.each([
+        {status: 400, code: 'INVALID_REQUEST', page: -1},
+        {status: 401, code: 'UNAUTHORIZED', page: 0},
+        {status: 503, code: 'SERVICE_UNAVAILABLE', page: 0},
+    ])('목록 조회 HTTP $status 오류 정보를 호출자에게 전달한다', async ({status, code, page}) => {
+        const error = new ApiError(status, '면접 목록 조회 실패', code)
+        apiRequestMock.mockRejectedValue(error)
+
+        await expect(listInterviewSessions(page)).rejects.toBe(error)
+        expect(apiRequestMock).toHaveBeenCalledWith(
+            `/api/interview-sessions?page=${page}&size=20`,
+            {authenticated: true},
+        )
+    })
 
     it('공고 ID를 포함한 인증된 세션 생성 요청을 보내고 생성 결과를 반환한다', async () => {
         apiRequestMock.mockResolvedValue(generatingSession)
