@@ -16,6 +16,20 @@
 
 ## 현재 구현된 기능
 
+### React 면접 질문 생성·답변 평가 실패 재시도 UI — 구현·검증 완료 (2026-10-01)
+
+- 세션 화면의 질문 생성 실패에 `POST /api/interview-sessions/{sessionId}/generation/retry`를 연결했다. 본문 없는 202 접수 후 `GENERATING`으로 표시하고
+  2초 간격 조회를 재개해 READY 질문을 표시한다.
+- 결과 화면의 평가 실패에 `POST /api/interview-sessions/{sessionId}/answers/{answerId}/evaluation/retry`를 연결했다. 접수 응답의 PENDING 평가를
+  반영하고 결과를 재조회하며 대기·처리 중에는 3초 간격으로 갱신한다.
+- 평가 미요청 답변에는 기존 `POST /api/interview-sessions/{sessionId}/answers/{answerId}/evaluation` 요청 버튼을 추가했다. 해당 최초 요청
+  endpoint는 신규 재시도 자동 테스트 범위에 포함되지 않는다.
+- 요청 중 버튼 비활성화와 ref 잠금으로 중복 클릭을 차단한다. 세션 ID를 key로 내부 화면을 재생성하고 page version·effect cleanup으로 이전 화면의 늦은 응답 반영을 차단한다.
+- 서버의 상태·소유권·재시도 한도 오류 메시지를 표시하고 POST 성공·실패 후 상태를 조회한다. 조회 오류에서는 기존 세션·답변·결과를 유지하고 자동 조회를 멈추며 수동 새로고침으로 복구한다.
+- 백엔드·Flyway 변경은 없다. 사용자 Vitest 10개 파일·104개 성공, lint 경고·오류 0, TypeScript·Vite build 성공과 브라우저 확인 완료를 확인했다.
+  신규 18개는 실제 공통 client와 mock fetch를 사용하는 HTTP 처리 테스트이며 component 상호작용은 자동 테스트에 포함되지 않는다. 개별 브라우저 시나리오 결과와 실제 AI 실패 유도
+  방식은 별도 전달되지 않았다.
+
 ### React AI 자기소개서 초안 UI — 구현·검증 완료 (2026-10-01)
 
 - MVP 범위에 포함했다. 문서 관리 화면의 자기소개서별 AI 초안 링크에서 보호 라우트 `/documents/:coverLetterId/drafts`로 진입한다. 기존 백엔드 API를 사용하며 백엔드·Flyway

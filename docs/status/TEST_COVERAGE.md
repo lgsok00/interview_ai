@@ -12,6 +12,19 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 
 ### 작성된 자동 테스트
 
+#### React 면접 재시도 HTTP client (2026-10-01)
+
+- 신규 `interviewRetryApi.test.ts` 18개: 실제 공통 API client를 사용하고 fetch만 mock한다. API base URL은 테스트 전용 값으로 고정하고 실제 네트워크 호출은 하지
+  않는다.
+- 정상·경계 응답 2개: 인증된 본문 없는 POST와 credential cookie 전달, 질문 재시도의 빈 202 응답 처리, 평가 재시도의 PENDING·manualRetryCount 2·초기화된 점수/오류
+  정보를 확인한다.
+  응답의 횟수 보존을 검증하며 서버의 실제 한도 적용 자체를 검증하지 않는다.
+- 서버 오류 9개: 질문 소유권·생성 상태 충돌·재시도 한도·서버 장애, 평가 소유권·평가 없음·상태 충돌·한도·비활성화의 status/code/message/errors 전달과 추가 POST 없음을 검증한다.
+- 네트워크 실패 2개, 401 후 재발급 성공과 동일 endpoint 재요청 2개, 재발급 실패 시 원 POST 재전송 방지 2개, 평가 202 응답의 잘못된 JSON 처리 1개를 포함한다.
+- 사용자 `npm test`에서 신규 18개와 전체 104개 성공을 확인했다. component 렌더링·버튼 잠금·자동 조회·화면 이동, 서버 소유권·한도 적용 자체와 미요청 평가의 최초 요청은 이 신규 자동
+  테스트 대상이 아니다.
+  사용자 브라우저 확인 완료는 별도 수동 검증이며 개별 시나리오 결과는 전달되지 않았다.
+
 #### React AI 자기소개서 초안 API (2026-10-01)
 
 - `coverLetterDraftApi.test.ts` 23개: 인증 목록·빈 목록·상세 응답과 다섯 상태·기준/적용 버전·생성 본문·경고를 검증한다.

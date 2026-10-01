@@ -3,11 +3,13 @@ import {
     type InterviewEvaluationStatus,
     type InterviewQuestionType,
     type InterviewResult,
-    type InterviewResultQuestion
+    type InterviewResultQuestion,
+    requestInterviewAnswerEvaluation,
+    retryInterviewAnswerEvaluation
 } from "../api/interviewSessionApi";
 import {ApiError} from "../api/ApiError";
 import {Link, useParams} from "react-router-dom";
-import {useCallback, useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 
 type ResultLoadState =
     | { sessionId: number; result: InterviewResult }
@@ -63,10 +65,30 @@ function EvaluationStatus({question}: { question: InterviewResultQuestion }) {
 
 export function InterviewResultPage() {
     const {sessionId: routeSessionId} = useParams()
-    const sessionId = Number(routeSessionId)
+
+    return (
+        <InterviewResultContent key={routeSessionId ?? 'missing'} sessionId={Number(routeSessionId)}/>
+    )
+}
+
+function InterviewResultContent({sessionId}: { sessionId: number }) {
     const validSessionId = Number.isSafeInteger(sessionId) && sessionId > 0
     const [loadState, setLoadState] = useState<ResultLoadState | null>(null)
-    const [refreshing, setRefreshing] = useState(false)
+    const [refreshing, setRefreshing] = useState(validSessionId)
+    const [refreshVersion, setRefreshVersion] = useState(0)
+    const [refreshError, setRefreshError] = useState('')
+    const [retryingAnswerId, setRetryingAnswerId] = useState<number | null>(null)
+    const [retryErrors, setRetryErrors] = useState<Record<number, string>>({})
+    const retryLock = useRef(false)
+    const pageVersion = useRef(0)
+
+    useEffect(() => {
+        pageVersion.current += 1
+
+        return () => {
+            pageVersion.current += 1
+        }
+    }, [])
 
     const currentState = loadState?.sessionId === sessionId ? loadState : null
     const result = currentState && 'result' in currentState ? currentState.result : null
@@ -77,53 +99,169 @@ export function InterviewResultPage() {
             : ''
     const loading = validSessionId && currentState === null
 
-    const loadResult = useCallback(async () => {
+    function loadResult() {
         if (!validSessionId) return
 
         setRefreshing(true)
-
-        try {
-            const response = await getInterviewResult(sessionId)
-            setLoadState({sessionId, result: response})
-
-        } catch (error) {
-            setLoadState({sessionId, error: messageOf(error)})
-
-        } finally {
-            setRefreshing(false)
-        }
-    }, [sessionId, validSessionId])
+        setRefreshVersion((current) => current + 1)
+    }
 
     useEffect(() => {
-        if (!validSessionId) return
+        if (!validSessionId || retryingAnswerId !== null) return
 
         let active = true
+        let timeout: ReturnType<typeof setTimeout> | undefined
 
-        async function loadInitialResult() {
+        async function refreshResult() {
             try {
                 const response = await getInterviewResult(sessionId)
-                if (active) setLoadState({sessionId, result: response})
+                if (!active) return
+
+                setRefreshError('')
+                setLoadState({sessionId, result: response})
+
+                if (response.pendingEvaluationCount + response.processingEvaluationCount > 0) {
+                    timeout = setTimeout(() => void refreshResult(), 3000)
+                }
+
             } catch (error) {
-                if (active) setLoadState({sessionId, error: messageOf(error)})
+                if (!active) return
+
+                const message = messageOf(error)
+                setRefreshError(message)
+                setLoadState((current) => {
+                    if (current?.sessionId === sessionId && 'result' in current) {
+                        return current
+                    }
+
+                    return {sessionId, error: message}
+                })
+
+            } finally {
+                if (active) {
+                    setRefreshing(false)
+                }
             }
         }
 
-        void loadInitialResult()
+        void refreshResult()
 
         return () => {
             active = false
+            if (timeout) clearTimeout(timeout)
         }
-    }, [sessionId, validSessionId])
+    }, [sessionId, validSessionId, refreshVersion, retryingAnswerId]);
 
-    useEffect(() => {
-        if (!result || result.pendingEvaluationCount + result.processingEvaluationCount === 0) {
+    async function handleRequestEvaluation(question: InterviewResultQuestion) {
+        const answerId = question.answerId
+
+        if (!answerId || question.evaluation?.status || retryLock.current) {
             return
         }
 
-        const timeout = setTimeout(() => void loadResult(), 3000)
+        const version = pageVersion.current
+        retryLock.current = true
 
-        return () => clearTimeout(timeout)
-    }, [loadResult, result])
+        setRetryingAnswerId(answerId)
+        setRetryErrors((current) => ({...current, [answerId]: ''}))
+
+        try {
+            await requestInterviewAnswerEvaluation(sessionId, answerId)
+
+        } catch (error) {
+            if (pageVersion.current !== version) return
+
+            setRetryErrors((current) => ({
+                ...current,
+                [answerId]: error instanceof ApiError
+                    ? error.message
+                    : '평가 요청 결과를 확인하지 못했습니다. 새로고침 후 상태를 확인해 주세요.',
+            }))
+
+        } finally {
+            if (pageVersion.current === version) {
+                retryLock.current = false
+                setRetryingAnswerId(null)
+                loadResult()
+            }
+        }
+    }
+
+    async function handleRetryEvaluation(question: InterviewResultQuestion) {
+        const answerId = question.answerId
+
+        if (!answerId || question.evaluation?.status !== 'FAILED' || retryLock.current) {
+            return
+        }
+
+        const version = pageVersion.current
+        retryLock.current = true
+
+        setRetryingAnswerId(answerId)
+        setRetryErrors((current) => ({...current, [answerId]: ''}))
+
+        try {
+            const accepted = await retryInterviewAnswerEvaluation(sessionId, answerId)
+            if (pageVersion.current !== version) return
+
+            setLoadState((current) => {
+                if (current?.sessionId !== sessionId || !('result' in current)) {
+                    return current
+                }
+
+                const previous = current.result
+                const target = previous.questions.find((item) => item.answerId === answerId)
+
+                if (target?.evaluation?.status !== 'FAILED') return current
+
+                return {
+                    sessionId,
+                    result: {
+                        ...previous,
+                        analysisStatus: 'PARTIAL',
+                        failedEvaluationCount: previous.failedEvaluationCount - 1,
+                        pendingEvaluationCount: previous.pendingEvaluationCount + 1,
+                        questions: previous.questions.map((item) =>
+                            item.answerId === answerId
+                                ? {
+                                    ...item,
+                                    evaluation: {
+                                        status: accepted.status,
+                                        starScore: accepted.starScore,
+                                        logicScore: accepted.logicScore,
+                                        jobFitScore: accepted.jobFitScore,
+                                        averageScore: null,
+                                        strengths: accepted.strengths,
+                                        improvements: accepted.improvements,
+                                        improvedAnswer: accepted.improvedAnswer,
+                                        failureCode: accepted.failureCode,
+                                        completedAt: accepted.completedAt,
+                                    },
+                                }
+                                : item,
+                        ),
+                    },
+                }
+            })
+
+        } catch (error) {
+            if (pageVersion.current !== version) return
+
+            setRetryErrors((current) => ({
+                ...current,
+                [answerId]: error instanceof ApiError
+                    ? error.message
+                    : "재요청 결과를 확인하지 못했습니다. 결과를 새로고침한 뒤 다시 시도해 주세요.",
+            }))
+
+        } finally {
+            if (pageVersion.current === version) {
+                retryLock.current = false
+                setRetryingAnswerId(null)
+                loadResult()
+            }
+        }
+    }
 
     return (
         <main className="workspace interview-status-workspace">
@@ -151,6 +289,24 @@ export function InterviewResultPage() {
                         <p className="form-alert" role="alert">{errorMessage}</p>
                     )}
 
+                    {refreshError && result && (
+                        <p className="form-alert" role="alert">
+                            {refreshError}
+                            {' '}기존 결과를 표시하고 있습니다. 결과를 새로고침해 주세요.
+                        </p>
+                    )}
+
+                    {errorMessage && (
+                        <button
+                            className="secondary-button"
+                            type="button"
+                            disabled={refreshing || retryingAnswerId !== null}
+                            onClick={loadResult}
+                        >
+                            {refreshing ? '불러오는 중…' : '결과 다시 불러오기'}
+                        </button>
+                    )}
+
                     {result && (
                         <>
                             <div className="result-heading">
@@ -165,7 +321,7 @@ export function InterviewResultPage() {
                                     className="secondary-button"
                                     type="button"
                                     onClick={() => void loadResult()}
-                                    disabled={refreshing}
+                                    disabled={refreshing || retryingAnswerId !== null}
                                 >
                                     {refreshing ? '새로고침 중…' : '결과 새로고침'}
                                 </button>
@@ -243,14 +399,52 @@ export function InterviewResultPage() {
                                                     <EvaluationDetails question={question}/>
                                                 )}
 
+                                                {question.answerId !== null
+                                                    && question.answer
+                                                    && !question.evaluation?.status && (
+                                                        <button
+                                                            className="secondary-button"
+                                                            type="button"
+                                                            disabled={retryingAnswerId !== null || refreshing}
+                                                            onClick={() => void handleRequestEvaluation(question)}
+                                                        >
+                                                            {retryingAnswerId === question.answerId
+                                                                ? '평가 요청 중…'
+                                                                : '답변 평가 요청'}
+                                                        </button>
+                                                    )
+                                                }
+
                                                 {question.evaluation?.status === 'FAILED' && (
-                                                    <p className="result-failure" role="status">
-                                                        평가 실패
-                                                        {question.evaluation.failureCode
-                                                            ? ` · ${question.evaluation.failureCode}`
-                                                            : ''}
-                                                    </p>
+                                                    <div>
+                                                        <p className="result-failure" role="status">
+                                                            평가 실패
+                                                            {question.evaluation.failureCode
+                                                                ? ` · ${question.evaluation.failureCode}`
+                                                                : ''}
+                                                        </p>
+
+                                                        {question.answerId !== null && (
+                                                            <button
+                                                                className="secondary-button"
+                                                                type="button"
+                                                                disabled={retryingAnswerId !== null || refreshing}
+                                                                onClick={() => void handleRetryEvaluation(question)}
+                                                            >
+                                                                {retryingAnswerId === question.answerId
+                                                                    ? '재시도 요청 중…'
+                                                                    : '답변 평가 다시 시도'}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
+
+                                                {question.answerId !== null
+                                                    && retryErrors[question.answerId] && (
+                                                        <p className="form-alert" role="alert">
+                                                            {retryErrors[question.answerId]}
+                                                        </p>
+                                                    )}
                                             </li>
                                         ))}
                                     </ol>

@@ -188,3 +188,43 @@ export function getInterviewResult(sessionId: number): Promise<InterviewResult> 
         authenticated: true
     })
 }
+
+export function retryInterviewGeneration(sessionId: number): Promise<void> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/generation/retry`, {
+        method: 'POST',
+        authenticated: true
+    })
+}
+
+export interface AnswerEvaluationResponse {
+    id: number
+    answerId: number
+    questionId: number
+    status: InterviewEvaluationStatus
+    starScore: number | null
+    logicScore: number | null
+    jobFitScore: number | null
+    strengths: string | null
+    improvements: string | null
+    improvedAnswer: string | null
+    attemptCount: number
+    manualRetryCount: number
+    failureCode: string | null
+    createdAt: string
+    updatedAt: string
+    completedAt: string | null
+}
+
+export function requestInterviewAnswerEvaluation(sessionId: number, answerId: number): Promise<AnswerEvaluationResponse> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/answers/${answerId}/evaluation`, {
+        method: 'POST',
+        authenticated: true
+    })
+}
+
+export function retryInterviewAnswerEvaluation(sessionId: number, answerId: number): Promise<AnswerEvaluationResponse> {
+    return apiRequest(`/api/interview-sessions/${sessionId}/answers/${answerId}/evaluation/retry`, {
+        method: 'POST',
+        authenticated: true
+    })
+}

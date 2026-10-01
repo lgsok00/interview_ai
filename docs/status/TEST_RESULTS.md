@@ -7,6 +7,19 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 면접 질문 생성·답변 평가 실패 재시도 UI 검증 성공 (2026-10-01)
+
+- 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`.
+- `npm test` — Vitest 10개 파일·104개 성공, 실패 0, 전체 529ms. 신규 `interviewRetryApi.test.ts` 18개 성공 (31ms).
+- `npm run lint` — 경고 0·오류 0 (42 files, 29ms).
+- `npm run build` — `tsc -b && vite build` 성공 (52 modules transformed, 168ms).
+- 사용자가 브라우저 확인 완료를 전달했다. 재시도 성공·한도·중복 클릭·조회 장애·화면 이동 등 개별 수동 시나리오 결과와 실제 AI 실패 유도 방식은 별도 전달되지 않았다.
+- 신규 자동 테스트는 실제 공통 HTTP client에 mock fetch 응답을 주는 범위다. 빈 202·평가 접수·오류·인증 재발급을 검증하며 component 상호작용과 실제 서버·AI 연동을 자동 검증하지
+  않는다.
+  현재 코드에 평가 미요청 답변의 최초 요청 버튼도 존재하나 이 endpoint는 신규 18개 테스트 범위에 포함되지 않는다.
+- 실제 코드·신규 테스트·Git 상태와 사용자 실행 출력을 대조했다. 확인한 HEAD는 `fbdd918`이며 UI·테스트·관련 문서는 커밋 대기다.
+  Codex는 테스트·lint·build를 직접 실행하지 않았다. 백엔드·Flyway 변경과 백엔드 테스트 재실행은 없다.
+
 ### React AI 자기소개서 초안 UI 검증 성공 (2026-10-01)
 
 - 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`.

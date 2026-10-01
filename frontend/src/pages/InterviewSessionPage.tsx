@@ -8,12 +8,13 @@ import {
     type InterviewQuestion,
     type InterviewSession,
     type InterviewSessionStatus,
+    retryInterviewGeneration,
     startInterviewSession,
     submitInterviewAnswer,
 } from "../api/interviewSessionApi";
 import {ApiError} from "../api/ApiError";
 import {Link, useParams} from "react-router-dom";
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 
 type SessionLoadState =
     | { sessionId: number; session: InterviewSession }
@@ -35,7 +36,13 @@ function messageOf(error: unknown): string {
 
 export function InterviewSessionPage() {
     const {sessionId: routeSessionId} = useParams()
-    const sessionId = Number(routeSessionId)
+
+    return (
+        <InterviewSessionContent key={routeSessionId ?? 'missing'} sessionId={Number(routeSessionId)}/>
+    )
+}
+
+function InterviewSessionContent({sessionId}: { sessionId: number }) {
     const validSessionId = Number.isSafeInteger(sessionId) && sessionId > 0
     const [loadState, setLoadState] = useState<SessionLoadState | null>(null)
 
@@ -56,8 +63,23 @@ export function InterviewSessionPage() {
     const [answeringQuestionId, setAnsweringQuestionId] = useState<number | null>(null)
     const [actionError, setActionError] = useState('')
 
+    const [refreshVersion, setRefreshVersion] = useState(0)
+    const [retryingGeneration, setRetryingGeneration] = useState(false)
+    const [generationRetryError, setGenerationRetryError] = useState('')
+    const [sessionRefreshError, setSessionRefreshError] = useState('')
+    const generationRetryLock = useRef(false)
+    const pageVersion = useRef(0)
+
     useEffect(() => {
-        if (!validSessionId) return
+        pageVersion.current += 1
+
+        return () => {
+            pageVersion.current += 1
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!validSessionId || retryingGeneration) return
 
         let active = true
         let timeout: ReturnType<typeof setTimeout> | undefined
@@ -81,6 +103,7 @@ export function InterviewSessionPage() {
                     }
                 }
 
+                setSessionRefreshError('')
                 setLoadState({sessionId, session: result})
 
                 if (result.status === 'GENERATING') {
@@ -88,9 +111,17 @@ export function InterviewSessionPage() {
                 }
 
             } catch (error) {
-                if (active) {
-                    setLoadState({sessionId, error: messageOf(error)})
-                }
+                if (!active) return
+
+                const message = messageOf(error)
+                setSessionRefreshError(message)
+                setLoadState((current) => {
+                    if (current?.sessionId === sessionId && 'session' in current) {
+                        return current
+                    }
+
+                    return {sessionId, error: message}
+                })
             }
         }
 
@@ -100,7 +131,45 @@ export function InterviewSessionPage() {
             active = false
             if (timeout) clearTimeout(timeout)
         }
-    }, [sessionId, validSessionId])
+    }, [sessionId, validSessionId, refreshVersion, retryingGeneration])
+
+    async function handleRetryGeneration() {
+        if (session?.status !== 'FAILED' || generationRetryLock.current) return
+
+        const version = pageVersion.current
+        generationRetryLock.current = true
+        setRetryingGeneration(true)
+        setGenerationRetryError('')
+
+        try {
+            await retryInterviewGeneration(sessionId)
+            if (pageVersion.current !== version) return
+
+            setLoadState({
+                sessionId,
+                session: {...session, status: 'GENERATING', failureCode: null},
+            })
+
+            setRefreshVersion((current) => current + 1)
+
+        } catch (error) {
+            if (pageVersion.current !== version) return
+
+            setGenerationRetryError(
+                error instanceof ApiError
+                    ? error.message
+                    : '재요청 결과를 확인하지 못했습니다. 상태를 새로고침한 뒤 다시 시도해 주세요.'
+            )
+
+            setRefreshVersion((current) => current + 1)
+
+        } finally {
+            if (pageVersion.current === version) {
+                generationRetryLock.current = false
+                setRetryingGeneration(false)
+            }
+        }
+    }
 
     async function handleStartInterview() {
         setStarting(true)
@@ -209,6 +278,26 @@ export function InterviewSessionPage() {
                         <p className="form-alert" role="alert">{errorMessage}</p>
                     )}
 
+                    {sessionRefreshError && session && (
+                        <p className="form-alert" role="alert">
+                            {sessionRefreshError}
+                        </p>
+                    )}
+
+                    {(errorMessage || sessionRefreshError || session?.status === 'FAILED') && (
+                        <button
+                            className="secondary-button"
+                            type="button"
+                            disabled={retryingGeneration || loading}
+                            onClick={() => {
+                                setSessionRefreshError('')
+                                setRefreshVersion((current) => current + 1)
+                            }}
+                        >
+                            상태 새로고침
+                        </button>
+                    )}
+
                     {session && (
                         <>
                             <span className={`status-pill status-${session.status.toLowerCase()}`}>
@@ -273,10 +362,27 @@ export function InterviewSessionPage() {
                             )}
 
                             {session.status === 'FAILED' && (
-                                <p role="alert">
-                                    질문을 만들지 못했습니다.
-                                    {session.failureCode && ` 오류 코드: ${session.failureCode}`}
-                                </p>
+                                <div>
+                                    <p role="alert">
+                                        질문을 만들지 못했습니다.
+                                        {session.failureCode && ` 오류 코드: ${session.failureCode}`}
+                                    </p>
+
+                                    {generationRetryError && (
+                                        <p className="form-alert" role="alert">
+                                            {generationRetryError}
+                                        </p>
+                                    )}
+
+                                    <button
+                                        className="primary-button"
+                                        type="button"
+                                        onClick={() => void handleRetryGeneration()}
+                                        disabled={retryingGeneration}
+                                    >
+                                        {retryingGeneration ? '재시도 요청 중…' : '질문 생성 다시 시도'}
+                                    </button>
+                                </div>
                             )}
 
                             {session.status === 'IN_PROGRESS' && (
