@@ -11,6 +11,7 @@ interface RedirectState {
         hash?: string
     }
     oauthError?: string
+    accountMessage?: string
 }
 
 export function LoginPage() {
@@ -129,6 +130,12 @@ export function LoginPage() {
                     <p className="eyebrow">WELCOME BACK</p>
                     <h1>다시 만나 반가워요</h1>
                     <p className="auth-subtitle">계정에 로그인해 면접 준비를 이어가세요.</p>
+
+                    {redirectState?.accountMessage && (
+                        <p className="account-notice" role="status">
+                            {redirectState.accountMessage}
+                        </p>
+                    )}
 
                     <form className="auth-form" onSubmit={handleSubmit}>
                         <label className="form-field">

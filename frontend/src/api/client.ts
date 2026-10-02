@@ -163,7 +163,12 @@ async function executeApiRequest<T>(
         credentials: 'include',
     })
 
+    const responseBody = await readResponseBody(response)
+    const invalidCurrentPassword = isApiErrorResponse(responseBody)
+        && responseBody.code === 'INVALID_CURRENT_PASSWORD'
+
     if (response.status === 401
+        && !invalidCurrentPassword
         && options.authenticated
         && !hasRetried
         && path !== '/api/auth/login'
@@ -177,8 +182,6 @@ async function executeApiRequest<T>(
 
         accessTokenStore.clear()
     }
-
-    const responseBody = await readResponseBody(response)
 
     if (!response.ok) {
         throw toApiError(response, responseBody)

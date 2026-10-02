@@ -2682,3 +2682,110 @@
 .auth-action-link {
     text-decoration: none;
 }
+
+.account-content {
+    max-width: 760px;
+}
+
+.account-sections {
+    display: grid;
+    gap: 24px;
+}
+
+.account-section {
+    min-width: 0;
+    padding: clamp(22px, 4vw, 34px);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--surface);
+}
+
+.account-section h2 {
+    margin: 0 0 20px;
+    font-size: 20px;
+    letter-spacing: -0.6px;
+}
+
+.account-details {
+    display: grid;
+    gap: 14px;
+    margin: 0 0 20px;
+}
+
+.account-details > div {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.account-details dt {
+    color: var(--muted);
+}
+
+.account-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.account-help {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.account-fields {
+    display: grid;
+    min-width: 0;
+    gap: 18px;
+    margin: 24px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.account-fields:disabled {
+    opacity: 0.7;
+}
+
+.account-notice {
+    padding: 14px 18px;
+    border: 1px solid #a7dfca;
+    border-radius: 10px;
+    color: #225f49;
+    background: #edf9f3;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.account-danger {
+    border-color: #efd1d8;
+}
+
+.account-danger h2 {
+    color: var(--danger);
+}
+
+.account-confirmation {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.account-confirmation input {
+    flex: 0 0 auto;
+    margin-top: 5px;
+    accent-color: var(--danger);
+}
+
+.account-delete-button {
+    border-color: #efd1d8;
+    color: var(--danger);
+}
+
+@media (max-width: 540px) {
+    .account-details > div {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+}

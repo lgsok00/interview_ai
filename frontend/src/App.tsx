@@ -14,6 +14,7 @@ import {DocumentsPage} from './pages/DocumentsPage'
 import {InterviewSessionListPage} from './pages/InterviewSessionListPage'
 import {CoverLetterDraftPage} from './pages/CoverLetterDraftPage'
 import {SignupPage} from './pages/SignupPage'
+import {AccountPage} from './pages/AccountPage'
 
 import './App.css'
 
@@ -28,6 +29,7 @@ function App() {
 
                     <Route element={<ProtectedRoute/>}>
                         <Route path="/" element={<HomePage/>}/>
+                        <Route path="/account" element={<AccountPage/>}/>
                         <Route path="/catalog" element={<CatalogPage/>}/>
                         <Route path="/interviews" element={<InterviewSessionListPage/>}/>
                         <Route path="/interviews/:sessionId" element={<InterviewSessionPage/>}/>

@@ -7,6 +7,18 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 내 계정 UI 검증 성공 (2026-10-02)
+
+- 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`. 실제 코드·테스트·Git 상태와 전달된 실행 출력을 대조했다.
+- `npm test` — Vitest 13개 파일·161개 성공, 실패 0, 전체 713ms. 신규 `accountApi.test.ts` 26개 성공 (51ms).
+- `npm run lint` — 경고 0·오류 0 (49 files, 33ms).
+- `npm run build` — `tsc -b && vite build` 성공 (56 modules transformed, 165ms).
+- 사용자 브라우저 점검 완료를 확인했다. 개별 수동 시나리오 결과는 별도 전달되지 않았다.
+- 신규 자동 테스트는 실제 HTTP client·mock fetch 범위다. API 요청·응답·경계값 전송·서버 오류 보존·현재 비밀번호 불일치의 refresh 미호출·토큰 유지와 만료 토큰 재발급을 검증한다.
+  component 폼·provider 표시·탈퇴 동의·완료 후 로그인 안내·AuthProvider 상태 초기화와 실제 서버 정책 자체는 자동 검증하지 않는다.
+- HEAD `11a91b4`에서 회원가입 커밋 완료를 확인했다. 내 계정 구현·테스트·관련 문서는 커밋 대기다. 백엔드·Flyway 변경과 이번 백엔드 테스트 재실행은 없다.
+  Codex는 테스트·lint·build를 직접 실행하지 않았다.
+
 ### React 회원가입 UI 검증 성공 (2026-10-02)
 
 - 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`. 전달된 출력과 실제 구현·테스트·Git 상태를 대조했다.

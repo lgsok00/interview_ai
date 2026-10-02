@@ -15,6 +15,11 @@ export function AuthProvider({children}: AuthProviderProps) {
     const [isInitializing, setIsInitializing] = useState(true)
     const initialized = useRef(false)
 
+    const clearSession = useCallback(() => {
+        accessTokenStore.clear()
+        setIsAuthenticated(false)
+    }, [])
+
     const refresh = useCallback(async () => {
         try {
             const response = await refreshAccessToken()
@@ -64,8 +69,22 @@ export function AuthProvider({children}: AuthProviderProps) {
     }, [refresh])
 
     const value = useMemo(
-        () => ({isAuthenticated, isInitializing, login, refresh, logout}),
-        [isAuthenticated, isInitializing, login, refresh, logout],
+        () => ({
+            isAuthenticated,
+            isInitializing,
+            login,
+            refresh,
+            logout,
+            clearSession,
+        }),
+        [
+            isAuthenticated,
+            isInitializing,
+            login,
+            refresh,
+            logout,
+            clearSession,
+        ],
     )
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

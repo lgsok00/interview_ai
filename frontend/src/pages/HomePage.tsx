@@ -53,6 +53,7 @@ export function HomePage() {
 
                 <div className="workspace-header-actions">
                     <span className="account-label">내 면접 준비 공간</span>
+                    <Link className="secondary-button" to="/account">내 계정</Link>
                     {isAdmin && <Link className="secondary-button" to="/admin">관리자</Link>}
                     <button
                         className="secondary-button"
