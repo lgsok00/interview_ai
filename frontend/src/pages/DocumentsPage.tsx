@@ -20,6 +20,7 @@ import {
     updateResumeTitle,
     uploadResume,
 } from '../api/documentsApi'
+import {isResumeUsable, resumeUsageLabel, resumeUsageMessage} from "../api/resumeUsage";
 
 type Tab = 'coverLetters' | 'resumes'
 
@@ -57,6 +58,8 @@ export function DocumentsPage() {
     const [loading, setLoading] = useState(true)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+
+    const representativeResume = resumes.find((item) => item.representative)
 
     async function refresh() {
         setLoading(true)
@@ -360,6 +363,30 @@ export function DocumentsPage() {
                             <span>PDF, 최대 10MB</span>
                         </div>
 
+                        <p className="documents-state" role="status">
+                            {!representativeResume
+                                ? '대표 이력서가 설정되지 않았습니다. 면접 생성 시 이력서 자료가 생략됩니다. AI 초안은 사용 가능한 이력서를 직접 선택하거나 대표로 설정해야 합니다.'
+                                : isResumeUsable(representativeResume)
+                                    ? `대표 이력서: ${representativeResume.title} · AI 사용 가능`
+                                    : `대표 이력서 “${representativeResume.title}”는 사용할 수 없습니다. ${resumeUsageMessage(representativeResume)} 사용 가능한 다른 이력서를 대표로 설정해 주세요. 현재 대표 설정으로는 면접을 생성할 수 없습니다.`}
+                        </p>
+
+                        <p>
+                            텍스트가 포함된 PDF를 등록해 주세요.
+                            이미지·스캔 PDF의 글자 인식은 지원하지 않습니다.
+                            텍스트 추출에 실패해도 원본 PDF는 보관되며 다운로드할 수 있습니다.
+                        </p>
+
+                        <div className="documents-actions">
+                            <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void refresh()}
+                            >
+                                자료 새로고침
+                            </button>
+                        </div>
+
                         <form className="documents-upload" onSubmit={(event) => void submitResume(event)}>
                             <label>
                                 제목
@@ -422,8 +449,9 @@ export function DocumentsPage() {
                                                 )}
                                                 <p>
                                                     {item.originalFilename} · {(item.fileSize / 1024).toFixed(0)}KB
-                                                    · 텍스트 추출 {item.extractionStatus}
                                                 </p>
+                                                <p>{resumeUsageLabel(item)}</p>
+                                                <p>{resumeUsageMessage(item)}</p>
                                             </div>
                                             {item.representative && <span className="documents-badge">대표 자료</span>}
                                         </div>
@@ -443,7 +471,8 @@ export function DocumentsPage() {
                                             </button>
                                             {!item.representative && (
                                                 <button
-                                                    disabled={busy}
+                                                    disabled={busy || !isResumeUsable(item)}
+                                                    title={isResumeUsable(item) ? undefined : resumeUsageMessage(item)}
                                                     type="button"
                                                     onClick={() => void runAction(() => setRepresentativeResume(item.id))}
                                                 >

@@ -18,6 +18,7 @@ public class ResumePdfProcessor {
 
     private static final byte[] PDF_SIGNATURE = {'%', 'P', 'D', 'F', '-'};
     private static final String EXTRACTION_FAILURE_CODE = "TEXT_EXTRACTION_FAILED";
+    private static final String EMPTY_EXTRACTION_CODE = "TEXT_EXTRACTION_EMPTY";
 
 
     public ResumePdfAnalysis analyze(byte[] contents) {
@@ -26,7 +27,11 @@ public class ResumePdfProcessor {
 
         try (PDDocument document = loadDocument(contents)) {
             try {
-                String extractedText = new PDFTextStripper().getText(document).trim();
+                String extractedText = new PDFTextStripper().getText(document).strip();
+
+                if (extractedText.isBlank()) {
+                    return ResumePdfAnalysis.failed(sha256, EMPTY_EXTRACTION_CODE);
+                }
 
                 return ResumePdfAnalysis.completed(sha256, extractedText);
 

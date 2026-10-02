@@ -6,7 +6,10 @@ import com.interviewai.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.interviewai.auth.service.GithubOAuth2UserService;
 import com.interviewai.global.config.SecurityConfig;
 import com.interviewai.resume.dto.ResumeResponse;
+import com.interviewai.resume.dto.ResumeSummaryResponse;
+import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.enums.ResumeExtractionStatus;
+import com.interviewai.resume.enums.ResumeUsageStatus;
 import com.interviewai.resume.exception.ResumeFileTooLargeException;
 import com.interviewai.resume.exception.ResumeNotFoundException;
 import com.interviewai.resume.file.ResumeDownload;
@@ -24,6 +27,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -77,7 +81,8 @@ class ResumeControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(RESUME_ID))
                 .andExpect(jsonPath("$.title").value("백엔드 이력서"))
-                .andExpect(jsonPath("$.extractionStatus").value("COMPLETED"));
+                .andExpect(jsonPath("$.extractionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.usageStatus").value("READY"));
     }
 
 
@@ -171,12 +176,60 @@ class ResumeControllerTest {
     }
 
 
+    @Test
+    @DisplayName("기존 완료 상태의 빈 본문은 목록과 상세에서 EMPTY_TEXT로 안내한다")
+    void exposesLegacyEmptyTextUsageInListAndDetail() throws Exception {
+        Resume legacy = Resume.create(null, "기존 빈 이력서", "empty.pdf", "1/empty.pdf",
+                "application/pdf", 1024, "a".repeat(64));
+        legacy.completeExtraction(" \n\t ");
+        when(resumeService.getAll(USER_ID.toString()))
+                .thenReturn(List.of(ResumeSummaryResponse.of(legacy, true)));
+        when(resumeService.get(USER_ID.toString(), RESUME_ID))
+                .thenReturn(ResumeResponse.of(legacy, true));
+
+        mockMvc.perform(get("/api/resumes")
+                        .with(jwt().jwt(token -> token.subject(USER_ID.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].extractionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$[0].usageStatus").value("EMPTY_TEXT"))
+                .andExpect(jsonPath("$[0].representative").value(true))
+                .andExpect(jsonPath("$[0].extractedText").doesNotExist());
+
+        mockMvc.perform(get("/api/resumes/{id}", RESUME_ID)
+                        .with(jwt().jwt(token -> token.subject(USER_ID.toString()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extractionStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.usageStatus").value("EMPTY_TEXT"))
+                .andExpect(jsonPath("$.representative").value(true));
+    }
+
+    @Test
+    @DisplayName("텍스트 없는 신규 PDF의 등록 결과는 파일 보관과 실패 사유를 반환한다")
+    void returnsEmptyExtractionReasonAfterUpload() throws Exception {
+        Resume empty = Resume.create(null, "빈 이력서", "empty.pdf", "1/empty.pdf",
+                "application/pdf", 1024, "a".repeat(64));
+        empty.failExtraction("TEXT_EXTRACTION_EMPTY");
+        when(resumeService.create(eq(USER_ID.toString()), any(), any()))
+                .thenReturn(ResumeResponse.of(empty, false));
+
+        mockMvc.perform(multipart("/api/resumes")
+                        .file(new MockMultipartFile("metadata", "", "application/json",
+                                "{\"title\":\"빈 이력서\"}".getBytes()))
+                        .file(new MockMultipartFile("file", "empty.pdf", "application/pdf", "%PDF-test".getBytes()))
+                        .with(jwt().jwt(token -> token.subject(USER_ID.toString()))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.originalFilename").value("empty.pdf"))
+                .andExpect(jsonPath("$.extractionStatus").value("FAILED"))
+                .andExpect(jsonPath("$.extractionFailureCode").value("TEXT_EXTRACTION_EMPTY"))
+                .andExpect(jsonPath("$.usageStatus").value("EMPTY_TEXT"));
+    }
+
     private ResumeResponse response() {
         LocalDateTime now = LocalDateTime.of(2026, 9, 3, 12, 0);
         return new ResumeResponse(
                 RESUME_ID, "백엔드 이력서", "resume.pdf", "application/pdf",
                 1024, "a".repeat(64), "resume text", ResumeExtractionStatus.COMPLETED,
-                null, false, now, now
+                null, ResumeUsageStatus.READY, false, now, now
         );
     }
 }

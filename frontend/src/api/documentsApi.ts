@@ -20,12 +20,19 @@ export interface CoverLetterVersion {
     createdAt: string
 }
 
+export type ResumeUsageStatus =
+    | 'READY'
+    | 'PENDING'
+    | 'EMPTY_TEXT'
+    | 'EXTRACTION_FAILED'
+
 export interface ResumeSummary {
     id: number
     title: string
     originalFilename: string
     fileSize: number
     extractionStatus: 'PENDING' | 'COMPLETED' | 'FAILED'
+    usageStatus: ResumeUsageStatus
     representative: boolean
     createdAt: string
     updatedAt: string

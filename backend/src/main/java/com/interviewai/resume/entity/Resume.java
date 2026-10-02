@@ -1,6 +1,7 @@
 package com.interviewai.resume.entity;
 
 import com.interviewai.resume.enums.ResumeExtractionStatus;
+import com.interviewai.resume.enums.ResumeUsageStatus;
 import com.interviewai.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -133,6 +134,24 @@ public class Resume {
         this.extractedText = null;
         this.extractionStatus = ResumeExtractionStatus.FAILED;
         this.extractionFailureCode = failureCode;
+    }
+
+    public ResumeUsageStatus getUsageStatus() {
+        if (extractionStatus == ResumeExtractionStatus.PENDING) {
+            return ResumeUsageStatus.PENDING;
+        }
+
+        if (extractionStatus != ResumeExtractionStatus.COMPLETED) {
+            return "TEXT_EXTRACTION_EMPTY".equals(extractionFailureCode)
+                    ? ResumeUsageStatus.EMPTY_TEXT
+                    : ResumeUsageStatus.EXTRACTION_FAILED;
+        }
+
+        if (extractedText == null || extractedText.isBlank()) {
+            return ResumeUsageStatus.EMPTY_TEXT;
+        }
+
+        return ResumeUsageStatus.READY;
     }
 
 

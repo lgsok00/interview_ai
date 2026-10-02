@@ -4,10 +4,12 @@ import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.rag.document.RagSourceType;
 import com.interviewai.rag.service.RagSourceChangeRegistrationService;
 import com.interviewai.resume.dto.ResumeResponse;
+import com.interviewai.resume.dto.ResumeSummaryResponse;
 import com.interviewai.resume.dto.ResumeUploadRequest;
 import com.interviewai.resume.dto.UpdateResumeTitleRequest;
 import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.entity.ResumeRepresentative;
+import com.interviewai.resume.enums.ResumeUsageStatus;
 import com.interviewai.resume.exception.RepresentativeResumeNotFoundException;
 import com.interviewai.resume.exception.ResumeNotFoundException;
 import com.interviewai.resume.file.ResumePdfAnalysis;
@@ -25,11 +27,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,16 +50,26 @@ class ResumeServiceTest {
     private static final Long RESUME_ID = 10L;
     private static final byte[] PDF = "%PDF-test".getBytes();
 
-    @Mock private ResumeRepository resumeRepository;
-    @Mock private ResumeRepresentativeRepository representativeRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private RagSourceChangeRegistrationService ragRegistrationService;
-    @Mock private ResumeUploadFileValidator fileValidator;
-    @Mock private ResumePdfProcessor pdfProcessor;
-    @Mock private ResumeFileStorage fileStorage;
-    @Mock private ResumeFileTransactionCleanup fileCleanup;
-    @Mock private User user;
-    @Mock private Resume resume;
+    @Mock
+    private ResumeRepository resumeRepository;
+    @Mock
+    private ResumeRepresentativeRepository representativeRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private RagSourceChangeRegistrationService ragRegistrationService;
+    @Mock
+    private ResumeUploadFileValidator fileValidator;
+    @Mock
+    private ResumePdfProcessor pdfProcessor;
+    @Mock
+    private ResumeFileStorage fileStorage;
+    @Mock
+    private ResumeFileTransactionCleanup fileCleanup;
+    @Mock
+    private User user;
+    @Mock
+    private Resume resume;
 
     private ResumeService resumeService;
     private MockMultipartFile multipartFile;
@@ -91,15 +107,17 @@ class ResumeServiceTest {
         verify(resumeRepository).saveAndFlush(captor.capture());
         verify(ragRegistrationService).registerResumeChange(captor.getValue());
         assertThat(response.extractionStatus().name()).isEqualTo("COMPLETED");
+        assertThat(response.usageStatus()).isEqualTo(ResumeUsageStatus.READY);
         assertThat(response.extractedText()).isEqualTo("resume text");
     }
 
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"TEXT_EXTRACTION_EMPTY", "TEXT_EXTRACTION_FAILED"})
     @DisplayName("텍스트 추출에 실패한 이력서도 RAG 상태 정리를 등록한다")
-    void registersFailedExtractionResumeChange() {
+    void registersFailedExtractionResumeChange(String failureCode) {
         ValidatedResumeFile validated = new ValidatedResumeFile("resume.pdf", "application/pdf", PDF);
-        ResumePdfAnalysis analysis = ResumePdfAnalysis.failed("a".repeat(64), "NO_TEXT");
+        ResumePdfAnalysis analysis = ResumePdfAnalysis.failed("a".repeat(64), failureCode);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
         when(fileValidator.validate(multipartFile)).thenReturn(validated);
         when(pdfProcessor.analyze(PDF)).thenReturn(analysis);
@@ -114,7 +132,82 @@ class ResumeServiceTest {
         verify(resumeRepository).saveAndFlush(captor.capture());
         verify(ragRegistrationService).registerResumeChange(captor.getValue());
         assertThat(response.extractionStatus().name()).isEqualTo("FAILED");
-        assertThat(response.extractionFailureCode()).isEqualTo("NO_TEXT");
+        assertThat(response.extractionFailureCode()).isEqualTo(failureCode);
+        assertThat(response.extractedText()).isNull();
+        assertThat(response.usageStatus()).isEqualTo("TEXT_EXTRACTION_EMPTY".equals(failureCode)
+                ? ResumeUsageStatus.EMPTY_TEXT : ResumeUsageStatus.EXTRACTION_FAILED);
+        verify(fileStorage).store(USER_ID, PDF);
+        verify(fileCleanup).deleteAfterRollback("1/new.pdf");
+        verify(fileCleanup, never()).deleteAfterCommit(any());
+    }
+
+    @Test
+    @DisplayName("목록은 기존 완료 상태의 빈 본문과 실제 사용 가능한 본문을 구분한다")
+    void listsUsageForLegacyAndReadyResumes() {
+        Resume legacy = realResume();
+        legacy.completeExtraction(" \n\t ");
+        Resume ready = realResume();
+        ReflectionTestUtils.setField(ready, "id", 11L);
+        ready.completeExtraction("사용 가능한 본문");
+        when(representativeRepository.findById(USER_ID))
+                .thenReturn(Optional.of(ResumeRepresentative.create(USER_ID, legacy)));
+        when(resumeRepository.findAllByUser_IdOrderByUpdatedAtDesc(USER_ID))
+                .thenReturn(List.of(legacy, ready));
+
+        var responses = resumeService.getAll(USER_ID.toString());
+
+        assertThat(responses).extracting(ResumeSummaryResponse::usageStatus)
+                .containsExactly(ResumeUsageStatus.EMPTY_TEXT, ResumeUsageStatus.READY);
+        assertThat(responses).extracting(ResumeSummaryResponse::representative).containsExactly(true, false);
+        assertThat(legacy.getExtractionStatus().name()).isEqualTo("COMPLETED");
+        verifyNoInteractions(ragRegistrationService, fileStorage);
+    }
+
+    @Test
+    @DisplayName("텍스트 없는 PDF로 교체하면 기존 본문을 제거하고 새 실패 사유와 파일 정리를 등록한다")
+    void replacesReadyResumeWithEmptyPdf() {
+        Resume owned = realResume();
+        owned.completeExtraction("이전 본문");
+        when(resumeRepository.findOwnedForUpdate(RESUME_ID, USER_ID)).thenReturn(Optional.of(owned));
+        when(fileValidator.validate(multipartFile))
+                .thenReturn(new ValidatedResumeFile("empty.pdf", "application/pdf", PDF));
+        when(pdfProcessor.analyze(PDF))
+                .thenReturn(ResumePdfAnalysis.failed("b".repeat(64), "TEXT_EXTRACTION_EMPTY"));
+        when(fileStorage.store(USER_ID, PDF)).thenReturn("1/new.pdf");
+        when(representativeRepository.existsByUserIdAndResume_Id(USER_ID, RESUME_ID)).thenReturn(true);
+
+        ResumeResponse response = resumeService.replaceFile(USER_ID.toString(), RESUME_ID, multipartFile);
+
+        assertThat(response.extractedText()).isNull();
+        assertThat(response.usageStatus()).isEqualTo(ResumeUsageStatus.EMPTY_TEXT);
+        assertThat(response.extractionFailureCode()).isEqualTo("TEXT_EXTRACTION_EMPTY");
+        assertThat(response.representative()).isTrue();
+        assertThat(owned.getStorageKey()).isEqualTo("1/new.pdf");
+        verify(fileCleanup).deleteAfterRollback("1/new.pdf");
+        verify(fileCleanup).deleteAfterCommit("1/resume.pdf");
+        verify(ragRegistrationService).registerResumeChange(owned);
+    }
+
+    @Test
+    @DisplayName("본문 추출에 실패해도 소유자의 원본 PDF 다운로드는 가능하다")
+    void downloadsEmptyExtractionPdf() {
+        Resume owned = realResume();
+        owned.failExtraction("TEXT_EXTRACTION_EMPTY");
+        when(resumeRepository.findByIdAndUser_Id(RESUME_ID, USER_ID)).thenReturn(Optional.of(owned));
+        when(fileStorage.read("1/resume.pdf")).thenReturn(PDF);
+
+        var download = resumeService.download(USER_ID.toString(), RESUME_ID);
+
+        assertThat(download.contents()).isEqualTo(PDF);
+        assertThat(download.filename()).isEqualTo("resume.pdf");
+        verifyNoInteractions(ragRegistrationService, fileCleanup);
+    }
+
+    private Resume realResume() {
+        Resume owned = Resume.create(user, "이력서", "resume.pdf", "1/resume.pdf",
+                "application/pdf", PDF.length, "a".repeat(64));
+        ReflectionTestUtils.setField(owned, "id", RESUME_ID);
+        return owned;
     }
 
 

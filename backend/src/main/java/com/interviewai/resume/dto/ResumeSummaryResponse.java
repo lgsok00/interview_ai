@@ -2,6 +2,7 @@ package com.interviewai.resume.dto;
 
 import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.enums.ResumeExtractionStatus;
+import com.interviewai.resume.enums.ResumeUsageStatus;
 
 import java.time.LocalDateTime;
 
@@ -11,6 +12,7 @@ public record ResumeSummaryResponse(
         String originalFilename,
         long fileSize,
         ResumeExtractionStatus extractionStatus,
+        ResumeUsageStatus usageStatus,
         boolean representative,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
@@ -23,6 +25,7 @@ public record ResumeSummaryResponse(
                 resume.getOriginalFileName(),
                 resume.getFileSize(),
                 resume.getExtractionStatus(),
+                resume.getUsageStatus(),
                 representative,
                 resume.getCreatedAt(),
                 resume.getUpdatedAt()

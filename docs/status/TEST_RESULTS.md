@@ -2,10 +2,28 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-09-21이며 1,003개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-10-02이며 1,050개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 이력서 빈 추출·사용 가능 여부·대표 미설정 안내 전체 검증 성공 (2026-10-02)
+
+- 사용자 백엔드 전체 `test` 실행 — BUILD SUCCESSFUL (6분 28초), 4 actionable tasks: 1 executed, 3 up-to-date. 전달된 출력은 IDE 실행의 `test`
+  이며 셸 명령 문자열은 별도 전달되지 않았다. 동일 전체 검증의 저장소 Wrapper 명령은 `backend`에서 `.\gradlew.bat test`다.
+- `backend/build/test-results/test/TEST-*.xml` 114개를 대조해 전체 1,050개 성공, 실패·오류·건너뜀 0을 확인했다. XML은 2026-10-02 실행 결과이며 사용자
+  출력의 완료 시각은 한국 시간 오전 11:10:16이다.
+- 이력서 패키지 7개 클래스·52개, 신규 `CoverLetterDraftSnapshotAssemblerTest` 18개, `InterviewSessionSnapshotAssemblerTest` 11개,
+  `RagSourceChangeRegistrationServiceTest` 9개가 성공했다. 신규·확장 테스트로 직전 전체 1,003개 대비 47개 증가했다.
+- 앞서 제시한 선택 테스트의 별도 실행 결과는 전달되지 않았다. 전체 실행 결과로 이번 추가·확장 테스트의 성공을 확인했다.
+- 사용자 실행 위치 `C:\Users\User\IdeaProjects\interview_ai\frontend`의 `npm test` — Vitest 11개 파일·115개 성공, 실패 0 (991ms). 신규
+  `resumeUsage.test.ts` 11개 성공 (5ms).
+- `npm run lint` — 경고 0·오류 0 (44 files, 70ms). `npm run build` — TypeScript·Vite build 성공 (53 modules transformed,
+  1.18초).
+- 사용자가 브라우저 검토 완료를 전달했다. 개별 시나리오별 상세 결과는 별도 전달되지 않았으며 신규 프런트엔드 자동 테스트는 공통 사용 판정·안내 함수 범위다. component 선택·버튼·새로고침·검토 입력 유지
+  동작을 자동 검증하지 않는다.
+- 실제 구현·테스트·Git 상태와 사용자 출력·XML을 대조했다. HEAD는 `5d0d041`이며 이전 재시도 UI는 커밋됐고 이번 이력서 변경·테스트·문서는 커밋 대기다. DB 스키마·Flyway·OCR 변경은
+  없다. Codex는 테스트·lint·build를 실행하지 않았다.
 
 ### React 면접 질문 생성·답변 평가 실패 재시도 UI 검증 성공 (2026-10-01)
 

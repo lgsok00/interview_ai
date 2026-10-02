@@ -14,6 +14,7 @@ import {type JobPostingSummary, listJobPostings, type Page} from "../api/catalog
 import {type SubmitEvent, useCallback, useEffect, useRef, useState} from "react";
 import {type CoverLetterDetails, getCoverLetter, listResumes, type ResumeSummary} from "../api/documentsApi";
 import {Link, useParams} from "react-router-dom";
+import {isResumeUsable, resumeUsageLabel, resumeUsageMessage} from "../api/resumeUsage";
 
 const statusLabels: Record<DraftStatus, string> = {
     PENDING: '생성 대기',
@@ -30,7 +31,7 @@ function messageOf(error: unknown): string {
         }
 
         if (error.code === 'REPRESENTATIVE_RESUME_NOT_READY') {
-            return '사용할 이력서가 준비되지 않았습니다. 추출 완료된 이력서를 선택하거나 문서 화면에서 대표 이력서를 설정해 주세요.'
+            return '사용할 이력서가 없거나 현재 사용할 수 없습니다. 이력서 상태를 새로고침한 뒤 사용 가능한 이력서를 선택하거나 문서 화면에서 대표로 설정해 주세요.'
         }
 
         return error.message
@@ -444,7 +445,28 @@ function DraftWorkspace({coverLetterId}: { coverLetterId: number }) {
     const [instruction, setInstruction] = useState('')
     const [selectedId, setSelectedId] = useState<number | null>(null)
     const [busy, setBusy] = useState(false)
+    const [resumeRefreshing, setResumeRefreshing] = useState(false)
+    const [resumeRefreshError, setResumeRefreshError] = useState('')
     const createLock = useRef(false)
+
+    const representativeResume = data?.resumes.find((item) => item.representative)
+    const selectedResume = resumeId
+        ? data?.resumes.find((item) => item.id === Number(resumeId))
+        : representativeResume
+
+    const resumeIssue = !data
+        ? '이력서 정보를 불러오는 중입니다.'
+        : resumeRefreshing
+            ? '이력서 상태를 확인하는 중입니다.'
+            : resumeRefreshError
+                ? resumeRefreshError
+                : !selectedResume
+                    ? resumeId
+                        ? '선택한 이력서를 찾을 수 없습니다. 다른 이력서를 선택해 주세요.'
+                        : '대표 이력서가 설정되지 않았습니다. 사용 가능한 이력서를 직접 선택하거나 문서 화면에서 대표로 설정해 주세요.'
+                    : isResumeUsable(selectedResume)
+                        ? ''
+                        : resumeUsageMessage(selectedResume)
 
     useEffect(() => {
         let active = true
@@ -489,9 +511,32 @@ function DraftWorkspace({coverLetterId}: { coverLetterId: number }) {
         setSelectedId(draft.id)
     }
 
+    async function refreshResumeOptions() {
+        if (resumeRefreshing) return
+
+        setResumeRefreshing(true)
+        setResumeRefreshError('')
+
+        try {
+            const resumes = await listResumes()
+            setData((previous) => previous ? {...previous, resumes} : previous)
+
+        } catch (loadError) {
+            setResumeRefreshError(messageOf(loadError))
+
+        } finally {
+            setResumeRefreshing(false)
+        }
+    }
+
     async function submit(event: SubmitEvent<HTMLFormElement>) {
         event.preventDefault()
         if (!job || createLock.current) return
+
+        if (resumeIssue) {
+            setError(resumeIssue)
+            return
+        }
 
         createLock.current = true
         setBusy(true)
@@ -565,19 +610,61 @@ function DraftWorkspace({coverLetterId}: { coverLetterId: number }) {
                                         사용할 이력서
                                         <select
                                             value={resumeId}
+                                            aria-describedby="draft-resume-guidance"
+                                            disabled={resumeRefreshing}
                                             onChange={(event) => setResumeId(event.target.value)}
                                         >
-                                            <option value="">대표 이력서 사용</option>
-                                            {data.resumes
-                                                .filter((resume) => resume.extractionStatus === 'COMPLETED')
-                                                .map((resume) => (
-                                                    <option key={resume.id} value={resume.id}>
-                                                        {resume.title}
-                                                        {resume.representative ? ' (대표)' : ''}
-                                                    </option>
-                                                ))}
+                                            <option
+                                                value=""
+                                                disabled={!representativeResume || !isResumeUsable(representativeResume)}
+                                            >
+                                                {representativeResume
+                                                    ? `대표 이력서 사용 · ${representativeResume.title} · ${resumeUsageLabel(representativeResume)}`
+                                                    : '대표 이력서 미설정'}
+                                            </option>
+                                            {data.resumes.map((resume) => (
+                                                <option
+                                                    key={resume.id}
+                                                    value={resume.id}
+                                                    disabled={!isResumeUsable(resume)}
+                                                >
+                                                    {resume.title}
+                                                    {resume.representative ? ' (대표)' : ''}
+                                                    {' · '}
+                                                    {resumeUsageLabel(resume)}
+                                                </option>
+                                            ))}
                                         </select>
                                     </label>
+
+                                    <p id="draft-resume-guidance" role="status">
+                                        {resumeIssue || `“${selectedResume?.title}”의 추출 본문을 사용합니다.`}
+                                    </p>
+
+                                    {data.resumes.some((resume) => !isResumeUsable(resume)) && (
+                                        <ul>
+                                            {data.resumes
+                                                .filter((resume) => !isResumeUsable(resume))
+                                                .map((resume) => (
+                                                    <li key={resume.id}>
+                                                        {resume.title}: {resumeUsageMessage(resume)}
+                                                    </li>
+                                                ))}
+                                        </ul>
+                                    )}
+
+                                    <div className="documents-actions">
+                                        <button
+                                            type="button"
+                                            disabled={resumeRefreshing}
+                                            onClick={() => void refreshResumeOptions()}
+                                        >
+                                            {resumeRefreshing ? '확인 중…' : '이력서 상태 새로고침'}
+                                        </button>
+                                        <Link to="/documents" target="_blank" rel="noopener noreferrer">
+                                            이력서 관리 열기
+                                        </Link>
+                                    </div>
                                     <small>
                                         추출 완료된 이력서만 선택할 수 있습니다.
                                         대표 이력서가 없다면 먼저 등록하거나 이력서를 선택하세요.
@@ -597,7 +684,7 @@ function DraftWorkspace({coverLetterId}: { coverLetterId: number }) {
                                     <button
                                         className="primary-button documents-action"
                                         type="submit"
-                                        disabled={!job || busy}
+                                        disabled={!job || busy || Boolean(resumeIssue)}
                                     >
                                         {busy ? '요청 중…' : '초안 생성'}
                                     </button>

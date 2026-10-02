@@ -16,26 +16,34 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RagSourceChangeRegistrationServiceTest {
 
-    @Mock private RagSourceSnapshotFactory snapshotFactory;
-    @Mock private RagIndexJobRegistrationService jobRegistrationService;
-    @Mock private Company company;
-    @Mock private JobPosting jobPosting;
-    @Mock private CoverLetter coverLetter;
-    @Mock private CoverLetterVersion coverLetterVersion;
-    @Mock private Resume resume;
+    @Mock
+    private RagSourceSnapshotFactory snapshotFactory;
+    @Mock
+    private RagIndexJobRegistrationService jobRegistrationService;
+    @Mock
+    private Company company;
+    @Mock
+    private JobPosting jobPosting;
+    @Mock
+    private CoverLetter coverLetter;
+    @Mock
+    private CoverLetterVersion coverLetterVersion;
+    @Mock
+    private Resume resume;
 
     private RagSourceChangeRegistrationService service;
 
@@ -130,6 +138,28 @@ class RagSourceChangeRegistrationServiceTest {
         verify(snapshotFactory, never()).fromResume(org.mockito.ArgumentMatchers.any());
     }
 
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("신규 텍스트 없음 실패와 기존 빈 완료 본문은 실제 판정 후 RAG DELETE를 등록한다")
+    void registersDeleteForActualEmptyResume(boolean legacy) {
+        Resume empty = Resume.create(null, "빈 이력서", "empty.pdf", "1/empty.pdf",
+                "application/pdf", 1024, "a".repeat(64));
+        ReflectionTestUtils.setField(empty, "id", 40L);
+        if (legacy) {
+            empty.completeExtraction(" \n\t ");
+        } else {
+            empty.failExtraction("TEXT_EXTRACTION_EMPTY");
+        }
+        RagSourceChangeRegistrationService actual = new RagSourceChangeRegistrationService(
+                new RagSourceSnapshotFactory(), jobRegistrationService);
+
+        actual.registerResumeChange(empty);
+
+        verify(jobRegistrationService).registerDelete(new RagSourceKey(RagSourceType.RESUME, 40L), 3);
+        verify(jobRegistrationService, never()).registerUpsert(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyInt());
+    }
 
     private void assertUpsert(RagSourceSnapshot snapshot) {
         ArgumentCaptor<RagIndexTarget> captor = ArgumentCaptor.forClass(RagIndexTarget.class);

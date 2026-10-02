@@ -19,6 +19,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -144,15 +148,16 @@ class InterviewSessionSnapshotAssemblerTest {
     }
 
 
-    @Test
+    @ParameterizedTest
+    @EnumSource(value = ResumeExtractionStatus.class, names = {"PENDING", "FAILED"})
     @DisplayName("텍스트 추출이 완료되지 않은 대표 이력서는 사용하지 않는다")
-    void rejectsRepresentativeResumeWhoseExtractionIsPending() {
+    void rejectsRepresentativeResumeWhoseExtractionIsNotCompleted(ResumeExtractionStatus status) {
         stubJobPosting();
         when(coverLetterRepresentativeRepository.findDetailByUserId(USER_ID)).thenReturn(Optional.empty());
         when(resumeRepresentativeRepository.findDetailByUserId(USER_ID))
                 .thenReturn(Optional.of(resumeRepresentative));
         when(resumeRepresentative.getResume()).thenReturn(resume);
-        when(resume.getExtractionStatus()).thenReturn(ResumeExtractionStatus.PENDING);
+        when(resume.getExtractionStatus()).thenReturn(status);
 
         assertThatThrownBy(() -> assembler.assemble(USER_ID, JOB_POSTING_ID))
                 .isInstanceOf(RepresentativeResumeNotReadyException.class)
@@ -160,16 +165,18 @@ class InterviewSessionSnapshotAssemblerTest {
     }
 
 
-    @Test
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\n\t\r ", "\u2003"})
     @DisplayName("추출 완료 상태라도 대표 이력서 본문이 비어 있으면 사용하지 않는다")
-    void rejectsCompletedRepresentativeResumeWithBlankText() {
+    void rejectsCompletedRepresentativeResumeWithBlankText(String text) {
         stubJobPosting();
         when(coverLetterRepresentativeRepository.findDetailByUserId(USER_ID)).thenReturn(Optional.empty());
         when(resumeRepresentativeRepository.findDetailByUserId(USER_ID))
                 .thenReturn(Optional.of(resumeRepresentative));
         when(resumeRepresentative.getResume()).thenReturn(resume);
         when(resume.getExtractionStatus()).thenReturn(ResumeExtractionStatus.COMPLETED);
-        when(resume.getExtractedText()).thenReturn(" ");
+        when(resume.getExtractedText()).thenReturn(text);
 
         assertThatThrownBy(() -> assembler.assemble(USER_ID, JOB_POSTING_ID))
                 .isInstanceOf(RepresentativeResumeNotReadyException.class);

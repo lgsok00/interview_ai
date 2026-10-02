@@ -7,10 +7,31 @@
 자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
 `scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
-최신 전체 회귀는 2026-09-21 브라우저 인증 계약 변경을 포함한 XML 112개 클래스·1,003개 성공이며 실패·오류·건너뜀은 0이다. 인증 테스트는 Access Token 전용 JSON,
+최신 전체 회귀는 2026-10-02 이력서 사용 안내 변경을 포함한 XML 114개·1,050개 성공이며 실패·오류·건너뜀은 0이다. 인증 테스트는 Access Token 전용 JSON,
 Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect와 credential CORS preflight를 검증한다.
 
 ### 작성된 자동 테스트
+
+#### 이력서 빈 추출·사용 판정과 생성 검증 (2026-10-02)
+
+- 신규 `ResumeUsageTest` 13개: 정상 본문·대기·텍스트 없음·일반/알 수 없는 실패 사유, 기존 `COMPLETED`의 null·빈 문자열·공백·유니코드 공백, 상태 비변경, 파일 교체 초기화와
+  목록/상세 DTO 판정 일치를 검증한다.
+- 신규 `CoverLetterDraftSnapshotAssemblerTest` 18개: 대표·직접 선택 정상 스냅샷, 대표 미설정 HTTP 409, 기존 빈 완료 본문과 대기/실패의 양쪽 선택 거부, 타인·없는
+  원본의 404 및 대표 대체 금지를 검증한다.
+- `ResumePdfProcessorTest` 총 5개: 기존 정상 추출·손상 파일 거부에 실제 빈 페이지·공백만 있는 PDF·이미지 전용 PDF의 `TEXT_EXTRACTION_EMPTY`와 해시 유지 검증
+  3개를 추가했다. OCR·실제 스캔 문서 인식 테스트는 아니다.
+- `ResumeServiceTest` 총 15개: 정상/실패 상태·사유·사용 상태, 실패 업로드의 파일 보관, 기존 빈 본문 목록·대표 표시, 준비된 PDF를 빈 PDF로 교체할 때 본문 제거·정리 예약·RAG
+  변경 등록, 실패 PDF 다운로드를 검증한다. 기존 11개 대비 4개 증가했다.
+- `ResumeControllerTest` 총 8개: 목록/상세의 기존 `COMPLETED`·`EMPTY_TEXT` JSON, 목록의 본문 미노출, 실패 업로드의 HTTP 201·사유·원본 metadata를 추가
+  검증한다. 정상 등록의 `READY`도 확인한다.
+- `InterviewSessionSnapshotAssemblerTest` 총 11개: 대표 미설정 생략·정상 스냅샷을 유지하고 대기/실패 및 null·빈 문자열·공백 본문 거부로 확장했다. 기존 6개 대비 5개
+  증가했다.
+- `RagSourceChangeRegistrationServiceTest` 총 9개: 실제 Resume와 snapshot factory를 사용해 신규 텍스트 없음 실패·기존 빈 완료 본문 모두 DELETE를
+  등록하고 UPSERT하지 않는지 검증한다.
+- 신규 `resumeUsage.test.ts` 11개: READY 허용, 완료 상태여도 사용 불가 판정 차단, 대기·텍스트 없음·추출 오류별 안내, 미포함/null/알 수 없는 응답 차단과 대표 표시의 판정
+  비간섭을 검증한다.
+- 백엔드 전체는 직전 1,003개 대비 47개, Vitest 전체는 직전 104개 대비 11개 증가했다. 사용자 브라우저 검토 완료를 확인했으며 버튼·새로고침·검토 입력 유지의 component 상호작용은 자동
+  테스트에 포함되지 않는다.
 
 #### React 면접 재시도 HTTP client (2026-10-01)
 
