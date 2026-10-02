@@ -7,6 +7,18 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### React 회원가입 UI 검증 성공 (2026-10-02)
+
+- 사용자 실행 위치: `C:\Users\User\IdeaProjects\interview_ai\frontend`. 전달된 출력과 실제 구현·테스트·Git 상태를 대조했다.
+- `npm test` — Vitest 12개 파일·135개 성공, 실패 0 (503ms, 시작 13:47:52). 신규 `src/auth/signupApi.test.ts` 20개 성공 (36ms). 이전 프런트엔드
+  115개 대비 20개 증가했다.
+- `npm run lint` — 경고 0·오류 0 (46 files, 64ms).
+- `npm run build` — `tsc -b && vite build` 성공 (54 modules transformed, Vite 244ms). 전체 npm 명령의 소요 시간은 별도 출력되지 않았다.
+- 사용자가 브라우저 확인 완료를 전달했다. 실제 가입·로그인, validation, 중복 클릭, 모바일 등 개별 수동 시나리오별 결과는 별도 전달되지 않았다.
+- 신규 자동 테스트는 공통 HTTP client·mock fetch 범위다. 경계값 전송과 서버 오류 전달을 검증하며 실제 서버 수락·component 상호작용·브라우저 동작을 자동 검증하지 않는다.
+- HEAD는 `18154fd` (`main`)이며 회원가입 UI·신규 테스트와 관련 문서는 커밋 대기다. 백엔드·Flyway 변경과 이번 백엔드 재실행은 없다. Codex는 테스트·lint·build를 실행하지
+  않았다.
+
 ### 이력서 빈 추출·사용 가능 여부·대표 미설정 안내 전체 검증 성공 (2026-10-02)
 
 - 사용자 백엔드 전체 `test` 실행 — BUILD SUCCESSFUL (6분 28초), 4 actionable tasks: 1 executed, 3 up-to-date. 전달된 출력은 IDE 실행의 `test`

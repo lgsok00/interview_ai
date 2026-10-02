@@ -13,6 +13,7 @@ import {InterviewGrowthPage} from './pages/InterviewGrowthPage'
 import {DocumentsPage} from './pages/DocumentsPage'
 import {InterviewSessionListPage} from './pages/InterviewSessionListPage'
 import {CoverLetterDraftPage} from './pages/CoverLetterDraftPage'
+import {SignupPage} from './pages/SignupPage'
 
 import './App.css'
 
@@ -22,6 +23,7 @@ function App() {
             <AuthProvider>
                 <Routes>
                     <Route path="/login" element={<LoginPage/>}/>
+                    <Route path="/signup" element={<SignupPage/>}/>
                     <Route path="/oauth/callback" element={<OAuthCallbackPage/>}/>
 
                     <Route element={<ProtectedRoute/>}>

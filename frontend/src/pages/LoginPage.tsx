@@ -192,6 +192,10 @@ export function LoginPage() {
                         </button>
                     </div>
 
+                    <p className="auth-account-link">
+                        아직 계정이 없나요? <Link to="/signup">회원가입</Link>
+                    </p>
+
                     <p className="auth-legal">
                         로그인하면 서비스 이용 약관 및 개인정보 처리방침에 동의한 것으로 간주됩니다.
                     </p>

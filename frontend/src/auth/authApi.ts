@@ -11,6 +11,29 @@ export interface LoginCredentials {
     password: string
 }
 
+export interface SignupCredentials {
+    email: string
+    password: string
+    nickname: string
+}
+
+export interface SignupResponse {
+    id: number
+    email: string
+    nickname: string
+}
+
+export function signup(credentials: SignupCredentials): Promise<SignupResponse> {
+    return apiRequest<SignupResponse>('/api/auth/signup', {
+        method: 'POST',
+        json: {
+            email: credentials.email.trim().toLowerCase(),
+            password: credentials.password,
+            nickname: credentials.nickname.trim(),
+        },
+    })
+}
+
 export function login(credentials: LoginCredentials): Promise<LoginResponse> {
     return apiRequest<LoginResponse>('/api/auth/login', {
         method: 'POST',
