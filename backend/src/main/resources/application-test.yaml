@@ -26,3 +26,8 @@ spring:
 
   flyway:
     enabled: true
+
+
+ai:
+  usage:
+    enabled: false

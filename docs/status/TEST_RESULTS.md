@@ -2,10 +2,43 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-10-02이며 1,050개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 프로젝트 전체 검증은 2026-10-06이며 1,107개 성공이다. 직전 평가 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### AI 사용량 제한 1단계 전체 회귀 성공 (2026-10-06)
+
+- 사용자 전체 회귀 완료 보고와 실제 구현·테스트·Git 상태·XML을 대조했다. HEAD는 `a48754b`이며 1단계 구현·테스트·문서는 커밋 대기다.
+- XML 117개·전체 1,107개 성공, 실패·오류·건너뜀 0. 직전 전체 1,050개 대비 신규 57개 증가했다.
+- `AiUsageConfigurationTest` 27개, `AiUsageIdentityTest` 11개, `AiUsageMigrationIntegrationTest` 19개가 모두 성공했다.
+  신규 클래스 XML 시작 시각은 각각 11:15:46·11:15:47·11:15:49 KST, 전체 결과 파일의 최신 수정 시각은 11:22:23 KST다.
+- 전체 재현 명령은 `backend`에서 `.\gradlew.bat test`다. 원본 콘솔·정확한 옵션·Gradle 전체 소요 시간은 전달되지 않아 별도로 추정하지 않았다.
+- 단수형 embedding 설정 override·프로필/키 검증·HMAC·V21/DB 제약을 포함한 1단계 검증을 완료했다. 초기 실패의 CHECK 판정 수정도 회귀에 포함됐다.
+- 공통 접수/차감·실행 슬롯 정리/복구·KST 일자 계산·생성 및 worker 연결·기존 작업 이관·사용량 API/UI·embedding 통제는 미구현이다.
+  기반의 검증 완료를 실제 제한 기능 전체 완료로 확대하지 않는다. Codex는 테스트를 실행하지 않았다.
+
+### AI 사용량 제한 1단계 MySQL 통합 재실행 성공 (2026-10-06)
+
+- 사용자가 테스트 통과를 보고했다. 최신 XML 1개에서 `AiUsageMigrationIntegrationTest` 19개 성공, 실패·오류·건너뜀 0을 확인했다.
+- XML timestamp는 2026-10-06 11:06:47 KST이며 결과 파일 수정 시각은 11:07:05 KST다. 정확한 실행 명령과 Gradle 전체 소요 시간은 전달되지 않았다.
+  단건 재현 명령은 `backend`에서 `.\gradlew.bat test --tests "com.interviewai.ai.usage.AiUsageMigrationIntegrationTest"`다. 실제 입력
+  명령으로 단정하지 않는다.
+- 수정된 CHECK 판정과 V21·UNIQUE/FK·예약 상태·계정 삭제 후 사용량 보존의 MySQL 검증이 성공했다.
+- 설정/HMAC 클래스와 전체 회귀의 최신 XML은 없으므로 1단계 전체 검증은 대기다.
+  다음 실행 명령은 `.\gradlew.bat test --tests "com.interviewai.ai.usage.*"`, 성공 후 `.\gradlew.bat test`다. Codex는 테스트를 실행하지 않았다.
+
+### AI 사용량 제한 1단계 MySQL 통합 테스트 실패·테스트 수정 (2026-10-06)
+
+- 실행 위치는 `backend`이며 사용자 출력과 XML을 대조했다. 정확한 실행 명령은 출력에 포함되지 않았다. 실행 범위는 `AiUsageMigrationIntegrationTest` 단건이다.
+- BUILD FAILED (30초). XML 1개·19개 중 8개 성공·11개 실패, 오류·건너뜀 0. Docker Desktop·MySQL 8.4와 V21 적용을 확인했다.
+- 11개 실패는 CHECK 위반에 대한 테스트 예외 타입 기대 오류다. DB는 오류 3819·SQLState HY000으로 거부했으나 JdbcTemplate이 `UncategorizedSQLException`으로
+  전달했다.
+- Codex가 CHECK 테스트를 `DataAccessException`의 SQL 원인·오류 3819·해당 제약 이름 검증으로 수정했다. UNIQUE/FK 검증은 기존대로 유지한다.
+  잘못된 예약 상태 테스트는 종료 시각을 넣어 상태 제약만 위반하도록 격리했다. 애플리케이션·V21은 이번 수정에서 변경하지 않았다.
+- `personalEmbeddingDailyLimit` 단수형 수정은 실제 코드에서 확인했다. 설정/HMAC 테스트와 전체 회귀의 이번 성공 결과는 전달되지 않았다.
+- 수정 후 재실행 대기: `.\gradlew.bat test --tests "com.interviewai.ai.usage.*"`, 성공 후 `.\gradlew.bat test` (모두 `backend`에서).
+  Docker 미탐지로 MySQL 테스트가 건너뛰어진 실행은 검증 완료 근거로 삼지 않는다. Codex는 테스트를 실행하지 않았다.
 
 ### React 내 계정 UI 검증 성공 (2026-10-02)
 

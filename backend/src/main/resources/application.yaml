@@ -140,3 +140,20 @@ cover-letter:
     fixed-delay: ${COVER_LETTER_DRAFT_FIXED_DELAY:1s}
     initial-delay: ${COVER_LETTER_DRAFT_INITIAL_DELAY:5s}
     max-jobs-per-run: ${COVER_LETTER_DRAFT_MAX_JOBS_PER_RUN:20}
+
+ai:
+  usage:
+    enabled: ${AI_USAGE_ENABLED:true}
+    chat-admission-enabled: ${AI_CHAT_ADMISSION_ENABLED:true}
+    embedding-admission-enabled: ${AI_EMBEDDING_ADMISSION_ENABLED:true}
+    hmac-key: ${AI_USAGE_HMAC_KEY:}
+    initial-questions-daily-limit: ${AI_INITIAL_QUESTIONS_DAILY_LIMIT:3}
+    follow-up-daily-limit: ${AI_FOLLOW_UP_DAILY_LIMIT:15}
+    answer-evaluation-daily-limit: ${AI_ANSWER_EVALUATION_DAILY_LIMIT:30}
+    cover-letter-draft-daily-limit: ${AI_COVER_LETTER_DRAFT_DAILY_LIMIT:3}
+    personal-embedding-daily-limit: ${AI_PERSONAL_EMBEDDING_DAILY_LIMIT:20}
+    user-active-limit: ${AI_USER_ACTIVE_LIMIT:2}
+    global-active-limit: ${AI_GLOBAL_ACTIVE_LIMIT:50}
+    global-chat-daily-limit: ${AI_GLOBAL_CHAT_DAILY_LIMIT:500}
+    admin-embedding-per-minute-limit: ${AI_ADMIN_EMBEDDING_PER_MINUTE_LIMIT:10}
+    follow-up-lease-seconds: ${AI_FOLLOW_UP_LEASE_SECONDS:90}

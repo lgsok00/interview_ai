@@ -7,12 +7,24 @@
 자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
 `scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
-최신 전체 회귀는 2026-10-02 이력서 사용 안내 변경을 포함한 XML 114개·1,050개 성공이며 실패·오류·건너뜀은 0이다. 인증 테스트는 Access Token 전용 JSON,
+최신 전체 회귀는 2026-10-06 AI 제한 1단계 변경을 포함한 XML 117개·1,107개 성공이며 실패·오류·건너뜀은 0이다. 인증 테스트는 Access Token 전용 JSON,
 Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect와 credential CORS preflight를 검증한다.
 
-최신 프런트엔드 전체 검증은 2026-10-02 내 계정 변경을 포함한 Vitest 13개 파일·161개 성공이다. 이번 작업에서 백엔드 전체 테스트를 다시 실행하지 않았다.
+최신 프런트엔드 전체 검증은 2026-10-02 내 계정 변경을 포함한 Vitest 13개 파일·161개 성공이다. 내 계정 작업에서는 백엔드 전체 테스트를 다시 실행하지 않았다.
+2026-10-06 AI 제한 1단계는 설정 27개·HMAC 11개·MySQL 19개, 합계 57개와 전체 회귀 성공을 XML에서 확인했다.
 
 ### 작성된 자동 테스트
+
+#### AI 사용량 제한 1단계 (2026-10-06, 신규 57개·전체 1,107개 성공)
+
+- `AiUsageConfigurationTest` 27개: 기본/외부 운영값·실제 YAML embedding override·양수 제한·lease 경계·사용자/전역 슬롯 관계·프로필별 비활성화 허용·키
+  누락/형식·키 출력
+  비노출.
+- `AiUsageIdentityTest` 11개: 표준 HMAC 벡터·trim/소문자·Locale 독립성·동일 이메일/키 재현·다른 이메일/키 구분·입력/키 오류·비활성 식별자 사용 거절.
+- `AiUsageMigrationIntegrationTest` 19개: V21·singleton·일일 카운터·CHECK/UNIQUE/FK·활성 대상 중복·재접수·lease/종료 시각·탈퇴 후 FK SET
+  NULL/사용량 보존·관리자 분 bucket.
+  최초 사용자 실행은 8개 성공·11개 실패, 오류·건너뜀 0. CHECK 기대를 오류 3819와 제약 이름 검증으로 수정한 뒤 사용자 재실행 XML에서 19개 성공, 실패·오류·건너뜀 0을 확인했다.
+- 접수 서비스·동시 마지막 한도·롤백·KST 자정·worker/탈퇴 슬롯 정리·기존 작업 이관·사용량 API/UI·embedding 차단은 아직 구현/테스트 대상에 연결되지 않았다.
 
 #### React 내 계정 API·인증 오류 구분 (2026-10-02)
 

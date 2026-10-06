@@ -19,3 +19,7 @@ auth:
   refresh-token:
     cleanup:
       enabled: ${REFRESH_TOKEN_CLEANUP_ENABLED:true}
+
+ai:
+  usage:
+    enabled: ${AI_USAGE_ENABLED:false}
