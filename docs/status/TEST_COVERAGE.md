@@ -7,13 +7,29 @@
 자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
 `scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
-최신 전체 회귀는 2026-10-06 AI 제한 1단계 변경을 포함한 XML 117개·1,107개 성공이며 실패·오류·건너뜀은 0이다. 인증 테스트는 Access Token 전용 JSON,
+최신 전체 회귀 통과 보고는 2026-10-07이며 전체 XML은 대조 대기다. 마지막 전체 XML 검증은 2026-10-06 AI 제한 1단계 변경을 포함한 117개·1,107개 성공, 실패·오류·건너뜀 0이다.
+인증 테스트는 Access Token 전용 JSON,
 Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect와 credential CORS preflight를 검증한다.
 
 최신 프런트엔드 전체 검증은 2026-10-02 내 계정 변경을 포함한 Vitest 13개 파일·161개 성공이다. 내 계정 작업에서는 백엔드 전체 테스트를 다시 실행하지 않았다.
 2026-10-06 AI 제한 1단계는 설정 27개·HMAC 11개·MySQL 19개, 합계 57개와 전체 회귀 성공을 XML에서 확인했다.
 
 ### 작성된 자동 테스트
+
+#### 공통 Chat 접수 서비스 (2026-10-07, 사용자 전체 통과 보고·오류 응답 XML 5개 성공)
+
+- `AiUsageAdmissionServiceTest`: 기능별 신규 접수·잠금 순서·기존 결과 무차감·명시 비활성화·접수 중단·사용자/대상 입력·계정 상태·도메인 오류 전파·중복 예약을 검증하도록 작성했다.
+  기능별 일일 한도·KST 자정/올림/준비 중 일자 변경·공통 사용자/전역 슬롯·전역 일일 한도와 사용량 저장 단계별 장애도 포함한다. 사용자 통과 보고를 받았으며 XML은 대조 대기다.
+- `AiUsageAdmissionIntegrationTest`: 실제 MySQL V21에서 카운터·예약·콜백 fixture 동시 커밋/롤백, JPA/JDBC 공유 트랜잭션, 예외를 잡아도 rollback-only
+  유지,
+  마지막 한도·슬롯 경합·첫 행 생성·꼬리 질문 중복·기존 REPEATABLE_READ 스냅샷 이후 잠금 읽기를 검증하도록 작성했다.
+  KST 일자 변경 후 슬롯 유지·종료 fixture 후 재접수·재가입 사용량/활성 예약 유지·DB UTC 시각·최종 INSERT 실패와 MANDATORY/readOnly도 포함한다. 사용자 통과 보고를 받았으며
+  XML·건너뜀 여부는 대조 대기다.
+- `AiUsageErrorResponseTest` 5개: 실제 GlobalExceptionHandler를 연결한 MockMvc에서 429/503/409·표준 오류 본문·일일 초과에만 Retry-After·내부 원인
+  비노출을 검증했다.
+  최신 사용자 XML에서 모두 성공, 실패·오류·건너뜀 0을 확인했다. 실제 인증·생성 API 연결 테스트는 아니다.
+- 이번 변경의 전체 회귀도 사용자 성공 보고를 받았다. 전체 개수·건너뜀 여부는 XML 미확인이다. 실제 생성·worker 연결·슬롯 자동 종료/복구·탈퇴 정리·기존 작업 이관·사용량 API/UI·embedding
+  통제는 후속 범위다.
 
 #### AI 사용량 제한 1단계 (2026-10-06, 신규 57개·전체 1,107개 성공)
 
@@ -24,7 +40,8 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 - `AiUsageMigrationIntegrationTest` 19개: V21·singleton·일일 카운터·CHECK/UNIQUE/FK·활성 대상 중복·재접수·lease/종료 시각·탈퇴 후 FK SET
   NULL/사용량 보존·관리자 분 bucket.
   최초 사용자 실행은 8개 성공·11개 실패, 오류·건너뜀 0. CHECK 기대를 오류 3819와 제약 이름 검증으로 수정한 뒤 사용자 재실행 XML에서 19개 성공, 실패·오류·건너뜀 0을 확인했다.
-- 접수 서비스·동시 마지막 한도·롤백·KST 자정·worker/탈퇴 슬롯 정리·기존 작업 이관·사용량 API/UI·embedding 차단은 아직 구현/테스트 대상에 연결되지 않았다.
+- 1단계 당시 접수 서비스·동시 마지막 한도·롤백·KST 자정은 미구현이었으며 후속 작성 범위는 위 2026-10-07 절을 따른다. worker/탈퇴 슬롯 정리·기존 작업 이관·사용량
+  API/UI·embedding 차단은 후속이다.
 
 #### React 내 계정 API·인증 오류 구분 (2026-10-02)
 

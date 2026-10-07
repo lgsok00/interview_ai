@@ -1,5 +1,6 @@
 package com.interviewai.global.error;
 
+import com.interviewai.ai.usage.AiUsageException;
 import com.interviewai.auth.exception.DuplicateEmailException;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.auth.exception.InvalidCredentialsException;
@@ -19,6 +20,7 @@ import com.interviewai.user.exception.InvalidCurrentPasswordException;
 import com.interviewai.user.exception.PasswordChangeNotSupportedException;
 import com.interviewai.user.exception.SamePasswordException;
 import com.interviewai.user.exception.UserNotFoundException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -66,6 +68,21 @@ public class GlobalExceptionHandler {
                         exception.getMessage(),
                         exception.getErrors()
                 ));
+    }
+
+
+    @ExceptionHandler(AiUsageException.class)
+    public ResponseEntity<ErrorResponse> handleAiUsage(AiUsageException exception) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(exception.getStatus());
+
+        if (exception.getRetryAfterSeconds() != null) {
+            response.header(HttpHeaders.RETRY_AFTER, Long.toString(exception.getRetryAfterSeconds()));
+        }
+
+        return response.body(ErrorResponse.of(
+                exception.getCode(),
+                exception.getMessage()
+        ));
     }
 
 
