@@ -100,6 +100,23 @@ public class AiUsageRepository {
     }
 
 
+    public void expireFollowUpReservation(long resourceId) {
+        jdbc.update("""
+                        UPDATE ai_usage_reservations
+                        SET status = 'EXPIRED',
+                            finished_at = UTC_TIMESTAMP(6),
+                            worker_attempt_id = NULL,
+                            lease_expires_at = NULL
+                        WHERE feature = 'FOLLOW_UP'
+                          AND resource_id = ?
+                          AND status = 'ACTIVE'
+                          AND lease_expires_at <= UTC_TIMESTAMP(6)
+                        """,
+                resourceId
+        );
+    }
+
+
     public boolean hasActiveReservation(
             AiUsageFeature feature,
             long resourceId

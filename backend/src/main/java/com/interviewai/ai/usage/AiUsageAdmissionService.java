@@ -72,6 +72,24 @@ public class AiUsageAdmissionService {
     }
 
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public <T> T inChatScope(long userId, Supplier<T> operation) {
+        requireWritableTransaction();
+
+        if (userId <= 0) {
+            throw new IllegalArgumentException("사용자 ID는 양수여야 합니다.");
+        }
+
+        Objects.requireNonNull(operation, "operation");
+
+        if (properties.enabled()) {
+            lockScope(userId);
+        }
+
+        return operation.get();
+    }
+
+
     private LockedScope lockScope(long userId) {
         try {
             AiUsageRepository.LockedUser user = repository.lockUser(userId)
@@ -104,6 +122,10 @@ public class AiUsageAdmissionService {
         try {
             if (!properties.chatAdmissionEnabled()) {
                 throw AiUsageException.capacity("새 AI 작업 접수가 일시 중단되었습니다. 접수 재개 후 다시 요청해 주세요.");
+            }
+
+            if (feature == AiUsageFeature.FOLLOW_UP) {
+                repository.expireFollowUpReservation(resourceId);
             }
 
             if (repository.hasActiveReservation(feature, resourceId)) {

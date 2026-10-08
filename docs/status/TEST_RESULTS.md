@@ -2,11 +2,48 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 통과 보고는 2026-10-08이며 전체 XML은 대조 대기다. 마지막 전체 XML 검증은 2026-10-06의 1,107개 성공이다. 직전 평가
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 회귀는 2026-10-08 XML 123개·1,287개 성공, 실패·오류·건너뜀 0으로 확인했다. 직전 평가
 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### worker·꼬리 질문·탈퇴 연결 전체 회귀 성공 (2026-10-08)
+
+- 사용자가 회귀 테스트 완료를 보고했고 실제 구현·Git 상태·최신 전체 XML을 대조했다. XML 123개에서 1,287개 성공, 실패·오류·건너뜀 0을 확인했다.
+- XML 최초 시작은 2026-10-08 17:43:55 KST, 마지막 클래스 시작은 17:51:47 KST, 최신 XML 수정은 17:51:48 KST다. 실행 시간은 Gradle 콘솔 소요 시간으로 추정하지
+  않는다.
+- AI 사용량 9개 클래스·232개가 성공했다. AdmissionIntegration 32·AdmissionService 44·Configuration 27·ErrorResponse
+  5·GenerationAdmissionIntegration 81·Identity 11·LifecycleService 10·MigrationIntegration 19·RecoveryScheduler 3개다.
+- 기존 중복 꼬리 질문 2개와 추가 만료 재접수 테스트는 수정 후 접수 통합 32개에서 성공했다. worker 완료·최종 실패·자동 재시도·lease 복구·늦은 완료·꼬리 질문 토큰·탈퇴/롤백/동시성도 확장 통합
+  81개에서 통과했다.
+- 관련 회귀인 FollowUpService 9개, UserDeletionService 4개, InterviewAnswerServiceIntegration 11개, CoverLetterDraftIntegration
+  5개, AdminRagIntegration 21개도 모두 성공, 실패·오류·건너뜀 0이다.
+- 실제 입력 명령·최종 콘솔·Gradle 소요 시간은 미전달이다. 전체 XML 범위로 회귀 성공을 확인하며 `backend` 재현 명령은 `.\gradlew.bat test`다.
+  별도 단건/선택 실행 여부는 현재 XML만으로 단정하지 않는다. Codex는 직접 테스트를 실행하지 않았다.
+- 확인 HEAD는 `7ba4fb3` (`main`)이다. worker 수명주기·꼬리 질문·탈퇴 구현, 테스트·관련 문서 변경은 커밋 대기다.
+- 이번 결과는 외부 Chat을 mock으로 격리한 자동 회귀다. 변경 후 실제 외부 Chat smoke·사용량 API/UI·과거 예약 없는 작업 이관·embedding 통제 완료를 뜻하지 않는다.
+- 아래 231개·2개 실패 기록은 수정 전 이력으로 보존한다.
+
+### worker·꼬리 질문 AI 선택 실행 — 기존 fixture 2개 실패·수정 (2026-10-08)
+
+- 사용자 전달 로그: Java 21.0.10, Docker Desktop 탐지·실제 MySQL 8.4, compileJava/compileTestJava 성공, BUILD FAILED (1분 29초).
+- 보존 XML 9개에서 231개 실행·229개 성공·2개 실패, 오류·건너뜀 0을 확인했다. 시작 시각은 2026-10-08 17:12:53 KST, 마지막 scheduler 테스트는 17:13:49 KST다.
+- `AiUsageGenerationAdmissionIntegrationTest` 81개, AdmissionService 44개, Configuration 27개, ErrorResponse 5개, Identity
+  11개,
+  LifecycleService 10개, MigrationIntegration 19개, RecoveryScheduler 3개는 모두 성공했다.
+- `AiUsageAdmissionIntegrationTest` 31개 중 29개 성공·2개 실패다. 실패는 `duplicateActiveResourceDoesNotChargeOrKeepNewDomainWork`와
+  `concurrentFollowUpRequestsReserveSameParentOnlyOnce`다. 2026-10-07로 고정한 접수 시각으로 생성한 90초 lease가 실제 DB 시각에는 이미 만료되어 재접수가
+  허용됐다.
+- Codex가 두 테스트의 접수 시각을 실제 DB UTC로 맞추고 해당 KST 사용일을 검사하도록 수정했다. 만료 예약의 재접수·기존 EXPIRED 상태·차감 유지 테스트 1개도 추가했다.
+  애플리케이션 코드 변경은 없으며 수정 후 재실행은 대기다.
+- 마지막 `AI 실행 예약 복구 실패: exceptionType=IllegalStateException` 로그는 오류 후 다음 tick을 검증하는 scheduler 단위 테스트의 의도된 로그다. 해당 3개 테스트는
+  성공했다.
+- 실제 실행 명령은 전달 로그에 포함되지 않았다. XML 범위는 AI 사용량 패키지이며 이번 결과를 면접/초안/사용자/RAG 선택 회귀나 전체 회귀 성공으로 확대하지 않는다.
+- `backend`에서 수정 범위 재현: `.\gradlew.bat test --tests "com.interviewai.ai.usage.AiUsageAdmissionIntegrationTest"`.
+  이후 선택 회귀:
+  `.\gradlew.bat test --tests "com.interviewai.ai.usage.*" --tests "com.interviewai.interview.*" --tests "com.interviewai.coverletter.draft.*" --tests "com.interviewai.user.*" --tests "com.interviewai.rag.service.AdminRagIntegrationTest"`.
+  전체 회귀: `.\gradlew.bat test`. Codex는 직접 테스트를 실행하지 않았다.
 
 ### 비동기 생성·재시도 접수 연결 — 사용자 통합·전체 통과 보고, 초안 XML 67개 확인 (2026-10-08)
 

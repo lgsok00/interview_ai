@@ -1,5 +1,6 @@
 package com.interviewai.user.service;
 
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import com.interviewai.coverletter.entity.CoverLetter;
 import com.interviewai.coverletter.repository.CoverLetterRepository;
 import com.interviewai.rag.document.RagSourceType;
@@ -34,6 +35,8 @@ class UserDeletionServiceTest {
     @Mock
     ResumeFileTransactionCleanup fileCleanup;
     @Mock
+    AiUsageLifecycleService lifecycle;
+    @Mock
     CoverLetter coverLetter;
     @Mock
     Resume resume;
@@ -42,7 +45,7 @@ class UserDeletionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UserDeletionService(users, coverLetters, resumes, ragRegistration, fileCleanup);
+        service = new UserDeletionService(users, coverLetters, resumes, ragRegistration, fileCleanup, lifecycle);
     }
 
     @Test
@@ -55,13 +58,15 @@ class UserDeletionServiceTest {
 
         service.deleteLocked(1L);
 
-        InOrder order = inOrder(coverLetters, resumes, ragRegistration, fileCleanup, users);
+        InOrder order = inOrder(lifecycle, coverLetters, resumes, ragRegistration, fileCleanup, users);
+        order.verify(lifecycle).lockExecution();
         order.verify(coverLetters).findAllOwnedForUpdate(1L);
         order.verify(resumes).findAllOwnedForUpdate(1L);
         order.verify(ragRegistration).registerDelete(RagSourceType.COVER_LETTER, 11L);
         order.verify(ragRegistration).registerDelete(RagSourceType.RESUME, 21L);
         order.verify(fileCleanup).deleteAfterCommit("1/resume.pdf");
         order.verify(users).flush();
+        order.verify(lifecycle).cancelUser(1L);
         order.verify(users).deleteAllByIdInBatch(List.of(1L));
     }
 
@@ -78,7 +83,23 @@ class UserDeletionServiceTest {
                 .hasMessage("registration failed");
 
         verifyNoInteractions(fileCleanup);
+        verify(lifecycle, never()).cancelUser(anyLong());
         verify(users, never()).flush();
+        verify(users, never()).deleteAllByIdInBatch(any());
+    }
+
+    @Test
+    void usageLockFailureStopsBeforeDomainLocks() {
+        doThrow(new IllegalStateException("usage unavailable")).when(lifecycle).lockExecution();
+        assertThatThrownBy(() -> service.deleteLocked(1L)).hasMessage("usage unavailable");
+        verifyNoInteractions(coverLetters, resumes, ragRegistration, fileCleanup, users);
+    }
+
+    @Test
+    void cancellationFailurePreventsUserDeletion() {
+        doThrow(new IllegalStateException("cancel failed")).when(lifecycle).cancelUser(1L);
+        assertThatThrownBy(() -> service.deleteLocked(1L)).hasMessage("cancel failed");
+        verify(users).flush();
         verify(users, never()).deleteAllByIdInBatch(any());
     }
 }

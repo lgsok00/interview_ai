@@ -1,5 +1,8 @@
 package com.interviewai.interview.service;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.global.validation.CatalogInput;
@@ -24,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -33,6 +37,8 @@ public class InterviewAnswerService {
     private final InterviewQuestionRepository questions;
     private final InterviewAnswerRepository answers;
     private final AdminAuthorizationService authorization;
+    private final AiUsageAdmissionService admissionService;
+    private final AiUsageLifecycleService lifecycle;
     private final Clock catalogClock;
 
 
@@ -41,12 +47,16 @@ public class InterviewAnswerService {
             InterviewQuestionRepository questions,
             InterviewAnswerRepository answers,
             AdminAuthorizationService authorization,
+            AiUsageAdmissionService admissionService,
+            AiUsageLifecycleService lifecycle,
             Clock catalogClock
     ) {
         this.sessions = sessions;
         this.questions = questions;
         this.answers = answers;
         this.authorization = authorization;
+        this.admissionService = admissionService;
+        this.lifecycle = lifecycle;
         this.catalogClock = catalogClock;
     }
 
@@ -103,32 +113,49 @@ public class InterviewAnswerService {
 
     @Transactional
     public Preparation prepareFollowUp(String subject, long sessionId, long questionId) {
-        InterviewSession session = owned(subject, sessionId, true);
-        InterviewQuestion parent = question(sessionId, questionId);
-        requireInitial(parent);
+        long userId = authorization.requireUser(subject).getId();
 
-        InterviewQuestion existing = questions.findByParentQuestionId(questionId).orElse(null);
+        AiUsageAdmissionService.Admission<Preparation> admission = admissionService.admitChat(
+                userId,
+                AiUsageFeature.FOLLOW_UP,
+                () -> {
+                    InterviewSession session = owned(subject, sessionId, true);
+                    InterviewQuestion parent = question(sessionId, questionId);
+                    requireInitial(parent);
 
-        if (existing != null) {
-            return new Preparation(null, InterviewFollowUpResponse.from(existing));
-        }
+                    InterviewQuestion existing = questions.findByParentQuestionId(questionId).orElse(null);
 
-        requireInProgress(session);
+                    if (existing != null) {
+                        return AiUsageAdmissionService.Registration.existing(
+                                new Preparation(null, InterviewFollowUpResponse.from(existing), null)
+                        );
+                    }
 
-        InterviewAnswer answer = answers.findByQuestion_Id(questionId)
-                .orElseThrow(() -> conflict(
-                        "INTERVIEW_ANSWER_REQUIRED",
-                        "답변을 제출한 뒤 꼬리 질문을 생성할 수 있습니다."
-                ));
+                    requireInProgress(session);
 
-        return new Preparation(
-                new InterviewFollowUpGenerator.Input(
-                        session.getJobRole(),
-                        parent.getContent(),
-                        answer.getContent()
-                ),
-                null
+                    InterviewAnswer answer = answers.findByQuestion_Id(questionId)
+                            .orElseThrow(() -> conflict(
+                                    "INTERVIEW_ANSWER_REQUIRED",
+                                    "답변을 제출한 뒤 꼬리 질문을 생성할 수 있습니다."
+                            ));
+
+                    Preparation preparation = new Preparation(
+                            new InterviewFollowUpGenerator.Input(
+                                    session.getJobRole(),
+                                    parent.getContent(),
+                                    answer.getContent()
+                            ),
+                            null,
+                            null
+                    );
+
+                    return AiUsageAdmissionService.Registration.created(questionId, preparation);
+                }
         );
+
+        Preparation preparation = admission.value();
+
+        return new Preparation(preparation.input(), preparation.existing(), admission.reservationId());
     }
 
 
@@ -137,40 +164,50 @@ public class InterviewAnswerService {
             String subject,
             long sessionId,
             long questionId,
+            UUID reservationId,
             InterviewFollowUpGenerator.Generated generated
     ) {
-        InterviewSession session = owned(subject, sessionId, true);
-        InterviewQuestion parent = question(sessionId, questionId);
-        requireInitial(parent);
+        long userId = authorization.requireUser(subject).getId();
+        return admissionService.inChatScope(
+                userId,
+                () -> {
+                    InterviewSession session = owned(subject, sessionId, true);
+                    InterviewQuestion parent = question(sessionId, questionId);
+                    requireInitial(parent);
 
-        InterviewQuestion existing = questions.findByParentQuestionId(questionId).orElse(null);
+                    InterviewQuestion existing = questions.findByParentQuestionId(questionId).orElse(null);
 
-        if (existing != null) {
-            return InterviewFollowUpResponse.from(existing);
-        }
+                    if (existing != null) {
+                        return InterviewFollowUpResponse.from(existing);
+                    }
 
-        requireInProgress(session);
+                    requireInProgress(session);
 
-        if (answers.findByQuestion_Id(questionId).isEmpty()) {
-            throw conflict("INTERVIEW_ANSWER_REQUIRED", "저장된 답변이 필요합니다.");
-        }
+                    if (answers.findByQuestion_Id(questionId).isEmpty()) {
+                        throw conflict("INTERVIEW_ANSWER_REQUIRED", "저장된 답변이 필요합니다.");
+                    }
 
-        int lastSequence = questions.findFirstBySession_IdOrderBySequenceNumberDesc(sessionId)
-                .map(InterviewQuestion::getSequenceNumber)
-                .orElse(0);
+                    lifecycle.requireFollowUp(reservationId, userId, questionId);
 
-        InterviewQuestion saved = questions.save(
-                InterviewQuestion.createFollowUp(
-                        parent,
-                        Math.addExact(lastSequence, 1),
-                        generated.source(),
-                        generated.content(),
-                        generated.contextSnapshot(),
-                        LocalDateTime.now(catalogClock)
-                )
-        );
+                    int lastSequence = questions.findFirstBySession_IdOrderBySequenceNumberDesc(sessionId)
+                            .map(InterviewQuestion::getSequenceNumber)
+                            .orElse(0);
 
-        return InterviewFollowUpResponse.from(saved);
+                    InterviewQuestion saved = questions.save(
+                            InterviewQuestion.createFollowUp(
+                                    parent,
+                                    Math.addExact(lastSequence, 1),
+                                    generated.source(),
+                                    generated.content(),
+                                    generated.contextSnapshot(),
+                                    LocalDateTime.now(catalogClock)
+                            )
+                    );
+
+                    lifecycle.finishFollowUp(reservationId, userId, questionId);
+
+                    return InterviewFollowUpResponse.from(saved);
+                });
     }
 
 
@@ -232,7 +269,11 @@ public class InterviewAnswerService {
     }
 
 
-    public record Preparation(InterviewFollowUpGenerator.Input input, InterviewFollowUpResponse existing) {
+    public record Preparation(
+            InterviewFollowUpGenerator.Input input,
+            InterviewFollowUpResponse existing,
+            UUID reservationId
+    ) {
 
     }
 }

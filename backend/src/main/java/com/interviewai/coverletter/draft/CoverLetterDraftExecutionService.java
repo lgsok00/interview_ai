@@ -1,5 +1,7 @@
 package com.interviewai.coverletter.draft;
 
+import com.interviewai.ai.usage.AiUsageFeature;
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -15,29 +17,47 @@ import java.util.UUID;
 public class CoverLetterDraftExecutionService {
 
     private final CoverLetterDraftRepository draftRepository;
+    private final AiUsageLifecycleService lifecycle;
     private final JdbcTemplate jdbc;
 
 
-    public CoverLetterDraftExecutionService(CoverLetterDraftRepository draftRepository, JdbcTemplate jdbc) {
+    public CoverLetterDraftExecutionService(
+            CoverLetterDraftRepository draftRepository,
+            AiUsageLifecycleService lifecycle,
+            JdbcTemplate jdbc
+    ) {
         this.draftRepository = draftRepository;
+        this.lifecycle = lifecycle;
         this.jdbc = jdbc;
     }
 
 
     public boolean recoverOneExhaustedLease() {
+        lifecycle.lockExecution();
+
         CoverLetterDraft draft = draftRepository.findNextExhaustedExpiredForUpdate().orElse(null);
 
         if (draft == null) {
             return false;
         }
 
+        String expiredAttemptId = draft.getAttemptId();
+
         draft.failExpired("DRAFT_LEASE_EXPIRED", databaseNow());
+
+        lifecycle.finishAsync(
+                AiUsageFeature.COVER_LETTER_DRAFT,
+                draft.getId(),
+                expiredAttemptId
+        );
 
         return true;
     }
 
 
     public Optional<Claim> claimNext() {
+        lifecycle.lockExecution();
+
         CoverLetterDraft draft = draftRepository.findNextClaimableForUpdate().orElse(null);
 
         if (draft == null) {
@@ -46,6 +66,13 @@ public class CoverLetterDraftExecutionService {
 
         LocalDateTime now = databaseNow();
         CoverLetterDraft.Attempt attempt = draft.claim(UUID.randomUUID(), now);
+
+        lifecycle.bindAttempt(
+                AiUsageFeature.COVER_LETTER_DRAFT,
+                draft.getId(),
+                attempt.id(),
+                draft.getLeaseExpiresAt()
+        );
 
         return Optional.of(new Claim(
                 draft.getId(),
@@ -58,6 +85,8 @@ public class CoverLetterDraftExecutionService {
 
 
     public boolean complete(Claim claim, CoverLetterDraft.GenerateDraft generated) {
+        lifecycle.lockExecution();
+
         CoverLetterDraft draft = draftRepository.findByIdForUpdate(claim.draftId()).orElse(null);
 
         LocalDateTime now = databaseNow();
@@ -68,12 +97,20 @@ public class CoverLetterDraftExecutionService {
 
         draft.complete(claim.attemptId(), generated, now);
 
+        lifecycle.finishAsync(
+                AiUsageFeature.COVER_LETTER_DRAFT,
+                draft.getId(),
+                claim.attemptId()
+        );
+
         return true;
     }
 
 
     public boolean fail(Claim claim, String failureCode, boolean retryable) {
         validateFailureCode(failureCode);
+
+        lifecycle.lockExecution();
 
         CoverLetterDraft draft = draftRepository.findByIdForUpdate(claim.draftId()).orElse(null);
 
@@ -90,8 +127,20 @@ public class CoverLetterDraftExecutionService {
                     now
             );
 
+            lifecycle.retainPending(
+                    AiUsageFeature.COVER_LETTER_DRAFT,
+                    draft.getId(),
+                    claim.attemptId()
+            );
+
         } else {
             draft.fail(claim.attemptId(), failureCode, now);
+
+            lifecycle.finishAsync(
+                    AiUsageFeature.COVER_LETTER_DRAFT,
+                    draft.getId(),
+                    claim.attemptId()
+            );
         }
 
         return true;

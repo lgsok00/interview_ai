@@ -26,6 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -273,11 +275,35 @@ class AiUsageAdmissionIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void duplicateActiveResourceDoesNotChargeOrKeepNewDomainWork() {
+        LocalDate usageDate = useLiveAdmissionClock();
         register(userId, AiUsageFeature.FOLLOW_UP, 42, 1);
         assertRejected("AI_REQUEST_IN_PROGRESS", () -> register(userId, AiUsageFeature.FOLLOW_UP, 42, 2));
-        assertThat(globalUsed(DAY)).isEqualTo(1);
-        assertThat(subjectUsed(subject, DAY, AiUsageFeature.FOLLOW_UP)).isEqualTo(1);
+        assertThat(globalUsed(usageDate)).isEqualTo(1);
+        assertThat(subjectUsed(subject, usageDate, AiUsageFeature.FOLLOW_UP)).isEqualTo(1);
         assertThat(count("ai_usage_test_work")).isEqualTo(1);
+        assertThat(activeCount()).isEqualTo(1);
+    }
+
+    @Test
+    void expiredFollowUpAllowsNewAdmissionAndKeepsBothCharges() {
+        LocalDate usageDate = useLiveAdmissionClock();
+        var first = register(userId, AiUsageFeature.FOLLOW_UP, 42, 1);
+        jdbc.update("""
+                UPDATE ai_usage_reservations
+                SET lease_expires_at = TIMESTAMPADD(SECOND, -1, UTC_TIMESTAMP(6))
+                WHERE id = ?
+                """, first.reservationId().toString());
+
+        var second = register(userId, AiUsageFeature.FOLLOW_UP, 42, 2);
+
+        assertThat(second.reservationId()).isNotEqualTo(first.reservationId());
+        assertThat(jdbc.queryForObject("SELECT status FROM ai_usage_reservations WHERE id = ?",
+                String.class, first.reservationId().toString())).isEqualTo("EXPIRED");
+        assertThat(jdbc.queryForObject("SELECT status FROM ai_usage_reservations WHERE id = ?",
+                String.class, second.reservationId().toString())).isEqualTo("ACTIVE");
+        assertThat(globalUsed(usageDate)).isEqualTo(2);
+        assertThat(subjectUsed(subject, usageDate, AiUsageFeature.FOLLOW_UP)).isEqualTo(2);
+        assertThat(count("ai_usage_test_work")).isEqualTo(2);
         assertThat(activeCount()).isEqualTo(1);
     }
 
@@ -478,13 +504,14 @@ class AiUsageAdmissionIntegrationTest extends MySqlIntegrationTest {
 
     @Test
     void concurrentFollowUpRequestsReserveSameParentOnlyOnce() throws Exception {
+        LocalDate usageDate = useLiveAdmissionClock();
         assertThat(race(
                 () -> register(userId, AiUsageFeature.FOLLOW_UP, 42, 1),
                 () -> register(userId, AiUsageFeature.FOLLOW_UP, 42, 2)))
                 .containsExactlyInAnyOrder("OK", "AI_REQUEST_IN_PROGRESS");
         assertThat(activeCount()).isEqualTo(1);
-        assertThat(globalUsed(DAY)).isEqualTo(1);
-        assertThat(subjectUsed(subject, DAY, AiUsageFeature.FOLLOW_UP)).isEqualTo(1);
+        assertThat(globalUsed(usageDate)).isEqualTo(1);
+        assertThat(subjectUsed(subject, usageDate, AiUsageFeature.FOLLOW_UP)).isEqualTo(1);
         assertThat(count("ai_usage_test_work")).isEqualTo(1);
     }
 
@@ -514,6 +541,15 @@ class AiUsageAdmissionIntegrationTest extends MySqlIntegrationTest {
         assertThat(globalUsed(DAY)).isEqualTo(500);
         assertThat(count("ai_usage_test_work")).isEqualTo(1);
         assertThat(activeCount()).isEqualTo(1);
+    }
+
+    private LocalDate useLiveAdmissionClock() {
+        // 일일 경계 테스트의 과거 고정 시각과 DB lease 만료 판정을 분리한다.
+        // 중복 요청 테스트에서는 실제로 살아 있는 90초 예약이 필요하다.
+        LocalDateTime now = Objects.requireNonNull(
+                jdbc.queryForObject("SELECT UTC_TIMESTAMP(6)", LocalDateTime.class));
+        doReturn(now).when(clockRepository).currentUtcTime();
+        return now.atOffset(ZoneOffset.UTC).atZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
     }
 
     private long createUser(String email) {

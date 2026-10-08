@@ -24,6 +24,7 @@ import com.interviewai.resume.entity.Resume;
 import com.interviewai.resume.repository.ResumeRepository;
 import com.interviewai.resume.storage.ResumeFileStorage;
 import com.interviewai.resume.storage.ResumeFileTransactionCleanup;
+import com.interviewai.support.DisabledAiUsageTestConfig;
 import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.enums.UserRole;
@@ -78,7 +79,7 @@ import static org.mockito.Mockito.*;
         RagIndexSequenceService.class, RagIndexJobRegistrationService.class,
         RagIndexJobExecutionRepository.class, RagIndexJobExecutionService.class,
         UserService.class, UserDeletionService.class, RagSourceChangeRegistrationService.class,
-        ResumeFileTransactionCleanup.class,
+        ResumeFileTransactionCleanup.class, DisabledAiUsageTestConfig.class,
         AdminRagIntegrationTest.TimeConfig.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AdminRagIntegrationTest extends MySqlIntegrationTest {

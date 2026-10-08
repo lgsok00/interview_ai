@@ -11,6 +11,7 @@ import com.interviewai.interview.enums.QuestionGenerationSource;
 import com.interviewai.interview.generation.InterviewFollowUpGenerator;
 import com.interviewai.interview.repository.InterviewQuestionRepository;
 import com.interviewai.interview.repository.InterviewSessionRepository;
+import com.interviewai.support.DisabledAiUsageTestConfig;
 import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
@@ -44,7 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import({InterviewAnswerService.class, AdminAuthorizationService.class, InterviewAnswerServiceIntegrationTest.Config.class})
+@Import({InterviewAnswerService.class, AdminAuthorizationService.class, DisabledAiUsageTestConfig.class,
+        InterviewAnswerServiceIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 9, 15, 0, 0);
@@ -78,7 +80,7 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
         var prepared = service.prepareFollowUp(f.subject(), f.session(), f.first());
         assertThat(prepared.input().answer()).isEqualTo("첫 답변");
         assertThat(prepared.input().jobRole()).isEqualTo("Backend");
-        var followUp = service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED);
+        var followUp = service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED);
         assertThat(followUp.parentQuestionId()).isEqualTo(f.first());
         assertThat(followUp.question().sequenceNumber()).isEqualTo(6);
         assertThat(followUp.question().questionType()).isEqualTo(InterviewQuestionType.FOLLOW_UP);
@@ -98,11 +100,11 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
     void completedSessionAllowsReplayButRejectsNewWrites() {
         var f = fixture();
         var answer = service.submit(f.subject(), f.session(), f.first(), request("답변"));
-        var followUp = service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED);
+        var followUp = service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED);
         complete(f);
         assertThat(service.submit(f.subject(), f.session(), f.first(), request(" 답변 ")).id()).isEqualTo(answer.id());
         assertThat(service.prepareFollowUp(f.subject(), f.session(), f.first()).existing()).isEqualTo(followUp);
-        assertThat(service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED)).isEqualTo(followUp);
+        assertThat(service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED)).isEqualTo(followUp);
         code(() -> service.submit(f.subject(), f.session(), f.first(), request("변경")), "INTERVIEW_ANSWER_CONFLICT");
         code(() -> service.submit(f.subject(), f.session(), f.second(), request("답변")), "INTERVIEW_SESSION_CONFLICT");
         code(() -> service.prepareFollowUp(f.subject(), f.session(), f.second()), "INTERVIEW_SESSION_CONFLICT");
@@ -112,11 +114,11 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
     void rejectsMissingAnswerAndLateGenerationAfterCompletion() {
         var f = fixture();
         code(() -> service.prepareFollowUp(f.subject(), f.session(), f.first()), "INTERVIEW_ANSWER_REQUIRED");
-        code(() -> service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED), "INTERVIEW_ANSWER_REQUIRED");
+        code(() -> service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED), "INTERVIEW_ANSWER_REQUIRED");
         service.submit(f.subject(), f.session(), f.first(), request("답변"));
         service.prepareFollowUp(f.subject(), f.session(), f.first());
         complete(f);
-        code(() -> service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED), "INTERVIEW_SESSION_CONFLICT");
+        code(() -> service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED), "INTERVIEW_SESSION_CONFLICT");
         assertThat(questions.findByParentQuestionId(f.first())).isEmpty();
         assertThat(service.getAll(f.subject(), f.session())).hasSize(1);
     }
@@ -128,7 +130,7 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
         code(() -> service.getAll(other.subject(), f.session()), "INTERVIEW_SESSION_NOT_FOUND");
         code(() -> service.submit(other.subject(), f.session(), f.first(), request("답변")), "INTERVIEW_SESSION_NOT_FOUND");
         code(() -> service.prepareFollowUp(other.subject(), f.session(), f.first()), "INTERVIEW_SESSION_NOT_FOUND");
-        code(() -> service.saveFollowUp(other.subject(), f.session(), f.first(), GENERATED), "INTERVIEW_SESSION_NOT_FOUND");
+        code(() -> service.saveFollowUp(other.subject(), f.session(), f.first(), null, GENERATED), "INTERVIEW_SESSION_NOT_FOUND");
         code(() -> service.submit(f.subject(), f.session(), other.first(), request("답변")), "INTERVIEW_QUESTION_NOT_FOUND");
         assertThat(service.getAll(f.subject(), f.session())).isEmpty();
     }
@@ -158,7 +160,7 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
             assertThatThrownBy(() -> jdbc.update("INSERT INTO interview_answers(question_id, content, created_at) VALUES (?, ?, ?)",
                     f.second(), invalid, NOW)).isInstanceOf(DataAccessException.class);
         }
-        service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED);
+        service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED);
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO interview_questions(session_id, sequence_number, question_type, generation_source,
                     content, created_at, parent_question_id) VALUES (?, 7, 'FOLLOW_UP', 'AI', '중복', ?, ?)
@@ -170,7 +172,7 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
         var f = fixture();
         service.submit(f.subject(), f.session(), f.first(), request("보존할 답변"));
         assertThatThrownBy(() -> tx().executeWithoutResult(status -> {
-            service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED);
+            service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED);
             jdbc.update("INSERT INTO interview_answers(question_id, content, created_at) VALUES (?, '중복', ?)", f.first(), NOW);
         })).isInstanceOf(DataAccessException.class);
         assertThat(questions.findByParentQuestionId(f.first())).isEmpty();
@@ -183,7 +185,7 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
         for (boolean deleteUser : List.of(false, true)) {
             var f = fixture();
             var answer = service.submit(f.subject(), f.session(), f.first(), request("답변"));
-            var followUp = service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED);
+            var followUp = service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED);
             var childAnswer = service.submit(f.subject(), f.session(), followUp.question().id(), request("추가 답변"));
             if (deleteUser) jdbc.update("DELETE FROM users WHERE id = ?", Long.parseLong(f.subject()));
             else jdbc.update("DELETE FROM interview_sessions WHERE id = ?", f.session());
@@ -208,8 +210,8 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
         var f = fixture();
         service.submit(f.subject(), f.session(), f.first(), request("답변"));
         var result = race(
-                () -> service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED).question().id(),
-                () -> service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED).question().id());
+                () -> service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED).question().id(),
+                () -> service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED).question().id());
         assertThat(result.get(0)).isEqualTo(result.get(1));
     }
 
@@ -219,8 +221,8 @@ class InterviewAnswerServiceIntegrationTest extends MySqlIntegrationTest {
         service.submit(f.subject(), f.session(), f.first(), request("답변1"));
         service.submit(f.subject(), f.session(), f.second(), request("답변2"));
         var result = race(
-                () -> service.saveFollowUp(f.subject(), f.session(), f.first(), GENERATED).question().sequenceNumber(),
-                () -> service.saveFollowUp(f.subject(), f.session(), f.second(), GENERATED).question().sequenceNumber());
+                () -> service.saveFollowUp(f.subject(), f.session(), f.first(), null, GENERATED).question().sequenceNumber(),
+                () -> service.saveFollowUp(f.subject(), f.session(), f.second(), null, GENERATED).question().sequenceNumber());
         assertThat(result).containsExactlyInAnyOrder(6, 7);
     }
 

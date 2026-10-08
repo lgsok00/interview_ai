@@ -1,5 +1,6 @@
 package com.interviewai.user.service;
 
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import com.interviewai.coverletter.entity.CoverLetter;
 import com.interviewai.coverletter.repository.CoverLetterRepository;
 import com.interviewai.rag.document.RagSourceType;
@@ -22,6 +23,7 @@ public class UserDeletionService {
     private final ResumeRepository resumeRepository;
     private final RagSourceChangeRegistrationService ragRegistrationService;
     private final ResumeFileTransactionCleanup resumeFileCleanup;
+    private final AiUsageLifecycleService lifecycle;
 
 
     public UserDeletionService(
@@ -29,18 +31,22 @@ public class UserDeletionService {
             CoverLetterRepository coverLetterRepository,
             ResumeRepository resumeRepository,
             RagSourceChangeRegistrationService ragRegistrationService,
-            ResumeFileTransactionCleanup resumeFileCleanup
+            ResumeFileTransactionCleanup resumeFileCleanup,
+            AiUsageLifecycleService lifecycle
     ) {
         this.userRepository = userRepository;
         this.coverLetterRepository = coverLetterRepository;
         this.resumeRepository = resumeRepository;
         this.ragRegistrationService = ragRegistrationService;
         this.resumeFileCleanup = resumeFileCleanup;
+        this.lifecycle = lifecycle;
     }
 
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void deleteLocked(long userId) {
+        lifecycle.lockExecution();
+
         List<CoverLetter> coverLetters = coverLetterRepository.findAllOwnedForUpdate(userId);
         List<Resume> resumes = resumeRepository.findAllOwnedForUpdate(userId);
 
@@ -55,6 +61,9 @@ public class UserDeletionService {
                 .forEach(resumeFileCleanup::deleteAfterCommit);
 
         userRepository.flush();
+
+        lifecycle.cancelUser(userId);
+
         userRepository.deleteAllByIdInBatch(List.of(userId));
     }
 }

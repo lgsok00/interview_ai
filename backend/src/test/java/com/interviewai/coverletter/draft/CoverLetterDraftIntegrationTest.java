@@ -2,6 +2,7 @@ package com.interviewai.coverletter.draft;
 
 import com.interviewai.coverletter.entity.CoverLetter;
 import com.interviewai.coverletter.repository.CoverLetterRepository;
+import com.interviewai.support.DisabledAiUsageTestConfig;
 import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
@@ -27,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import(CoverLetterDraftExecutionService.class)
+@Import({CoverLetterDraftExecutionService.class, DisabledAiUsageTestConfig.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class CoverLetterDraftIntegrationTest extends MySqlIntegrationTest {
 

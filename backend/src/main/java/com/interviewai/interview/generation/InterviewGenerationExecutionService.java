@@ -2,6 +2,7 @@ package com.interviewai.interview.generation;
 
 import com.interviewai.ai.usage.AiUsageAdmissionService;
 import com.interviewai.ai.usage.AiUsageFeature;
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import com.interviewai.global.error.CatalogException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,16 +22,19 @@ public class InterviewGenerationExecutionService {
     private final JdbcTemplate jdbc;
     private final InterviewGenerationProperties properties;
     private final AiUsageAdmissionService admissionService;
+    private final AiUsageLifecycleService lifecycle;
 
 
     public InterviewGenerationExecutionService(
             JdbcTemplate jdbc,
             InterviewGenerationProperties properties,
-            AiUsageAdmissionService admissionService
+            AiUsageAdmissionService admissionService,
+            AiUsageLifecycleService lifecycle
     ) {
         this.jdbc = jdbc;
         this.properties = properties;
         this.admissionService = admissionService;
+        this.lifecycle = lifecycle;
     }
 
 
@@ -53,6 +58,8 @@ public class InterviewGenerationExecutionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<Claim> claimNext() {
+        lifecycle.lockExecution();
+
         List<Long> candidates = jdbc.queryForList("""
                 SELECT job.session_id
                 FROM interview_generation_jobs job
@@ -132,6 +139,17 @@ public class InterviewGenerationExecutionService {
                     sessionId
             );
 
+            lifecycle.bindAttempt(
+                    AiUsageFeature.INITIAL_QUESTIONS,
+                    sessionId,
+                    attemptId,
+                    jdbc.queryForObject(
+                            "SELECT lease_expires_at FROM interview_generation_jobs WHERE session_id = ?",
+                            LocalDateTime.class,
+                            sessionId
+                    )
+            );
+
             return Optional.of(new Claim(
                     sessionId,
                     attemptId,
@@ -149,11 +167,13 @@ public class InterviewGenerationExecutionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean renew(Claim claim) {
+        lifecycle.lockExecution();
+
         if (!lockGeneratingSession(claim.sessionId)) {
             return false;
         }
 
-        return jdbc.update("""
+        boolean renewed = jdbc.update("""
                         UPDATE interview_generation_jobs
                         SET lease_expires_at = TIMESTAMPADD(SECOND, ?, UTC_TIMESTAMP(6)),
                             updated_at = UTC_TIMESTAMP(6)
@@ -166,11 +186,28 @@ public class InterviewGenerationExecutionService {
                 claim.sessionId(),
                 claim.attemptId()
         ) == 1;
+
+        if (renewed) {
+            lifecycle.bindAttempt(
+                    AiUsageFeature.INITIAL_QUESTIONS,
+                    claim.sessionId(),
+                    claim.attemptId(),
+                    jdbc.queryForObject(
+                            "SELECT lease_expires_at FROM interview_generation_jobs WHERE session_id = ?",
+                            LocalDateTime.class,
+                            claim.sessionId()
+                    )
+            );
+        }
+
+        return renewed;
     }
 
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean complete(Claim claim, InterviewGenerationPolicy.Batch batch) {
+        lifecycle.lockExecution();
+
         if (!lockGeneratingSession(claim.sessionId())) {
             return false;
         }
@@ -228,6 +265,12 @@ public class InterviewGenerationExecutionService {
                 WHERE id = ?
                 """, claim.sessionId());
 
+        lifecycle.finishAsync(
+                AiUsageFeature.INITIAL_QUESTIONS,
+                claim.sessionId(),
+                claim.attemptId()
+        );
+
         return true;
     }
 
@@ -235,6 +278,8 @@ public class InterviewGenerationExecutionService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean fail(Claim claim, String code, boolean retryable) {
         requireCode(code);
+
+        lifecycle.lockExecution();
 
         if (!lockGeneratingSession(claim.sessionId())) {
             return false;
@@ -287,6 +332,23 @@ public class InterviewGenerationExecutionService {
                         updated_at = UTC_TIMESTAMP(6)
                     WHERE id = ?
                     """, code, claim.sessionId());
+        }
+
+        if (accepted == 1) {
+            if (retry) {
+                lifecycle.retainPending(
+                        AiUsageFeature.INITIAL_QUESTIONS,
+                        claim.sessionId(),
+                        claim.attemptId()
+                );
+
+            } else {
+                lifecycle.finishAsync(
+                        AiUsageFeature.INITIAL_QUESTIONS,
+                        claim.sessionId(),
+                        claim.attemptId()
+                );
+            }
         }
 
         return accepted == 1;

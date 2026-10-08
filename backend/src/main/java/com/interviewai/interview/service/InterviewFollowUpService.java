@@ -1,5 +1,6 @@
 package com.interviewai.interview.service;
 
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.interview.dto.InterviewFollowUpResponse;
 import com.interviewai.interview.generation.InterviewFollowUpGenerator;
@@ -17,16 +18,19 @@ public class InterviewFollowUpService {
     private final InterviewAnswerService answerService;
     private final InterviewFollowUpGenerator generator;
     private final InterviewGenerationDeadline deadline;
+    private final AiUsageLifecycleService lifecycle;
 
 
     public InterviewFollowUpService(
             InterviewAnswerService answerService,
             InterviewFollowUpGenerator generator,
-            InterviewGenerationDeadline deadline
+            InterviewGenerationDeadline deadline,
+            AiUsageLifecycleService lifecycle
     ) {
         this.answerService = answerService;
         this.generator = generator;
         this.deadline = deadline;
+        this.lifecycle = lifecycle;
     }
 
 
@@ -48,14 +52,45 @@ public class InterviewFollowUpService {
             );
 
         } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw unavailable();
+            CatalogException failure = unavailable();
+
+            try {
+                cancelAfterFailure(preparation, failure);
+
+            } finally {
+                Thread.currentThread().interrupt();
+            }
+
+            throw failure;
 
         } catch (RuntimeException exception) {
-            throw unavailable();
+            CatalogException failure = unavailable();
+            cancelAfterFailure(preparation, failure);
+
+            throw failure;
+
+        } catch (Error failure) {
+            cancelAfterFailure(preparation, failure);
+            throw failure;
         }
 
-        return answerService.saveFollowUp(subject, sessionId, questionId, generated);
+        try {
+            return answerService.saveFollowUp(subject, sessionId, questionId, preparation.reservationId(), generated);
+
+        } catch (RuntimeException | Error failure) {
+            cancelAfterFailure(preparation, failure);
+            throw failure;
+        }
+    }
+
+
+    private void cancelAfterFailure(InterviewAnswerService.Preparation preparation, Throwable failure) {
+        try {
+            lifecycle.cancelFollowUp(preparation.reservationId());
+
+        } catch (RuntimeException cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
+        }
     }
 
 

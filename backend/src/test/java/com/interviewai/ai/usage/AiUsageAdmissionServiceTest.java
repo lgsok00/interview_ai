@@ -284,6 +284,41 @@ class AiUsageAdmissionServiceTest {
         service = new AiUsageAdmissionService(repository, properties, identity);
     }
 
+    @Test
+    void scopeLocksBeforeCallbackAndDoesNotChargeOrReserve() {
+        var order = inOrder(repository);
+        assertThat(service.inChatScope(1, () -> {
+            order.verify(repository).lockUser(1);
+            order.verify(repository).lockGlobalState();
+            order.verify(repository).currentUtcTime();
+            order.verify(repository).lockSubject(subject, NOW);
+            return "saved";
+        })).isEqualTo("saved");
+        verify(repository, never()).incrementGlobalDaily(any());
+        verify(repository, never()).findActiveSubjectsLocked();
+        verify(repository, never()).hasActiveReservation(any(), anyLong());
+    }
+
+    @Test
+    void disabledScopeDoesNotTouchUsageStore() {
+        configure(false, true);
+        assertThat(service.inChatScope(1, () -> "saved")).isEqualTo("saved");
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void scopeRejectsReadOnlyAndInvalidInputBeforeCallback() {
+        var invoked = new AtomicBoolean();
+        assertThatThrownBy(() -> service.inChatScope(0, () -> invoked.getAndSet(true)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.inChatScope(1, null)).isInstanceOf(NullPointerException.class);
+        TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
+        assertThatThrownBy(() -> service.inChatScope(1, () -> invoked.getAndSet(true)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(invoked).isFalse();
+        verifyNoInteractions(repository);
+    }
+
     private AiUsageAdmissionService.Admission<String> create(AiUsageFeature feature) {
         return service.admitChat(1, feature,
                 () -> AiUsageAdmissionService.Registration.created(42, "job"));

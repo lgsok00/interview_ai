@@ -1,5 +1,7 @@
 package com.interviewai.interview.evaluation;
 
+import com.interviewai.ai.usage.AiUsageFeature;
+import com.interviewai.ai.usage.AiUsageLifecycleService;
 import com.interviewai.interview.entity.InterviewAnswerEvaluation;
 import com.interviewai.interview.enums.AnswerEvaluationStatus;
 import com.interviewai.interview.generation.InterviewGenerationPolicy;
@@ -19,16 +21,24 @@ import java.util.UUID;
 public class AnswerEvaluationExecutionService {
 
     private final InterviewAnswerEvaluationRepository evaluations;
+    private final AiUsageLifecycleService lifecycle;
     private final JdbcTemplate jdbc;
 
 
-    public AnswerEvaluationExecutionService(InterviewAnswerEvaluationRepository evaluations, JdbcTemplate jdbc) {
+    public AnswerEvaluationExecutionService(
+            InterviewAnswerEvaluationRepository evaluations,
+            AiUsageLifecycleService lifecycle,
+            JdbcTemplate jdbc
+    ) {
         this.evaluations = evaluations;
+        this.lifecycle = lifecycle;
         this.jdbc = jdbc;
     }
 
 
     public boolean recoverOne() {
+        lifecycle.lockExecution();
+
         InterviewAnswerEvaluation evaluation = evaluations.findNextExpiredForUpdate().orElse(null);
 
         if (evaluation == null) {
@@ -42,17 +52,36 @@ public class AnswerEvaluationExecutionService {
                         ? now.plus(AnswerEvaluationPolicy.retryDelay(evaluation.getAttemptCount()))
                         : now;
 
+        String expiredAttemptId = evaluation.getAttemptId();
+
         evaluation.expireLease(
                 "ANSWER_EVALUATION_LEASE_EXPIRED",
                 availableAt,
                 now
         );
 
+        if (evaluation.getStatus() == AnswerEvaluationStatus.FAILED) {
+            lifecycle.finishAsync(
+                    AiUsageFeature.ANSWER_EVALUATION,
+                    evaluation.getAnswer().getId(),
+                    expiredAttemptId
+            );
+
+        } else {
+            lifecycle.retainPending(
+                    AiUsageFeature.ANSWER_EVALUATION,
+                    evaluation.getAnswer().getId(),
+                    expiredAttemptId
+            );
+        }
+
         return true;
     }
 
 
     public Optional<Claim> claimNext() {
+        lifecycle.lockExecution();
+
         InterviewAnswerEvaluation evaluation = evaluations.findNextPendingForUpdate().orElse(null);
 
         if (evaluation == null) {
@@ -63,6 +92,13 @@ public class AnswerEvaluationExecutionService {
         String attemptId = UUID.randomUUID().toString();
 
         evaluation.claim(attemptId, now, now.plusSeconds(AnswerEvaluationPolicy.LEASE_SECONDS));
+
+        lifecycle.bindAttempt(
+                AiUsageFeature.ANSWER_EVALUATION,
+                evaluation.getAnswer().getId(),
+                attemptId,
+                evaluation.getLeaseExpiresAt()
+        );
 
         var answer = evaluation.getAnswer();
         var question = answer.getQuestion();
@@ -86,6 +122,8 @@ public class AnswerEvaluationExecutionService {
 
 
     public boolean complete(Claim claim, AnswerEvaluationGenerator.Generated generated) {
+        lifecycle.lockExecution();
+
         InterviewAnswerEvaluation evaluation = evaluations.findByIdForUpdate(claim.evaluationId()).orElse(null);
 
         LocalDateTime now = databaseNow();
@@ -108,6 +146,12 @@ public class AnswerEvaluationExecutionService {
                 now
         );
 
+        lifecycle.finishAsync(
+                AiUsageFeature.ANSWER_EVALUATION,
+                evaluation.getAnswer().getId(),
+                claim.attemptId()
+        );
+
         return true;
     }
 
@@ -116,6 +160,8 @@ public class AnswerEvaluationExecutionService {
         if (code == null || !code.matches("[A-Z][A-Z0-9_]{0,49}")) {
             throw new IllegalArgumentException("실패 코드 형식이 올바르지 않습니다.");
         }
+
+        lifecycle.lockExecution();
 
         InterviewAnswerEvaluation evaluation = evaluations.findByIdForUpdate(claim.evaluationId()).orElse(null);
 
@@ -135,8 +181,20 @@ public class AnswerEvaluationExecutionService {
                     now
             );
 
+            lifecycle.retainPending(
+                    AiUsageFeature.ANSWER_EVALUATION,
+                    evaluation.getAnswer().getId(),
+                    claim.attemptId()
+            );
+
         } else {
             evaluation.fail(claim.attemptId(), code, now);
+
+            lifecycle.finishAsync(
+                    AiUsageFeature.ANSWER_EVALUATION,
+                    evaluation.getAnswer().getId(),
+                    claim.attemptId()
+            );
         }
 
         return true;

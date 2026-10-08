@@ -7,8 +7,8 @@
 자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
 `scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
-최신 전체 회귀 통과 보고는 2026-10-08이며 전체 XML은 대조 대기다. 최신 보존 XML은 초안 9개 클래스·67개 성공, 실패·오류·건너뜀 0이다.
-마지막 전체 XML 검증은 2026-10-06 AI 제한 1단계 변경을 포함한 117개·1,107개 성공, 실패·오류·건너뜀 0이다.
+최신 전체 회귀는 2026-10-08 XML 123개·1,287개 성공, 실패·오류·건너뜀 0으로 확인했다.
+AI 사용량 패키지 9개 클래스·232개도 모두 성공했고 기존 만료 fixture 실패는 수정 후 통과했다.
 인증 테스트는 Access Token 전용 JSON,
 Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect와 credential CORS preflight를 검증한다.
 
@@ -16,6 +16,23 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 2026-10-06 AI 제한 1단계는 설정 27개·HMAC 11개·MySQL 19개, 합계 57개와 전체 회귀 성공을 XML에서 확인했다.
 
 ### 작성된 자동 테스트
+
+#### worker 수명주기·꼬리 질문·탈퇴 연결 (2026-10-08, 전체 회귀 1,287개 성공)
+
+- 기존 `AiUsageGenerationAdmissionIntegrationTest`를 36개에서 81개로 확장했고 XML에서 81개 성공, 실패·오류·건너뜀 0을 확인했다.
+  실제 세 실행 서비스의 예약 attempt/lease 연결·완료·최종 실패·자동/수동 재시도 차감·재선점·최종 lease 복구·예약 저장 실패 롤백·늦은 완료를 검증한다.
+- 추가 통합 범위는 종료/삭제 예약 복구·살아 있는 비동기 작업 유지·100건 batch·복구 멱등성·이전 NULL attempt와 불일치 attempt,
+  꼬리 질문 실제 준비/외부 호출 mock/저장·동시 중복 409·기존 결과 무차감·실패 정리·저장 롤백·만료 토큰·재접수·한도·정지/완료/삭제 경합이다.
+  사용자 삭제·예약 취소의 동시 커밋/롤백·재가입 카운터 유지와 worker 완료/복구/삭제 경합도 포함한다. 외부 Chat 네트워크 호출은 없다.
+- `AiUsageLifecycleServiceTest` 10개·`AiUsageRecoverySchedulerTest` 3개는 XML에서 성공했다. 쓰기 트랜잭션·비활성화·토큰/소유자/부모·저장소 오류·feature
+  범위·scheduler 조건과 오류 후 다음 tick을 다룬다.
+- `AiUsageAdmissionServiceTest`에 무차감 잠금 범위 3개를 추가했고 합계 44개가 성공했다. FollowUpService 9개·UserDeletionService 4개도 실패 정리·잠금 순서
+  보완 후 모두 성공했다.
+- 기존 `AiUsageAdmissionIntegrationTest` 중 중복 꼬리 질문 2개가 과거 고정 시각의 만료 fixture로 실패했으며 DB UTC 기반 유효 lease로 수정했다. 추가 만료 재접수
+  테스트를 포함한 32개가 모두 성공했다.
+- 기존 worker·답변·RAG 탈퇴 통합 테스트는 `DisabledAiUsageTestConfig`로 제한을 명시적으로 끄고 도메인 회귀 범위를 유지한다. 제한 활성 상태는 확장 통합에서 별도로 검증한다.
+  InterviewAnswerServiceIntegration 11개·CoverLetterDraftIntegration 5개·AdminRagIntegration 21개도 최신 전체 회귀에서 성공했다. 전체 123개
+  XML·1,287개 성공, 실패·오류·건너뜀 0이다.
 
 #### 비동기 생성·재시도 공통 접수 연결 (2026-10-08, 신규 통합 36개 사용자 통과 보고·XML 대조 대기)
 
