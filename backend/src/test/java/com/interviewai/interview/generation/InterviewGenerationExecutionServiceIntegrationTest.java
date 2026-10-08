@@ -3,6 +3,7 @@ package com.interviewai.interview.generation;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.interview.entity.InterviewSession;
 import com.interviewai.interview.repository.InterviewSessionRepository;
+import com.interviewai.support.DisabledAiUsageTestConfig;
 import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
@@ -39,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @Import({InterviewGenerationExecutionService.class,
+        DisabledAiUsageTestConfig.class,
         InterviewGenerationExecutionServiceIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class InterviewGenerationExecutionServiceIntegrationTest extends MySqlIntegrationTest {

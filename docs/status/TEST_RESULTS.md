@@ -2,11 +2,29 @@
 
 [프로젝트 현황으로 돌아가기](../PROJECT_STATUS.md)
 
-기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 통과 보고는 2026-10-07이며 전체 XML은 대조 대기다. 마지막 전체 XML 검증은 2026-10-06의 1,107개 성공이다. 직전 평가
+기존 현황 문서에 기록된 사용자 실행 결과를 보존한다. 최신 전체 통과 보고는 2026-10-08이며 전체 XML은 대조 대기다. 마지막 전체 XML 검증은 2026-10-06의 1,107개 성공이다. 직전 평가
 완료 시점의 면접 테스트는 219개 성공이고, 이전 RAG·면접 선택 검증은
 304개
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
+
+### 비동기 생성·재시도 접수 연결 — 사용자 통합·전체 통과 보고, 초안 XML 67개 확인 (2026-10-08)
+
+- 사용자 구현 반영·테스트 완료 보고와 실제 코드·Git 상태·XML을 대조했다. 실행 범위를 추가 확인해 신규 접수 통합 테스트와 전체 회귀 모두 통과했다는 답변을 받았다.
+- 보존 XML은 초안 테스트 9개 클래스·67개 성공, 실패·오류·건너뜀 0이다. Configuration 6·Controller 6·Generator 8·Integration 5·Scheduler
+  5·Service 8·SnapshotAssembler 18·Entity 6·Worker 5개다.
+- XML 시작 시각은 2026-10-08 13:14:51 KST, 최신 수정 시각은 13:15:22 KST다. MySQL 초안 실행 통합 5개도 건너뜀 없이 성공했다.
+- 신규 `AiUsageGenerationAdmissionIntegrationTest` 36개와 면접·공통 사용량·전체 회귀 XML은 현재 보존되지 않았다. 해당 범위는 사용자 통과 보고이며 전체
+  개수·실패/오류/건너뜀 집계는 XML 대조 대기다.
+  초안 실행 통합 5개는 신규 접수 통합 36개와 다른 클래스이므로 대체 검증 근거로 사용하지 않는다.
+- 실제 입력 명령·콘솔·Gradle 소요 시간은 미전달이다. 아래는 `backend`에서 실행할 재현 명령이며 실제 명령으로 단정하지 않는다.
+    - 신규 접수 통합: `.\gradlew.bat test --tests "com.interviewai.ai.usage.AiUsageGenerationAdmissionIntegrationTest"`
+    - 선택 회귀:
+      `.\gradlew.bat test --tests "com.interviewai.ai.usage.*" --tests "com.interviewai.interview.*" --tests "com.interviewai.coverletter.draft.*"`
+    - 초안 선택: `.\gradlew.bat test --tests "com.interviewai.coverletter.draft.*"`
+    - 전체 회귀: `.\gradlew.bat test`
+- HEAD는 `b11ca95`로 공통 접수 기반까지 커밋됐다. 비동기 6개 접수 연결·신규 통합 테스트·기존 테스트 보완·문서 변경은 커밋 대기다. Codex는 테스트를 실행하지 않았다.
+- worker 슬롯 종료/복구·꼬리 질문 접수·탈퇴 정리·기존 작업 이관·사용량 API/UI·embedding 통제는 아직 미구현이다. 접수 단계 검증을 운영 제한 전체 완료로 확대하지 않는다.
 
 ### 공통 Chat 접수 서비스·통합·전체 통과 보고와 오류 응답 XML 확인 (2026-10-07)
 

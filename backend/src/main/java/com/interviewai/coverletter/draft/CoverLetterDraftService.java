@@ -1,5 +1,7 @@
 package com.interviewai.coverletter.draft;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
 import com.interviewai.auth.exception.InvalidAccessTokenException;
 import com.interviewai.coverletter.dto.CoverLetterResponse;
 import com.interviewai.coverletter.entity.CoverLetter;
@@ -33,6 +35,7 @@ public class CoverLetterDraftService {
     private final CoverLetterVersionRepository versionRepository;
     private final CoverLetterRepresentativeRepository representativeRepository;
     private final RagSourceChangeRegistrationService ragRegistrationService;
+    private final AiUsageAdmissionService admissionService;
     private final JdbcTemplate jdbc;
 
 
@@ -44,6 +47,7 @@ public class CoverLetterDraftService {
             CoverLetterVersionRepository versionRepository,
             CoverLetterRepresentativeRepository representativeRepository,
             RagSourceChangeRegistrationService ragRegistrationService,
+            AiUsageAdmissionService admissionService,
             JdbcTemplate jdbc
     ) {
         this.draftRepository = draftRepository;
@@ -53,6 +57,7 @@ public class CoverLetterDraftService {
         this.versionRepository = versionRepository;
         this.representativeRepository = representativeRepository;
         this.ragRegistrationService = ragRegistrationService;
+        this.admissionService = admissionService;
         this.jdbc = jdbc;
     }
 
@@ -61,7 +66,13 @@ public class CoverLetterDraftService {
     public CoverLetterDraftResponse create(String subject, Long coverLetterId, CreateCoverLetterDraftRequest request) {
         Long userId = parseUserId(subject);
 
-        return createDraft(userId, coverLetterId, request, null);
+        return admissionService
+                .admitChat(
+                        userId,
+                        AiUsageFeature.COVER_LETTER_DRAFT,
+                        () -> createDraft(userId, coverLetterId, request, null)
+                )
+                .value();
     }
 
 
@@ -88,18 +99,13 @@ public class CoverLetterDraftService {
     public CoverLetterDraftResponse regenerate(String subject, Long coverLetterId, Long draftId) {
         Long userId = parseUserId(subject);
 
-        CoverLetterDraft source = findOwned(userId, coverLetterId, draftId);
-
-        if (source.getStatus() == CoverLetterDraftStatus.PENDING
-                || source.getStatus() == CoverLetterDraftStatus.RUNNING) {
-            throw conflict("실행 중이거나 대기 중인 초안은 재생성할 수 없습니다.");
-        }
-
-        CreateCoverLetterDraftRequest request = new CreateCoverLetterDraftRequest(
-                source.getJobPostingId(), source.getResumeId(), source.getInstruction()
-        );
-
-        return createDraft(userId, coverLetterId, request, source);
+        return admissionService
+                .admitChat(
+                        userId,
+                        AiUsageFeature.COVER_LETTER_DRAFT,
+                        () -> regenerateDraft(userId, coverLetterId, draftId)
+                )
+                .value();
     }
 
 
@@ -157,7 +163,7 @@ public class CoverLetterDraftService {
     }
 
 
-    private CoverLetterDraftResponse createDraft(
+    private AiUsageAdmissionService.Registration<CoverLetterDraftResponse> createDraft(
             Long userId,
             Long coverLetterId,
             CreateCoverLetterDraftRequest request,
@@ -180,13 +186,35 @@ public class CoverLetterDraftService {
                 now
         );
 
-        draftRepository.save(draft);
+        CoverLetterDraft saved = draftRepository.save(draft);
 
         if (!properties.enabled() || properties.model().isBlank()) {
-            draft.failPending("DRAFT_AI_NOT_CONFIGURED", now);
+            saved.failPending("DRAFT_AI_NOT_CONFIGURED", now);
+
+            return AiUsageAdmissionService.Registration.existing(CoverLetterDraftResponse.of(saved));
         }
 
-        return CoverLetterDraftResponse.of(draft);
+        return AiUsageAdmissionService.Registration.created(saved.getId(), CoverLetterDraftResponse.of(saved));
+    }
+
+
+    private AiUsageAdmissionService.Registration<CoverLetterDraftResponse> regenerateDraft(
+            Long userId,
+            Long coverLetterId,
+            Long draftId
+    ) {
+        CoverLetterDraft source = findOwned(userId, coverLetterId, draftId);
+
+        if (source.getStatus() == CoverLetterDraftStatus.PENDING
+                || source.getStatus() == CoverLetterDraftStatus.RUNNING) {
+            throw conflict("실행 중이거나 대기 중인 초안은 재생성할 수 없습니다.");
+        }
+
+        CreateCoverLetterDraftRequest request = new CreateCoverLetterDraftRequest(
+                source.getJobPostingId(), source.getResumeId(), source.getInstruction()
+        );
+
+        return createDraft(userId, coverLetterId, request, source);
     }
 
 

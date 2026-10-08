@@ -7,7 +7,8 @@
 자동 테스트와 별도로 `scripts/chat-smoke.ps1`을 사용한 2026-09-16 실제 OpenAI Chat·Qdrant RAG 면접 전체 흐름과
 `scripts/cover-letter-draft-smoke.ps1`을 사용한 2026-09-21 실제 OpenAI 자기소개서 초안 생성 smoke가 성공했다. 수동 smoke는 자동 테스트 개수에 포함하지 않는다.
 
-최신 전체 회귀 통과 보고는 2026-10-07이며 전체 XML은 대조 대기다. 마지막 전체 XML 검증은 2026-10-06 AI 제한 1단계 변경을 포함한 117개·1,107개 성공, 실패·오류·건너뜀 0이다.
+최신 전체 회귀 통과 보고는 2026-10-08이며 전체 XML은 대조 대기다. 최신 보존 XML은 초안 9개 클래스·67개 성공, 실패·오류·건너뜀 0이다.
+마지막 전체 XML 검증은 2026-10-06 AI 제한 1단계 변경을 포함한 117개·1,107개 성공, 실패·오류·건너뜀 0이다.
 인증 테스트는 Access Token 전용 JSON,
 Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect와 credential CORS preflight를 검증한다.
 
@@ -15,6 +16,18 @@ Refresh Token HttpOnly cookie 발급·회전·삭제, OAuth2 callback redirect�
 2026-10-06 AI 제한 1단계는 설정 27개·HMAC 11개·MySQL 19개, 합계 57개와 전체 회귀 성공을 XML에서 확인했다.
 
 ### 작성된 자동 테스트
+
+#### 비동기 생성·재시도 공통 접수 연결 (2026-10-08, 신규 통합 36개 사용자 통과 보고·XML 대조 대기)
+
+- `AiUsageGenerationAdmissionIntegrationTest`: 6개 실제 서비스 경로에서 feature·대상 ID·차감·예약 커밋, 전역 일일/사용자 일일 한도·접수 중단 시 도메인 변경과
+  재시도 횟수 롤백을 4개 묶음×6경로, 합계 24개로 검증하도록 작성했다.
+- 개별 12개는 호출자 롤백·원본 조립 실패, 세 기능 공통 슬롯, 접수 중단/한도 소진 시 기존 평가 무차감, 미설정 초안 무차감, 평가 비활성, 대기 초안 재생성·소유권 오류, 활성 예약 중복과 재시도 롤백,
+  두 수동 재시도 최대 2회, REQUIRES_NEW 독립 커밋, 동일 평가 단일 접수·마지막 초기 질문 한도 경합을 다룬다.
+- 실제 MySQL·JPA/JDBC·공통 접수 서비스를 연결한다. 원본 조립기와 RAG 등록만 mock으로 격리하며 외부 Chat을 호출하지 않는다. 사용자 통과 보고를 받았지만 신규 XML과 건너뜀 여부는 대조
+  대기다.
+- `InterviewSessionServiceTest`와 `CoverLetterDraftServiceTest`는 생성자 의존성과 콜백 실행 fixture를 보완하고 예약 키·미설정 초안 무차감 표시를 확인한다.
+- 기존 초기 질문/평가 worker 통합 테스트는 `DisabledAiUsageTestConfig`로 제한을 명시적으로 꺼 기존 수명주기 검증을 유지한다. 실제 제한 연결은 신규 통합 클래스에서 별도 검증한다.
+- 보존 초안 XML 67개 중 서비스 8개·기존 MySQL 실행 통합 5개는 성공, 실패·오류·건너뜀 0이다. worker 슬롯 종료·복구와 꼬리 질문 접수 연결은 이 단계의 검증 범위에 없다.
 
 #### 공통 Chat 접수 서비스 (2026-10-07, 사용자 전체 통과 보고·오류 응답 XML 5개 성공)
 

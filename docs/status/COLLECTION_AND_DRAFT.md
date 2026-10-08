@@ -65,7 +65,11 @@ OpenAI Chat smoke를 완료했다. 외부 수집은 공용 기업·채용공고�
 
 - 초안은 비동기 작업이다. 생성 요청은 202와 draft ID를 반환하고 상태는 `PENDING → RUNNING → REVIEW_READY` 또는 `FAILED`다. 120초 lease, 최대 3회 자동 시도,
   만료 작업 회수, attempt UUID와 늦은 완료 차단은 기존 면접 생성 작업과 같은 실행 원칙을 따른다.
-- AI가 비활성·quota 소진·timeout·네트워크 오류·형식 오류인 경우 고정 문구 fallback을 만들지 않는다. 초안은 `FAILED`와 정규화 실패 코드로 남으며 사용자가 재요청할 수 있다.
+- AI가 비활성·공급자 quota 소진·timeout·네트워크 오류·형식 오류인 경우 고정 문구 fallback을 만들지 않는다. 초안은 `FAILED`와 정규화 실패 코드로 남으며 사용자가 재요청할 수 있다.
+- 2026-10-08 생성·재생성을 공통 Chat 접수에 연결했다. 새 draft ID를 예약 키로 차감·예약·등록을 같은 트랜잭션에서 확정한다. 서버 사용량 한도/접수 중단 거절은 429/503이며 초안 등록도
+  롤백하므로 FAILED 초안을 남기는 공급자 오류와 구분한다.
+  AI 비활성/모델 미설정은 기존 FAILED 저장을 유지하되 차감·예약하지 않는다. 명시 적용에는 Chat 횟수를 차감하지 않는다. worker 슬롯 종료/복구와 적용 시 embedding 통제는 후속이다.
+  신규 접수 통합·전체 회귀는 사용자 통과 보고를 받았으며 보존 초안 XML 67개가 성공했다. 신규 통합·전체 XML은 대조 대기다.
 - 모델 응답은 JSON의 `title`, `content`, `changeSummary`, `warnings`만 허용한다. 제목은 trim 후 1~100자, 본문은 trim 후 1~20,000자, 요약·경고는 각
   최대 1,000자로 검증한다. 검증 실패는 `AI_INVALID_OUTPUT` 실패다.
 - `POST /api/cover-letters/{coverLetterId}/drafts/{draftId}/regenerate`는 기존 결과를 덮어쓰지 않고 새 draft ID를 만든다. 새 작업은 최신 현재 버전을

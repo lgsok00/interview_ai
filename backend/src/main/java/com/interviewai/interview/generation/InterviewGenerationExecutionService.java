@@ -1,5 +1,7 @@
 package com.interviewai.interview.generation;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
 import com.interviewai.global.error.CatalogException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,11 +19,17 @@ public class InterviewGenerationExecutionService {
 
     private final JdbcTemplate jdbc;
     private final InterviewGenerationProperties properties;
+    private final AiUsageAdmissionService admissionService;
 
 
-    public InterviewGenerationExecutionService(JdbcTemplate jdbc, InterviewGenerationProperties properties) {
+    public InterviewGenerationExecutionService(
+            JdbcTemplate jdbc,
+            InterviewGenerationProperties properties,
+            AiUsageAdmissionService admissionService
+    ) {
         this.jdbc = jdbc;
         this.properties = properties;
+        this.admissionService = admissionService;
     }
 
 
@@ -287,6 +295,50 @@ public class InterviewGenerationExecutionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void retry(long userId, long sessionId) {
+        admissionService.admitChat(
+                userId,
+                AiUsageFeature.INITIAL_QUESTIONS,
+                () -> {
+                    retryGeneration(userId, sessionId);
+
+                    return AiUsageAdmissionService.Registration.<Void>created(sessionId, null);
+                }
+        );
+    }
+
+
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+    private boolean lockGeneratingSession(long sessionId) {
+        List<String> statuses = jdbc.queryForList("""
+                SELECT status
+                FROM interview_sessions
+                WHERE id = ?
+                FOR UPDATE
+                """, String.class, sessionId);
+
+        return !statuses.isEmpty() && "GENERATING".equals(statuses.getFirst());
+    }
+
+
+    private boolean hasQuestions(long sessionId) {
+        return !jdbc.queryForList("""
+                SELECT id
+                FROM interview_questions
+                WHERE session_id = ?
+                LIMIT 1
+                FOR UPDATE
+                """, Long.class, sessionId).isEmpty();
+    }
+
+
+    private void requireCode(String code) {
+        if (code == null || !code.matches("[A-Z][A-Z0-9_]{0,49}")) {
+            throw new IllegalArgumentException("실패 코드 형식이 올바르지 않습니다.");
+        }
+    }
+
+
+    private void retryGeneration(long userId, long sessionId) {
         List<String> statuses = jdbc.queryForList("""
                 SELECT status
                 FROM interview_sessions
@@ -333,37 +385,6 @@ public class InterviewGenerationExecutionService {
                     updated_at = UTC_TIMESTAMP(6)
                 WHERE id = ?
                 """, sessionId);
-    }
-
-
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    private boolean lockGeneratingSession(long sessionId) {
-        List<String> statuses = jdbc.queryForList("""
-                SELECT status
-                FROM interview_sessions
-                WHERE id = ?
-                FOR UPDATE
-                """, String.class, sessionId);
-
-        return !statuses.isEmpty() && "GENERATING".equals(statuses.getFirst());
-    }
-
-
-    private boolean hasQuestions(long sessionId) {
-        return !jdbc.queryForList("""
-                SELECT id
-                FROM interview_questions
-                WHERE session_id = ?
-                LIMIT 1
-                FOR UPDATE
-                """, Long.class, sessionId).isEmpty();
-    }
-
-
-    private void requireCode(String code) {
-        if (code == null || !code.matches("[A-Z][A-Z0-9_]{0,49}")) {
-            throw new IllegalArgumentException("실패 코드 형식이 올바르지 않습니다.");
-        }
     }
 
 

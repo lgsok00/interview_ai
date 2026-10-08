@@ -1,5 +1,7 @@
 package com.interviewai.interview.service;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.global.validation.CatalogInput;
@@ -37,6 +39,7 @@ public class InterviewSessionService {
     private final InterviewSessionSnapshotAssembler snapshotAssembler;
     private final AdminAuthorizationService authorizationService;
     private final InterviewGenerationExecutionService generationExecutionService;
+    private final AiUsageAdmissionService admissionService;
     private final Clock catalogClock;
 
 
@@ -46,6 +49,7 @@ public class InterviewSessionService {
             InterviewSessionSnapshotAssembler snapshotAssembler,
             AdminAuthorizationService authorizationService,
             InterviewGenerationExecutionService generationExecutionService,
+            AiUsageAdmissionService admissionService,
             Clock catalogClock
     ) {
         this.interviewSessionRepository = interviewSessionRepository;
@@ -53,6 +57,7 @@ public class InterviewSessionService {
         this.snapshotAssembler = snapshotAssembler;
         this.authorizationService = authorizationService;
         this.generationExecutionService = generationExecutionService;
+        this.admissionService = admissionService;
         this.catalogClock = catalogClock;
     }
 
@@ -61,33 +66,13 @@ public class InterviewSessionService {
     public InterviewSessionResponse create(String subject, CreateInterviewSessionRequest request) {
         User user = authorizationService.requireUser(subject);
 
-        InterviewSourceSnapshot snapshot = snapshotAssembler.assemble(user.getId(), request.jobPostingId());
-
-        InterviewSourceSnapshot.JobPostingSnapshot jobPosting = snapshot.jobPosting();
-        InterviewSourceSnapshot.PersonalDocumentSnapshot coverLetter = snapshot.coverLetter();
-        InterviewSourceSnapshot.PersonalDocumentSnapshot resume = snapshot.resume();
-
-        InterviewSession session = InterviewSession.create(
-                user,
-                jobPosting.id(),
-                idOf(coverLetter),
-                idOf(resume),
-                jobPosting.companyId(),
-                jobPosting.companyName(),
-                jobPosting.title(),
-                jobPosting.jobRole(),
-                jobPosting.content(),
-                titleOf(coverLetter),
-                contentOf(coverLetter),
-                titleOf(resume),
-                contentOf(resume),
-                LocalDateTime.now(catalogClock)
-        );
-
-        InterviewSession savedSession = interviewSessionRepository.save(session);
-        generationExecutionService.register(savedSession.getId());
-
-        return InterviewSessionResponse.from(savedSession);
+        return admissionService
+                .admitChat(
+                        user.getId(),
+                        AiUsageFeature.INITIAL_QUESTIONS,
+                        () -> createSession(user, request)
+                )
+                .value();
     }
 
 
@@ -158,6 +143,43 @@ public class InterviewSessionService {
     public void retryGeneration(String subject, long sessionId) {
         User user = authorizationService.requireUser(subject);
         generationExecutionService.retry(user.getId(), sessionId);
+    }
+
+
+    private AiUsageAdmissionService.Registration<InterviewSessionResponse> createSession(
+            User user,
+            CreateInterviewSessionRequest request
+    ) {
+        InterviewSourceSnapshot snapshot = snapshotAssembler.assemble(user.getId(), request.jobPostingId());
+
+        InterviewSourceSnapshot.JobPostingSnapshot jobPosting = snapshot.jobPosting();
+        InterviewSourceSnapshot.PersonalDocumentSnapshot coverLetter = snapshot.coverLetter();
+        InterviewSourceSnapshot.PersonalDocumentSnapshot resume = snapshot.resume();
+
+        InterviewSession session = InterviewSession.create(
+                user,
+                jobPosting.id(),
+                idOf(coverLetter),
+                idOf(resume),
+                jobPosting.companyId(),
+                jobPosting.companyName(),
+                jobPosting.title(),
+                jobPosting.jobRole(),
+                jobPosting.content(),
+                titleOf(coverLetter),
+                contentOf(coverLetter),
+                titleOf(resume),
+                contentOf(resume),
+                LocalDateTime.now(catalogClock)
+        );
+
+        InterviewSession savedSession = interviewSessionRepository.save(session);
+        generationExecutionService.register(savedSession.getId());
+
+        return AiUsageAdmissionService.Registration.created(
+                savedSession.getId(),
+                InterviewSessionResponse.from(savedSession)
+        );
     }
 
 

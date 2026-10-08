@@ -13,6 +13,7 @@ import com.interviewai.interview.repository.InterviewAnswerRepository;
 import com.interviewai.interview.repository.InterviewQuestionRepository;
 import com.interviewai.interview.repository.InterviewSessionRepository;
 import com.interviewai.interview.service.AnswerEvaluationService;
+import com.interviewai.support.DisabledAiUsageTestConfig;
 import com.interviewai.support.MySqlIntegrationTest;
 import com.interviewai.user.entity.User;
 import com.interviewai.user.repository.UserRepository;
@@ -40,22 +41,32 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @Import({AnswerEvaluationService.class, AnswerEvaluationExecutionService.class,
+        DisabledAiUsageTestConfig.class,
         AdminAuthorizationService.class, AnswerEvaluationIntegrationTest.Config.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AnswerEvaluationIntegrationTest extends MySqlIntegrationTest {
-    @Autowired AnswerEvaluationService service;
-    @Autowired AnswerEvaluationExecutionService execution;
-    @Autowired UserRepository users;
-    @Autowired InterviewSessionRepository sessions;
-    @Autowired InterviewQuestionRepository questions;
-    @Autowired InterviewAnswerRepository answers;
-    @Autowired JdbcTemplate jdbc;
-    @Autowired PlatformTransactionManager manager;
     private final List<Long> userIds = new ArrayList<>();
+    @Autowired
+    AnswerEvaluationService service;
+    @Autowired
+    AnswerEvaluationExecutionService execution;
+    @Autowired
+    UserRepository users;
+    @Autowired
+    InterviewSessionRepository sessions;
+    @Autowired
+    InterviewQuestionRepository questions;
+    @Autowired
+    InterviewAnswerRepository answers;
+    @Autowired
+    JdbcTemplate jdbc;
+    @Autowired
+    PlatformTransactionManager manager;
 
     @AfterEach
     void cleanup() {
@@ -139,7 +150,10 @@ class AnswerEvaluationIntegrationTest extends MySqlIntegrationTest {
     private <T> List<T> race(Callable<T> action) throws Exception {
         var barrier = new CyclicBarrier(2);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            Callable<T> task = () -> { barrier.await(5, TimeUnit.SECONDS); return action.call(); };
+            Callable<T> task = () -> {
+                barrier.await(5, TimeUnit.SECONDS);
+                return action.call();
+            };
             var a = executor.submit(task);
             var b = executor.submit(task);
             return List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS));
@@ -175,12 +189,18 @@ class AnswerEvaluationIntegrationTest extends MySqlIntegrationTest {
         assertThatThrownBy(action).isInstanceOfSatisfying(CatalogException.class, e -> assertThat(e.getCode()).isEqualTo(code));
     }
 
-    private record Fixture(String subject, long session, long answer) { }
+    private record Fixture(String subject, long session, long answer) {
+    }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class Config {
-        @Bean Clock catalogClock() { return Clock.systemUTC(); }
-        @Bean AnswerEvaluationProperties evaluationProperties() {
+        @Bean
+        Clock catalogClock() {
+            return Clock.systemUTC();
+        }
+
+        @Bean
+        AnswerEvaluationProperties evaluationProperties() {
             return new AnswerEvaluationProperties(true, InterviewGenerationPolicy.Mode.AI, "test-model",
                     Duration.ofSeconds(1), Duration.ZERO, 20);
         }

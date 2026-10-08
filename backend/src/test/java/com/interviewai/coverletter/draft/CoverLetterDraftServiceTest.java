@@ -1,5 +1,7 @@
 package com.interviewai.coverletter.draft;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
 import com.interviewai.coverletter.entity.CoverLetter;
 import com.interviewai.coverletter.entity.CoverLetterVersion;
 import com.interviewai.coverletter.repository.CoverLetterRepository;
@@ -17,6 +19,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,6 +38,8 @@ class CoverLetterDraftServiceTest {
     private final CoverLetterRepresentativeRepository representatives = mock(CoverLetterRepresentativeRepository.class);
     private final RagSourceChangeRegistrationService rag = mock(RagSourceChangeRegistrationService.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    private final AiUsageAdmissionService admissions = mock(AiUsageAdmissionService.class);
+    private AiUsageAdmissionService.Registration<?> registration;
 
     private User user;
     private CoverLetter coverLetter;
@@ -42,6 +47,12 @@ class CoverLetterDraftServiceTest {
 
     @BeforeEach
     void setUp() {
+        when(admissions.admitChat(eq(1L), eq(AiUsageFeature.COVER_LETTER_DRAFT), any()))
+                .thenAnswer(invocation -> {
+                    Supplier<? extends AiUsageAdmissionService.Registration<?>> operation = invocation.getArgument(2);
+                    registration = operation.get();
+                    return new AiUsageAdmissionService.Admission<>(registration.value(), null);
+                });
         user = User.createLocalUser("user@example.com", "encoded", "사용자");
         ReflectionTestUtils.setField(user, "id", 1L);
         coverLetter = CoverLetter.create(user, "기존 제목");
@@ -66,6 +77,7 @@ class CoverLetterDraftServiceTest {
         CoverLetterDraftResponse response = service.create("1", 10L, request);
 
         assertThat(response.id()).isEqualTo(40L);
+        assertThat(registration.resourceId()).isEqualTo(40L);
         assertThat(response.status()).isEqualTo(CoverLetterDraftStatus.PENDING);
         assertThat(response.baseVersionNumber()).isEqualTo(1);
         assertThat(response.failureCode()).isNull();
@@ -80,6 +92,7 @@ class CoverLetterDraftServiceTest {
         CoverLetterDraftResponse response = service.create("1", 10L, request);
 
         assertThat(response.status()).isEqualTo(CoverLetterDraftStatus.FAILED);
+        assertThat(registration.resourceId()).isNull();
         assertThat(response.failureCode()).isEqualTo("DRAFT_AI_NOT_CONFIGURED");
         assertThat(response.generatedContent()).isNull();
     }
@@ -97,6 +110,7 @@ class CoverLetterDraftServiceTest {
                 .regenerate("1", 10L, 40L);
 
         assertThat(response.sourceDraftId()).isEqualTo(40L);
+        assertThat(registration.resourceId()).isEqualTo(response.id());
         assertThat(response.baseVersionNumber()).isEqualTo(2);
         assertThat(response.status()).isEqualTo(CoverLetterDraftStatus.PENDING);
     }
@@ -209,6 +223,7 @@ class CoverLetterDraftServiceTest {
                 versions,
                 representatives,
                 rag,
+                admissions,
                 jdbc
         );
     }

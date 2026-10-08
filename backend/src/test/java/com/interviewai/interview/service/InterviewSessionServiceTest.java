@@ -1,5 +1,7 @@
 package com.interviewai.interview.service;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.interview.dto.CreateInterviewSessionRequest;
@@ -31,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,12 +57,20 @@ class InterviewSessionServiceTest {
     User user;
     @Mock
     InterviewGenerationExecutionService generationExecutionService;
-
+    @Mock
+    AiUsageAdmissionService admissions;
     private InterviewSessionService service;
+    private AiUsageAdmissionService.Registration<?> registration;
 
 
     @BeforeEach
     void setUp() {
+        lenient().when(admissions.admitChat(eq(1L), eq(AiUsageFeature.INITIAL_QUESTIONS), any()))
+                .thenAnswer(invocation -> {
+                    Supplier<? extends AiUsageAdmissionService.Registration<?>> operation = invocation.getArgument(2);
+                    registration = operation.get();
+                    return new AiUsageAdmissionService.Admission<>(registration.value(), null);
+                });
         Clock clock = Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
         service = new InterviewSessionService(
                 interviewSessionRepository,
@@ -67,6 +78,7 @@ class InterviewSessionServiceTest {
                 snapshotAssembler,
                 authorizationService,
                 generationExecutionService,
+                admissions,
                 clock
         );
     }
@@ -102,6 +114,7 @@ class InterviewSessionServiceTest {
         assertThat(saved.getResumeContent()).isEqualTo("이력서 본문");
         assertThat(saved.getCreatedAt()).isEqualTo(NOW);
         assertThat(response.id()).isEqualTo(100L);
+        assertThat(registration.resourceId()).isEqualTo(100L);
         verify(generationExecutionService).register(100L);
         assertThat(response.createdAt()).isEqualTo(NOW.atOffset(ZoneOffset.UTC));
     }
@@ -125,6 +138,7 @@ class InterviewSessionServiceTest {
         );
 
         assertThat(response.coverLetterId()).isNull();
+        assertThat(registration.resourceId()).isEqualTo(101L);
         assertThat(response.coverLetterTitle()).isNull();
         assertThat(response.coverLetterContent()).isNull();
         assertThat(response.resumeId()).isNull();

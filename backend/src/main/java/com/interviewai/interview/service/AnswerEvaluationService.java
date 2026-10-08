@@ -1,5 +1,7 @@
 package com.interviewai.interview.service;
 
+import com.interviewai.ai.usage.AiUsageAdmissionService;
+import com.interviewai.ai.usage.AiUsageFeature;
 import com.interviewai.global.error.CatalogException;
 import com.interviewai.global.security.AdminAuthorizationService;
 import com.interviewai.interview.dto.AnswerEvaluationResponse;
@@ -28,6 +30,7 @@ public class AnswerEvaluationService {
     private final InterviewAnswerEvaluationRepository evaluations;
     private final AdminAuthorizationService authorization;
     private final AnswerEvaluationProperties properties;
+    private final AiUsageAdmissionService admissionService;
     private final Clock catalogClock;
 
 
@@ -37,6 +40,7 @@ public class AnswerEvaluationService {
             InterviewAnswerEvaluationRepository evaluations,
             AdminAuthorizationService authorization,
             AnswerEvaluationProperties properties,
+            AiUsageAdmissionService admissionService,
             Clock catalogClock
     ) {
         this.sessions = sessions;
@@ -44,12 +48,55 @@ public class AnswerEvaluationService {
         this.evaluations = evaluations;
         this.authorization = authorization;
         this.properties = properties;
+        this.admissionService = admissionService;
         this.catalogClock = catalogClock;
     }
 
 
     @Transactional
     public AnswerEvaluationResponse request(String subject, long sessionId, long answerId) {
+        Long userId = authorization.requireUser(subject).getId();
+
+        return admissionService
+                .admitChat(
+                        userId,
+                        AiUsageFeature.ANSWER_EVALUATION,
+                        () -> requestEvaluation(subject, sessionId, answerId)
+                )
+                .value();
+    }
+
+
+    public AnswerEvaluationResponse get(String subject, long sessionId, long answerId) {
+        owned(subject, sessionId, false);
+        answer(sessionId, answerId);
+
+        InterviewAnswerEvaluation evaluation =
+                evaluations.findByAnswer_Id(answerId).orElseThrow(this::evaluationNotFound);
+
+        return AnswerEvaluationResponse.from(evaluation);
+    }
+
+
+    @Transactional
+    public AnswerEvaluationResponse retry(String subject, long sessionId, long answerId) {
+        Long userId = authorization.requireUser(subject).getId();
+
+        return admissionService
+                .admitChat(
+                        userId,
+                        AiUsageFeature.ANSWER_EVALUATION,
+                        () -> retryEvaluation(subject, sessionId, answerId)
+                )
+                .value();
+    }
+
+
+    private AiUsageAdmissionService.Registration<AnswerEvaluationResponse> requestEvaluation(
+            String subject,
+            long sessionId,
+            long answerId
+    ) {
         InterviewSession session = owned(subject, sessionId, true);
         requireEvaluable(session);
 
@@ -58,7 +105,7 @@ public class AnswerEvaluationService {
         InterviewAnswerEvaluation existing = evaluations.findByAnswerIdForUpdate(answerId).orElse(null);
 
         if (existing != null) {
-            return AnswerEvaluationResponse.from(existing);
+            return AiUsageAdmissionService.Registration.existing(AnswerEvaluationResponse.from(existing));
         }
 
         if (!properties.enabled()) {
@@ -80,46 +127,10 @@ public class AnswerEvaluationService {
                         now
                 );
 
-        return AnswerEvaluationResponse.from(evaluations.save(created));
-    }
-
-
-    public AnswerEvaluationResponse get(String subject, long sessionId, long answerId) {
-        owned(subject, sessionId, false);
-        answer(sessionId, answerId);
-
-        InterviewAnswerEvaluation evaluation =
-                evaluations.findByAnswer_Id(answerId).orElseThrow(this::evaluationNotFound);
-
-        return AnswerEvaluationResponse.from(evaluation);
-    }
-
-
-    @Transactional
-    public AnswerEvaluationResponse retry(String subject, long sessionId, long answerId) {
-        InterviewSession session = owned(subject, sessionId, true);
-        requireEvaluable(session);
-        answer(sessionId, answerId);
-
-        InterviewAnswerEvaluation evaluation =
-                evaluations.findByAnswerIdForUpdate(answerId).orElseThrow(this::evaluationNotFound);
-
-        if (!properties.enabled()) {
-            throw new CatalogException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "ANSWER_EVALUATION_DISABLED",
-                    "답변 평가 작업이 비활성화되어 있습니다."
-            );
-        }
-
-        try {
-            evaluation.manualRetry(LocalDateTime.now(catalogClock));
-
-        } catch (IllegalStateException exception) {
-            throw conflict("ANSWER_EVALUATION_RETRY_CONFLICT", exception.getMessage());
-        }
-
-        return AnswerEvaluationResponse.from(evaluation);
+        return AiUsageAdmissionService.Registration.created(
+                answerId,
+                AnswerEvaluationResponse.from(evaluations.save(created))
+        );
     }
 
 
@@ -162,6 +173,37 @@ public class AnswerEvaluationService {
                 && session.getStatus() != InterviewSessionStatus.COMPLETED) {
             throw conflict("ANSWER_EVALUATION_SESSION_CONFLICT", "진행 중이거나 완료된 면접의 답변만 평가할 수 있습니다.");
         }
+    }
+
+
+    private AiUsageAdmissionService.Registration<AnswerEvaluationResponse> retryEvaluation(
+            String subject,
+            long sessionId,
+            long answerId
+    ) {
+        InterviewSession session = owned(subject, sessionId, true);
+        requireEvaluable(session);
+        answer(sessionId, answerId);
+
+        InterviewAnswerEvaluation evaluation =
+                evaluations.findByAnswerIdForUpdate(answerId).orElseThrow(this::evaluationNotFound);
+
+        if (!properties.enabled()) {
+            throw new CatalogException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "ANSWER_EVALUATION_DISABLED",
+                    "답변 평가 작업이 비활성화되어 있습니다."
+            );
+        }
+
+        try {
+            evaluation.manualRetry(LocalDateTime.now(catalogClock));
+
+        } catch (IllegalStateException exception) {
+            throw conflict("ANSWER_EVALUATION_RETRY_CONFLICT", exception.getMessage());
+        }
+
+        return AiUsageAdmissionService.Registration.created(answerId, AnswerEvaluationResponse.from(evaluation));
     }
 
 

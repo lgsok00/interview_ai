@@ -4,6 +4,20 @@
 
 API·인증·운영 정책과 남아 있는 확인 사항을 관리한다. 기업·채용공고의 상세 결정은 [기업·채용공고 문서](CATALOG.md)를 참고한다.
 
+## 비동기 생성·재시도 6개 경로의 공통 접수 연결 (2026-10-08)
+
+- 초기 질문 `InterviewSessionService.create`·`InterviewGenerationExecutionService.retry`, 평가
+  `AnswerEvaluationService.request/retry`, 초안 `CoverLetterDraftService.create/regenerate`를 기존 `admitChat`에 연결했다. V21을
+  유지하며 새 migration은 없다.
+- 사용자 조회/subject 파싱 뒤 공통 접수 콜백 안에서 원본 조립·소유권/상태 검증·도메인 잠금·등록을 수행한다. 사용자 → 전역 singleton → HMAC 주체 → 도메인 잠금 순서를 유지한다.
+- 초기 질문 예약 키는 세션 ID, 평가는 답변 ID, 초안은 새 초안 ID다. 수동 재시도는 새 접수이며 질문 재시도의 REQUIRES_NEW와 질문/평가 수동 재시도 최대 2회를 유지한다.
+- 기존 평가 반환은 `Registration.existing`으로 추가 차감하지 않는다. 비활성/모델 미설정 초안은 기존 FAILED 저장을 유지하되 실행 작업이 없으므로 같은 무차감 반환을 사용한다.
+- 초기 질문 `enabled`는 scheduler 실행 제어이므로 접수 동작을 유지하며 대기 작업도 예약 슬롯을 차지한다. 초기 질문/평가 FALLBACK_ONLY 새 작업도 해당 기능의 새 접수로 취급한다.
+- 사용자가 신규 접수 통합 36개와 전체 회귀 통과를 확인했다. 보존 XML은 초안 67개 성공, 실패·오류·건너뜀 0이며 신규 통합·전체 XML은 대조 대기다.
+- worker 종료·복구 연결 전에는 완료/최종 실패 작업의 ACTIVE 예약도 남는다. 동기 꼬리 질문은 예약 토큰·lease 검증·결과 저장·성공/실패 종료를 함께 연결한다. 탈퇴 정리·기존 작업 이관·사용량
+  API/UI·embedding 통제도 후속이다.
+- 공통 접수 기반은 HEAD `b11ca95`에 커밋돼 있다. 이전 2026-10-07의 커밋 대기·실제 생성 미연결 표시는 당시 기록이다.
+
 ## 공통 Chat 접수 서비스 구현과 검증 범위 (2026-10-07)
 
 - 기존 V21 테이블을 사용해 공통 서비스·Repository·예외 응답을 구현했다. 이번 단계는 DB 스키마 변경이 없어 새 migration을 추가하지 않았다.
