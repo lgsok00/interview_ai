@@ -16,6 +16,27 @@
 
 ## 현재 구현된 기능
 
+### AI 사용량 조회 API·홈 안내 — 구현·선택 검증 완료 (2026-10-16)
+
+- 인증된 `GET /api/ai/usage`가 JWT subject의 본인 사용량을 반환한다. 임의 사용자 ID를 조회 대상으로 받지 않으며 `Cache-Control: no-store`를 적용한다.
+- `AiUsageQueryService`는 읽기 전용 REPEATABLE_READ 트랜잭션에서 사용자 존재/활성 상태를 확인한다. DB UTC 시각을 KST로 변환해 `usageDate`와 다음 자정
+  `resetAt`을 계산한다.
+- `AiUsageQueryRepository`는 기존 V21 테이블을 SELECT로 조회한다. 기능별 일일 접수 횟수와 날짜에 관계없는 본인 ACTIVE 예약 수를 한 집계 쿼리에서 읽는다.
+  조회 중 일일 행/주체를 만들거나 예약을 만료시키지 않는다. 만료 lease의 ACTIVE 예약도 실제 정리 전까지 포함한다.
+- 응답은 `enabled`, `chatAdmissionEnabled`, `timeZone`, `usageDate`, `resetAt`, `active`, `activeLimit`, `features`다.
+  네 Chat 기능의 `limit/used/remaining`을 제공하고 잔여 횟수는 최소 0이다. 전역 사용량·이메일·HMAC과 아직 통제 미연결인 embedding은 노출하지 않는다.
+- 제한 비활성화는 `enabled: false`, `chatAdmissionEnabled: true`, 활성 수/한도 null과 빈 기능 목록을 반환한다. 이때 HMAC/카운터 조회는 생략하지만 사용자·DB 시각
+  조회는 수행한다.
+  조회 중 DataAccessException은 기존 `AI_USAGE_UNAVAILABLE` 503으로 변환한다.
+- `frontend/src/api/aiUsageApi.ts`와 `pages/AiUsageNoticePage.tsx`를 홈에 연결했다. 최초 표시·수동 새로고침·문서가 다시 보일 때 갱신하고 실패 시 기존 수치 대신
+  안내한다.
+  접수 중단·동시 한도·KST 초기화·접수 후 실패 무환불·수동/자동 재시도 정책을 표시한다. 조회 실패 안내 자체가 생성 요청을 차단하지는 않는다.
+- 사용자 테스트·lint·build·브라우저 전체 통과 보고를 확인했다. 서비스 22개 XML 성공과 Vitest 14개 파일 성공 캐시를 대조했다. API/MySQL XML 등 근거
+  구분은 [실행 기록](TEST_RESULTS.md)을 따른다.
+  생성·재시도 화면별 버튼 제어·요청 후 갱신·429/503 안내 연결과 백엔드 전체 회귀 재실행은 후속이다. 새 migration은 없다.
+
+아래 날짜가 있는 구현 상태는 당시 기록이다. worker 연결의 최신 검증은 2026-10-08, 사용량 조회·홈 안내는 위 2026-10-16 기록을 우선한다.
+
 ### 비동기 생성·재시도 공통 접수 연결 — 구현·사용자 테스트 통과 보고 확인 (2026-10-08)
 
 - 초기 질문 생성/수동 재시도, 답변 평가 요청/재시도, 자기소개서 초안 생성/재생성의 6개 경로를 `AiUsageAdmissionService.admitChat`으로 감쌌다. 콜백 안에 도메인 검증·잠금·작업

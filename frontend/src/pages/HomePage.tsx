@@ -2,6 +2,7 @@ import {useAuth} from "../auth/useAuth";
 import {useEffect, useState} from "react";
 import {Link} from "react-router-dom";
 import {apiRequest} from "../api/client";
+import {AiUsageNoticePage} from "./AiUsageNoticePage";
 
 interface CurrentUser {
     role: 'USER' | 'ADMIN'
@@ -77,6 +78,8 @@ export function HomePage() {
                         {errorMessage}
                     </p>
                 )}
+
+                <AiUsageNoticePage/>
 
                 <section className="workspace-grid" aria-label="면접 준비 메뉴">
                     <Link className="workspace-card card-primary" to="/catalog">

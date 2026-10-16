@@ -8,6 +8,35 @@
 성공이다. 이전 기록의 검증
 대기·실패·건너뜀 표시는 당시 상태다.
 
+### AI 사용량 조회 API·홈 안내 선택 검증 (2026-10-16)
+
+- 사용자가 구현 반영·테스트 실행 완료와 추가 확인에서 API/MySQL·프런트엔드 lint/build·브라우저를 포함해 모두 통과했고 실패가 없다고 보고했다. Codex는 테스트를 실행하지 않았다.
+- 보존 백엔드 결과는 `AiUsageQueryServiceTest` XML 1개·22개 성공, 실패·오류·건너뜀 0이다. XML 시작은 17:51:15 KST, 파일 수정은 17:51:17 KST다.
+  작성된 나머지 API 테스트 10개·MySQL 통합 9개는 사용자 통과 보고이며 해당 XML·건너뜀 여부는 대조 대기다. 신규 백엔드 작성 범위 41개 전체를 XML 확인 결과로 표기하지 않는다.
+- `frontend/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json`은 17:51:44 KST 갱신됐고 신규
+  `aiUsageApi.test.ts`를 포함한 14개 파일 모두 `failed: false`다.
+  신규 작성 범위는 15개지만 캐시에 케이스 수가 없어 전체 실행 개수는 확정하지 않는다.
+- lint·build·브라우저는 사용자 통과 보고다. `frontend/dist/index.html`의 17:52:00 KST 갱신도 확인했으나 파일 갱신만으로 빌드 성공을 판정하지 않았다.
+  원본 콘솔·lint 경고 개수·개별 브라우저 시나리오 결과·소요 시간은 미전달이다.
+- 실제 입력 명령은 미전달이다. 안내한 재현 명령은 다음과 같으며 실행 범위를 전체 백엔드 회귀로 확대하지 않는다.
+
+  backend 디렉터리:
+
+  ```powershell
+  .\gradlew.bat test --tests "com.interviewai.ai.usage.AiUsageQueryServiceTest" --tests "com.interviewai.ai.usage.AiUsageQueryIntegrationTest" --tests "com.interviewai.ai.usage.AiUsageControllerTest"
+  ```
+
+  frontend 디렉터리:
+
+  ```powershell
+  npm test
+  npm run lint
+  npm run build
+  ```
+
+- 확인 HEAD는 `f40c771` (`main`)이다. 조회 API·홈 안내·신규 테스트·문서는 커밋 대기다. 마지막 전체 백엔드 회귀 XML 확인 기준은 아래 2026-10-08 기록을 유지한다.
+  생성·재시도 화면별 안내/버튼 제어·요청 후 갱신·429/503 안내와 기존 작업 이관·embedding 통제는 후속이다.
+
 ### worker·꼬리 질문·탈퇴 연결 전체 회귀 성공 (2026-10-08)
 
 - 사용자가 회귀 테스트 완료를 보고했고 실제 구현·Git 상태·최신 전체 XML을 대조했다. XML 123개에서 1,287개 성공, 실패·오류·건너뜀 0을 확인했다.
